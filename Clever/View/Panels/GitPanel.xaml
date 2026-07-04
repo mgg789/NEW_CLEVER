@@ -124,7 +124,7 @@
 
         <Border Grid.Row="0" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
             <StackPanel>
-                <TextBlock Text="Changes" Style="{StaticResource GitSectionHeader}"/>
+                <TextBlock Text="{Binding Path=GetLocalization[GitChanges]}" Style="{StaticResource GitSectionHeader}"/>
                 <TextBox Text="{Binding CommitMessage, UpdateSourceTrigger=PropertyChanged}"
                          Height="32"
                          Margin="8,0,8,6"
@@ -136,7 +136,7 @@
                          Background="#F6F7FA"
                          ToolTip="{Binding Path=GetLocalization[tGitCommitMessage]}"/>
                 <Button Command="{Binding CommitCommand}" Style="{StaticResource GitCommitButton}" Margin="8,0,8,0" ToolTip="{Binding Path=GetLocalization[tGitCommit]}">
-                    <TextBlock Text="Commit"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[GitCommit]}"/>
                 </Button>
                 <TextBlock Text="{Binding StatusMessage}" Foreground="#8F98AB" FontFamily="Calibri" FontSize="12" Margin="9,5,9,0" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
@@ -147,7 +147,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="34"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Changes" Style="{StaticResource GitSectionHeader}" Margin="8,7,8,2"/>
+            <TextBlock Text="{Binding Path=GetLocalization[GitChanges]}" Style="{StaticResource GitSectionHeader}" Margin="8,7,8,2"/>
             <Border Grid.Column="1" Width="24" Height="24" CornerRadius="12" Background="{StaticResource tc_brk_sf}" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,6,6,0">
                 <TextBlock Text="{Binding Changes.Count}" Foreground="White" FontFamily="Calibri" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>

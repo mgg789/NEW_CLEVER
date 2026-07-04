@@ -1,4 +1,6 @@
+using Clever.CommonData;
 using Clever.ViewModel.BaseVM;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
@@ -19,11 +21,11 @@ namespace Clever.ViewModel.PanelsVM
             GraphRows = GitGraphLayoutService.BuildRows(Commits);
             GraphWidth = GraphRows.Count == 0 ? 120 : GraphRows.Max(r => r.GraphWidth);
 
-            CommitCommand = new RelayCommand(param => SetStatus("Commit будет подключен к Git API в следующем проходе."), true);
-            PullCommand = new RelayCommand(param => SetStatus("Pull пока работает как элемент интерфейса."), true);
-            PushCommand = new RelayCommand(param => SetStatus("Push пока работает как элемент интерфейса."), true);
-            ReloadCommand = new RelayCommand(param => SetStatus("Данные обновлены из design data."), true);
-            SelectBranchCommand = new RelayCommand(param => SetStatus("Выбор ветки будет подключен после backend-слоя Git."), true);
+            CommitCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusCommit", "Commit UI is ready. Git backend comes next."), true);
+            PullCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusPull", "Pull is a UI action in this pass."), true);
+            PushCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusPush", "Push is a UI action in this pass."), true);
+            ReloadCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusReload", "Design data refreshed."), true);
+            SelectBranchCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusBranch", "Branch selection will be connected later."), true);
             ToggleCommitCommand = new RelayCommand(ToggleCommit, true);
 
             if (GraphRows.Count > 0)
@@ -41,6 +43,11 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand SelectBranchCommand { get; private set; }
         public ICommand ToggleCommitCommand { get; private set; }
         public double GraphWidth { get; private set; }
+
+        public Dictionary<string, string> GetLocalization
+        {
+            get { return GUILanguage.Items; }
+        }
 
         public string CommitMessage
         {
@@ -97,6 +104,12 @@ namespace Clever.ViewModel.PanelsVM
         private void SetStatus(string message)
         {
             StatusMessage = message;
+        }
+
+        private void SetLocalizedStatus(string key, string fallback)
+        {
+            var message = GUILanguage.GetItem(key);
+            StatusMessage = string.IsNullOrEmpty(message) ? fallback : message;
         }
     }
 }
