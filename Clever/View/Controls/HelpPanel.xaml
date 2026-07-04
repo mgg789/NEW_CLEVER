@@ -10,6 +10,7 @@
              d:DesignHeight="520" d:DesignWidth="340">
     <UserControl.Resources>
         <Style x:Key="RoundedTabItemH" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="Foreground" Value="{StaticResource git_icon_mof}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -20,10 +21,12 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Border" Property="Background" Value="{StaticResource tc_brk_st}" />
                                 <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource tc_brk_st}" />
+                                <Setter Property="Foreground" Value="{StaticResource git_icon_mot}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="false">
                                 <Setter TargetName="Border" Property="Background" Value="{StaticResource tc_brk_sf}" />
                                 <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource tc_brk_sf}" />
+                                <Setter Property="Foreground" Value="{StaticResource git_icon_mof}"/>
                             </Trigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
@@ -32,6 +35,7 @@
                                 </MultiTrigger.Conditions>
                                 <MultiTrigger.Setters>
                                     <Setter TargetName="Border" Property="Background" Value="{StaticResource tc_brk_mot_sf}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource git_icon_mot}"/>
                                 </MultiTrigger.Setters>
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
@@ -63,7 +67,6 @@
                     Grid.Column="0"
                     Grid.ColumnSpan="7">
             <TabItem x:Name="TiBrick"
-                     Header="{Binding Path=GetLocalization[Brick]}"
                      Style="{StaticResource RoundedTabItemH}"
                      Margin="-4,0,0,0"
                      Height="26"
@@ -71,10 +74,14 @@
                      FontFamily="Calibri"
                      FontSize="14"
                      VerticalAlignment="Bottom">
+                <TabItem.Header>
+                    <Viewbox Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tBrick]}">
+                        <ContentControl Content="{StaticResource canBrickOffmof}"/>
+                    </Viewbox>
+                </TabItem.Header>
                 <helps:EV3Brick Margin="0,0,-1,0"/>
             </TabItem>
             <TabItem x:Name="TiHelp"
-                     Header="{Binding Path=GetLocalization[Help]}"
                      Style="{StaticResource RoundedTabItemH}"
                      Margin="0,0,0,0"
                      Height="26"
@@ -82,10 +89,12 @@
                      FontFamily="Calibri"
                      FontSize="14"
                      VerticalAlignment="Bottom">
+                <TabItem.Header>
+                    <Image Source="{StaticResource git_icon_help}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tHelp]}"/>
+                </TabItem.Header>
                 <panel:HelperPanel Margin="0"/>
             </TabItem>
             <TabItem x:Name="TiView"
-                     Header="{Binding Path=GetLocalization[View]}"
                      Style="{StaticResource RoundedTabItemH}"
                      Margin="2,0,-2,0"
                      Height="26"
@@ -93,10 +102,12 @@
                      FontFamily="Calibri"
                      FontSize="14"
                      VerticalAlignment="Bottom">
+                <TabItem.Header>
+                    <Image Source="{StaticResource git_icon_file}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tView]}"/>
+                </TabItem.Header>
                 <helps:View/>
             </TabItem>
             <TabItem x:Name="TiMedia"
-                     Header="{Binding Path=GetLocalization[Media]}"
                      Style="{StaticResource RoundedTabItemH}"
                      Margin="4,0,-4,0"
                      Height="26"
@@ -106,6 +117,9 @@
                      VerticalAlignment="Bottom"
                      BorderThickness="0"
                      BorderBrush="#00000000">
+                <TabItem.Header>
+                    <Image Source="{StaticResource git_icon_media}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tMedia]}"/>
+                </TabItem.Header>
                 <panel:MediaPanel/>
             </TabItem>
         </TabControl>

@@ -10,6 +10,7 @@
                 <ResourceDictionary Source="Dictionary/Icons.xaml"/>
                 <ResourceDictionary Source="Dictionary/BrickIcons.xaml"/>
                 <ResourceDictionary Source="Dictionary/FileIcons.xaml"/>
+                <ResourceDictionary Source="Dictionary/GitIcons.xaml"/>
                 <ResourceDictionary Source="Dictionary/FindIcons.xaml"/>
                 <ResourceDictionary Source="Dictionary/EditIcons.xaml"/>
                 <ResourceDictionary Source="Dictionary/HomeIcons.xaml"/>
