@@ -54,18 +54,21 @@
             <ColumnDefinition/>
             <ColumnDefinition Width="2"/>
             <ColumnDefinition/>
+            <ColumnDefinition Width="2"/>
+            <ColumnDefinition/>
         </Grid.ColumnDefinitions>
         <Grid x:Name="TabGrid_1" Grid.Column="0"/>
         <Grid x:Name="TabGrid_2" Grid.Column="2"/>
         <Grid x:Name="TabGrid_3" Grid.Column="4"/>
         <Grid x:Name="TabGrid_4" Grid.Column="6"/>
+        <Grid x:Name="TabGrid_5" Grid.Column="8"/>
         <TabControl x:Name="TcHelps"
                     BorderBrush="{StaticResource tc_brk_st}"
                     BorderThickness="1"
                     Background="{StaticResource tc_brk_st}"
                     SelectionChanged="TabControl_SelectionChanged"
                     Grid.Column="0"
-                    Grid.ColumnSpan="7">
+                    Grid.ColumnSpan="9">
             <TabItem x:Name="TiBrick"
                      Style="{StaticResource RoundedTabItemH}"
                      Margin="-4,0,0,0"
@@ -121,6 +124,21 @@
                     <Image Source="{StaticResource git_icon_media}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tMedia]}"/>
                 </TabItem.Header>
                 <panel:MediaPanel/>
+            </TabItem>
+            <TabItem x:Name="TiGit"
+                     Style="{StaticResource RoundedTabItemH}"
+                     Margin="6,0,-6,0"
+                     Height="26"
+                     Width="{Binding ActualWidth, ElementName=TabGrid_5}"
+                     FontFamily="Calibri"
+                     FontSize="14"
+                     VerticalAlignment="Bottom"
+                     BorderThickness="0"
+                     BorderBrush="#00000000">
+                <TabItem.Header>
+                    <Image Source="{StaticResource git_icon_branch}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tGit]}"/>
+                </TabItem.Header>
+                <panel:GitPanel/>
             </TabItem>
         </TabControl>
     </Grid>

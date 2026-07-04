@@ -155,6 +155,9 @@
     <Compile Include="View\Panels\HelperPanel.xaml.cs">
       <DependentUpon>HelperPanel.xaml</DependentUpon>
     </Compile>
+    <Compile Include="View\Panels\GitPanel.xaml.cs">
+      <DependentUpon>GitPanel.xaml</DependentUpon>
+    </Compile>
     <Compile Include="View\Panels\MediaPanel.xaml.cs">
       <DependentUpon>MediaPanel.xaml</DependentUpon>
     </Compile>
@@ -1054,6 +1057,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="View\Panels\HelperPanel.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Panels\GitPanel.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
