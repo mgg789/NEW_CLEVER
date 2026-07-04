@@ -137,6 +137,13 @@
     <Compile Include="Model\Utils\TextLine.cs" />
     <Compile Include="Model\Utils\WaveSoundPayer.cs" />
     <Compile Include="ViewModel\ConfigWindowVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitChangeItemVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitCommitVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitDesignData.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitGraphLayoutService.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitGraphRowVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitGraphSegmentVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitPanelVM.cs" />
     <Compile Include="ViewModel\PanelsVM\HelperPanelVM.cs" />
     <Compile Include="ViewModel\PanelsVM\MediaPanelVM.cs" />
     <Compile Include="View\Content\HelpToolTip.xaml.cs">
