@@ -85,6 +85,7 @@ namespace Clever.ViewModel
             EditorPaneRows = 1;
             EditorPaneColumns = 1;
             SecondaryEditorVisibility = Visibility.Collapsed;
+            ApplySingleEditorLayout();
 
             FileNewCommand = new RelayCommand(param => FileNew(), true);
             FileOpenCommand = new RelayCommand(param => FileOpen(), true);
@@ -321,6 +322,138 @@ namespace Clever.ViewModel
             }
         }
 
+        private static GridLength _editorFirstColumnWidth;
+        public static GridLength EditorFirstColumnWidth
+        {
+            get { return _editorFirstColumnWidth; }
+            private set
+            {
+                _editorFirstColumnWidth = value;
+                OnStaticPropertyChanged("EditorFirstColumnWidth");
+            }
+        }
+
+        private static GridLength _editorSecondColumnWidth;
+        public static GridLength EditorSecondColumnWidth
+        {
+            get { return _editorSecondColumnWidth; }
+            private set
+            {
+                _editorSecondColumnWidth = value;
+                OnStaticPropertyChanged("EditorSecondColumnWidth");
+            }
+        }
+
+        private static GridLength _editorFirstRowHeight;
+        public static GridLength EditorFirstRowHeight
+        {
+            get { return _editorFirstRowHeight; }
+            private set
+            {
+                _editorFirstRowHeight = value;
+                OnStaticPropertyChanged("EditorFirstRowHeight");
+            }
+        }
+
+        private static GridLength _editorSecondRowHeight;
+        public static GridLength EditorSecondRowHeight
+        {
+            get { return _editorSecondRowHeight; }
+            private set
+            {
+                _editorSecondRowHeight = value;
+                OnStaticPropertyChanged("EditorSecondRowHeight");
+            }
+        }
+
+        private static int _primaryEditorRow;
+        public static int PrimaryEditorRow
+        {
+            get { return _primaryEditorRow; }
+            private set
+            {
+                _primaryEditorRow = value;
+                OnStaticPropertyChanged("PrimaryEditorRow");
+            }
+        }
+
+        private static int _primaryEditorColumn;
+        public static int PrimaryEditorColumn
+        {
+            get { return _primaryEditorColumn; }
+            private set
+            {
+                _primaryEditorColumn = value;
+                OnStaticPropertyChanged("PrimaryEditorColumn");
+            }
+        }
+
+        private static int _primaryEditorRowSpan;
+        public static int PrimaryEditorRowSpan
+        {
+            get { return _primaryEditorRowSpan; }
+            private set
+            {
+                _primaryEditorRowSpan = value;
+                OnStaticPropertyChanged("PrimaryEditorRowSpan");
+            }
+        }
+
+        private static int _primaryEditorColumnSpan;
+        public static int PrimaryEditorColumnSpan
+        {
+            get { return _primaryEditorColumnSpan; }
+            private set
+            {
+                _primaryEditorColumnSpan = value;
+                OnStaticPropertyChanged("PrimaryEditorColumnSpan");
+            }
+        }
+
+        private static int _secondaryEditorRow;
+        public static int SecondaryEditorRow
+        {
+            get { return _secondaryEditorRow; }
+            private set
+            {
+                _secondaryEditorRow = value;
+                OnStaticPropertyChanged("SecondaryEditorRow");
+            }
+        }
+
+        private static int _secondaryEditorColumn;
+        public static int SecondaryEditorColumn
+        {
+            get { return _secondaryEditorColumn; }
+            private set
+            {
+                _secondaryEditorColumn = value;
+                OnStaticPropertyChanged("SecondaryEditorColumn");
+            }
+        }
+
+        private static int _secondaryEditorRowSpan;
+        public static int SecondaryEditorRowSpan
+        {
+            get { return _secondaryEditorRowSpan; }
+            private set
+            {
+                _secondaryEditorRowSpan = value;
+                OnStaticPropertyChanged("SecondaryEditorRowSpan");
+            }
+        }
+
+        private static int _secondaryEditorColumnSpan;
+        public static int SecondaryEditorColumnSpan
+        {
+            get { return _secondaryEditorColumnSpan; }
+            private set
+            {
+                _secondaryEditorColumnSpan = value;
+                OnStaticPropertyChanged("SecondaryEditorColumnSpan");
+            }
+        }
+
         private static bool _isEditorSplitActive;
         internal static bool IsEditorSplitActive
         {
@@ -470,6 +603,10 @@ namespace Clever.ViewModel
             SecondaryEditorVisibility = Visibility.Visible;
             EditorPaneRows = sideBySide ? 1 : 2;
             EditorPaneColumns = sideBySide ? 2 : 1;
+            if (sideBySide)
+                ApplySideBySideEditorLayout();
+            else
+                ApplyTopBottomEditorLayout();
         }
 
         private static void InsertProgramItem(TabItem item)
@@ -546,7 +683,11 @@ namespace Clever.ViewModel
                 index = 0;
 
             var nextIndex = index + 1;
-            return nextIndex < ProgramNameList.Count ? ProgramNameList[nextIndex] : null;
+            if (nextIndex < ProgramNameList.Count)
+                return ProgramNameList[nextIndex];
+
+            var previousIndex = index - 1;
+            return previousIndex >= 0 ? ProgramNameList[previousIndex] : null;
         }
 
         private static void DisableEditorSplit()
@@ -562,9 +703,64 @@ namespace Clever.ViewModel
             SecondaryEditorVisibility = Visibility.Collapsed;
             EditorPaneRows = 1;
             EditorPaneColumns = 1;
+            ApplySingleEditorLayout();
             SecondaryCurrentProgram = null;
             NormalizeEditorTabStyles();
             CurrentProgram = active ?? ProgramNameList.FirstOrDefault();
+        }
+
+        private static void ApplySingleEditorLayout()
+        {
+            EditorFirstColumnWidth = new GridLength(1, GridUnitType.Star);
+            EditorSecondColumnWidth = new GridLength(0, GridUnitType.Pixel);
+            EditorFirstRowHeight = new GridLength(1, GridUnitType.Star);
+            EditorSecondRowHeight = new GridLength(0, GridUnitType.Pixel);
+
+            PrimaryEditorRow = 0;
+            PrimaryEditorColumn = 0;
+            PrimaryEditorRowSpan = 2;
+            PrimaryEditorColumnSpan = 2;
+
+            SecondaryEditorRow = 0;
+            SecondaryEditorColumn = 1;
+            SecondaryEditorRowSpan = 2;
+            SecondaryEditorColumnSpan = 1;
+        }
+
+        private static void ApplySideBySideEditorLayout()
+        {
+            EditorFirstColumnWidth = new GridLength(1, GridUnitType.Star);
+            EditorSecondColumnWidth = new GridLength(1, GridUnitType.Star);
+            EditorFirstRowHeight = new GridLength(1, GridUnitType.Star);
+            EditorSecondRowHeight = new GridLength(0, GridUnitType.Pixel);
+
+            PrimaryEditorRow = 0;
+            PrimaryEditorColumn = 0;
+            PrimaryEditorRowSpan = 2;
+            PrimaryEditorColumnSpan = 1;
+
+            SecondaryEditorRow = 0;
+            SecondaryEditorColumn = 1;
+            SecondaryEditorRowSpan = 2;
+            SecondaryEditorColumnSpan = 1;
+        }
+
+        private static void ApplyTopBottomEditorLayout()
+        {
+            EditorFirstColumnWidth = new GridLength(1, GridUnitType.Star);
+            EditorSecondColumnWidth = new GridLength(0, GridUnitType.Pixel);
+            EditorFirstRowHeight = new GridLength(1, GridUnitType.Star);
+            EditorSecondRowHeight = new GridLength(1, GridUnitType.Star);
+
+            PrimaryEditorRow = 0;
+            PrimaryEditorColumn = 0;
+            PrimaryEditorRowSpan = 1;
+            PrimaryEditorColumnSpan = 2;
+
+            SecondaryEditorRow = 1;
+            SecondaryEditorColumn = 0;
+            SecondaryEditorRowSpan = 1;
+            SecondaryEditorColumnSpan = 2;
         }
 
         private void ToggleRightSidebar()
@@ -577,12 +773,15 @@ namespace Clever.ViewModel
 
                 var splitterColumn = grid.ColumnDefinitions[1];
                 var sidebarColumn = grid.ColumnDefinitions[2];
+                var editor = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 0);
                 var splitter = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 1);
                 var sidebar = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 2);
                 var sidebarIsHidden = sidebarColumn.MaxWidth == 0 || sidebar == null || sidebar.Visibility != Visibility.Visible;
 
                 if (!sidebarIsHidden)
                 {
+                    if (editor != null)
+                        Grid.SetColumnSpan(editor, 3);
                     if (sidebar != null)
                         sidebar.Visibility = Visibility.Collapsed;
                     if (splitter != null)
@@ -595,6 +794,9 @@ namespace Clever.ViewModel
                 }
                 else
                 {
+                    if (editor != null)
+                        Grid.SetColumnSpan(editor, 1);
+
                     sidebarColumn.MaxWidth = double.PositiveInfinity;
                     sidebarColumn.MinWidth = RightSidebarMinWidth;
 
@@ -1572,7 +1774,7 @@ namespace Clever.ViewModel
                     */
                 }
 
-                if (_isEditorSplitActive && SecondaryProgramNameList.Count == 0)
+                if (_isEditorSplitActive && (ProgramNameList.Count == 0 || SecondaryProgramNameList.Count == 0))
                     DisableEditorSplit();
 
                 var preferredList = targetWasSecondary ? SecondaryProgramNameList : ProgramNameList;

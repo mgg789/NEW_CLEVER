@@ -21,6 +21,15 @@ namespace Clever.View.Controls
         private const string EditorTabDragFormat = "Clever.EditorTabName";
         private Point _dragStartPoint;
 
+        private enum SplitPreviewTarget
+        {
+            None,
+            Left,
+            Right,
+            Top,
+            Bottom
+        }
+
         public EditorPanel()
         {
             InitializeComponent();
@@ -174,15 +183,16 @@ namespace Clever.View.Controls
 
         private void EditorTabControl_Drop(object sender, DragEventArgs e)
         {
+            HideSplitPreview();
             var tabName = GetDraggedTabName(e);
             if (tabName == null)
                 return;
 
             var position = e.GetPosition(EditorSurface);
-            bool sideBySide;
-            if (!MainWindowVM.IsEditorSplitActive && ShouldCreateSplit(position, out sideBySide))
+            var target = DetermineSplitPreviewTarget(position);
+            if (!MainWindowVM.IsEditorSplitActive && ShouldCreateSplit(target))
             {
-                MainWindowVM.SetEditorSplitMode(sideBySide);
+                MainWindowVM.SetEditorSplitMode(target == SplitPreviewTarget.Left || target == SplitPreviewTarget.Right);
                 MainWindowVM.MoveProgramToPane(tabName, true);
             }
             else
@@ -195,12 +205,28 @@ namespace Clever.View.Controls
 
         private void EditorSurface_PreviewDragOver(object sender, DragEventArgs e)
         {
-            e.Effects = IsEditorTabDrag(e) ? DragDropEffects.Move : DragDropEffects.None;
+            if (IsEditorTabDrag(e))
+            {
+                e.Effects = DragDropEffects.Move;
+                UpdateSplitPreview(e.GetPosition(EditorSurface));
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+                HideSplitPreview();
+            }
+
             e.Handled = true;
+        }
+
+        private void EditorSurface_PreviewDragLeave(object sender, DragEventArgs e)
+        {
+            HideSplitPreview();
         }
 
         private void EditorSurface_Drop(object sender, DragEventArgs e)
         {
+            HideSplitPreview();
             var tabName = GetDraggedTabName(e);
             if (tabName == null)
                 return;
@@ -208,15 +234,15 @@ namespace Clever.View.Controls
             var position = e.GetPosition(EditorSurface);
             if (MainWindowVM.IsEditorSplitActive)
             {
-                MainWindowVM.MoveProgramToPane(tabName, IsSecondaryDropPosition(position));
+                MainWindowVM.MoveProgramToPane(tabName, IsSecondaryDropPosition(DetermineSplitPreviewTarget(position)));
                 e.Handled = true;
                 return;
             }
 
-            bool sideBySide;
-            if (ShouldCreateSplit(position, out sideBySide))
+            var target = DetermineSplitPreviewTarget(position);
+            if (ShouldCreateSplit(target))
             {
-                MainWindowVM.SetEditorSplitMode(sideBySide);
+                MainWindowVM.SetEditorSplitMode(target == SplitPreviewTarget.Left || target == SplitPreviewTarget.Right);
                 MainWindowVM.MoveProgramToPane(tabName, true);
             }
             else
@@ -237,30 +263,92 @@ namespace Clever.View.Controls
             return e.Data.GetData(EditorTabDragFormat) as string;
         }
 
-        private bool ShouldCreateSplit(Point position, out bool sideBySide)
+        private bool ShouldCreateSplit(SplitPreviewTarget target)
         {
-            sideBySide = true;
+            return target == SplitPreviewTarget.Right || target == SplitPreviewTarget.Bottom;
+        }
+
+        private SplitPreviewTarget DetermineSplitPreviewTarget(Point position)
+        {
+            if (MainWindowVM.IsEditorSplitActive)
+            {
+                if (MainWindowVM.EditorPaneColumns == 2)
+                    return position.X >= EditorSurface.ActualWidth / 2 ? SplitPreviewTarget.Right : SplitPreviewTarget.Left;
+
+                if (MainWindowVM.EditorPaneRows == 2)
+                    return position.Y >= EditorSurface.ActualHeight / 2 ? SplitPreviewTarget.Bottom : SplitPreviewTarget.Top;
+
+                return SplitPreviewTarget.None;
+            }
+
             if (EditorSurface.ActualWidth > 0 && position.X > EditorSurface.ActualWidth * 0.58)
-                return true;
+                return SplitPreviewTarget.Right;
 
             if (EditorSurface.ActualHeight > 0 && position.Y > EditorSurface.ActualHeight * 0.62)
-            {
-                sideBySide = false;
-                return true;
-            }
+                return SplitPreviewTarget.Bottom;
+
+            return SplitPreviewTarget.None;
+        }
+
+        private bool IsSecondaryDropPosition(SplitPreviewTarget target)
+        {
+            if (MainWindowVM.EditorPaneColumns == 2)
+                return target == SplitPreviewTarget.Right;
+
+            if (MainWindowVM.EditorPaneRows == 2)
+                return target == SplitPreviewTarget.Bottom;
 
             return false;
         }
 
-        private bool IsSecondaryDropPosition(Point position)
+        private void UpdateSplitPreview(Point position)
         {
-            if (MainWindowVM.EditorPaneColumns == 2)
-                return position.X >= EditorSurface.ActualWidth / 2;
+            var target = DetermineSplitPreviewTarget(position);
+            if (!MainWindowVM.IsEditorSplitActive && !ShouldCreateSplit(target))
+            {
+                HideSplitPreview();
+                return;
+            }
 
-            if (MainWindowVM.EditorPaneRows == 2)
-                return position.Y >= EditorSurface.ActualHeight / 2;
+            ShowSplitPreview(target);
+        }
 
-            return false;
+        private void ShowSplitPreview(SplitPreviewTarget target)
+        {
+            if (target == SplitPreviewTarget.None || EditorSurface.ActualWidth <= 0 || EditorSurface.ActualHeight <= 0)
+            {
+                HideSplitPreview();
+                return;
+            }
+
+            SplitPreviewOverlay.HorizontalAlignment = HorizontalAlignment.Stretch;
+            SplitPreviewOverlay.VerticalAlignment = VerticalAlignment.Stretch;
+
+            var halfWidth = EditorSurface.ActualWidth / 2;
+            var halfHeight = EditorSurface.ActualHeight / 2;
+
+            switch (target)
+            {
+                case SplitPreviewTarget.Left:
+                    SplitPreviewOverlay.Margin = new Thickness(0, 0, halfWidth, 0);
+                    break;
+                case SplitPreviewTarget.Right:
+                    SplitPreviewOverlay.Margin = new Thickness(halfWidth, 0, 0, 0);
+                    break;
+                case SplitPreviewTarget.Top:
+                    SplitPreviewOverlay.Margin = new Thickness(0, 0, 0, halfHeight);
+                    break;
+                case SplitPreviewTarget.Bottom:
+                    SplitPreviewOverlay.Margin = new Thickness(0, halfHeight, 0, 0);
+                    break;
+            }
+
+            SplitPreviewOverlay.Visibility = Visibility.Visible;
+        }
+
+        private void HideSplitPreview()
+        {
+            SplitPreviewOverlay.Visibility = Visibility.Collapsed;
         }
 
         private static T FindParent<T>(DependencyObject source) where T : DependencyObject
