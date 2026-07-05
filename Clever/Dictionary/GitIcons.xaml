@@ -155,6 +155,11 @@
     <DrawingImage x:Key="git_icon_revert">
         <DrawingImage.Drawing>
             <DrawingGroup>
+                <GeometryDrawing Brush="#00FFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="0,0,24,24"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
                         <Pen Brush="{StaticResource git_icon_mof}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
@@ -170,6 +175,11 @@
     <DrawingImage x:Key="git_icon_diff">
         <DrawingImage.Drawing>
             <DrawingGroup>
+                <GeometryDrawing Brush="#00FFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="0,0,24,24"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
                         <Pen Brush="{StaticResource git_icon_mof}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>

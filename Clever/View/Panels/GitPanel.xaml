@@ -400,10 +400,10 @@
                         <TextBlock Text="{Binding Commit.ShortHash}" Foreground="#0A86FF" FontFamily="Calibri" FontSize="12" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Style="{StaticResource GitPopupIconButton}" Click="RevertCommitButton_Click">
-                                <Image Source="{StaticResource git_icon_revert}" Width="14" Height="14"/>
+                                <Image Source="{StaticResource git_icon_revert}" Width="13" Height="13"/>
                             </Button>
                             <Button Style="{StaticResource GitPopupIconButton}" Click="DiffCommitButton_Click">
-                                <Image Source="{StaticResource git_icon_diff}" Width="14" Height="14"/>
+                                <Image Source="{StaticResource git_icon_diff}" Width="13" Height="13"/>
                             </Button>
                         </StackPanel>
                     </Grid>
