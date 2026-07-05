@@ -8,7 +8,9 @@ namespace Clever.ViewModel.PanelsVM
     internal static class GitGraphLayoutService
     {
         internal const double LaneWidth = 18;
-        internal const double RowHeight = 34;
+        internal const double CommitHeight = 34;
+        private const double FileRowHeight = 26;
+        private const double ExpandedFilesPadding = 4;
         private const double NodeY = 17;
         private const double NodeRadius = 5;
 
@@ -37,17 +39,19 @@ namespace Clever.ViewModel.PanelsVM
                 }
 
                 var nextLanes = new List<string>(activeLanes);
+                var rowHeight = GetRowHeight(commit);
                 var row = new GitGraphRowVM
                 {
                     Commit = commit,
                     NodeX = GetLaneX(laneIndex),
                     NodeY = NodeY,
-                    RowHeight = RowHeight,
+                    CommitHeight = CommitHeight,
+                    RowHeight = rowHeight,
                     NodeBrush = GetLaneBrush(laneIndex),
                     GraphWidth = GetGraphWidth(activeLanes.Count)
                 };
 
-                AddIncomingLines(row, activeLanes, laneIndex);
+                AddIncomingLines(row, activeLanes, laneIndex, rows.Count == 0);
                 UpdateLanesAndConnectParents(row, nextLanes, laneIndex, commit);
 
                 row.GraphWidth = GetGraphWidth(activeLanes.Count > nextLanes.Count ? activeLanes.Count : nextLanes.Count);
@@ -58,18 +62,21 @@ namespace Clever.ViewModel.PanelsVM
             return rows;
         }
 
-        private static void AddIncomingLines(GitGraphRowVM row, IList<string> activeLanes, int commitLane)
+        private static void AddIncomingLines(GitGraphRowVM row, IList<string> activeLanes, int commitLane, bool isFirstRow)
         {
             for (var i = 0; i < activeLanes.Count; i++)
             {
                 var x = GetLaneX(i);
                 if (i == commitLane)
                 {
+                    if (isFirstRow)
+                        continue;
+
                     row.Segments.Add(CreateSegment(x, 0, x, NodeY - NodeRadius, GetLaneBrush(i), 2));
                 }
                 else
                 {
-                    row.Segments.Add(CreateSegment(x, 0, x, RowHeight, GetLaneBrush(i), 2));
+                    row.Segments.Add(CreateSegment(x, 0, x, row.RowHeight, GetLaneBrush(i), 2));
                 }
             }
         }
@@ -86,13 +93,13 @@ namespace Clever.ViewModel.PanelsVM
             var existingFirstParentLane = FindLane(nextLanes, firstParent, commitLane);
             if (existingFirstParentLane >= 0)
             {
-                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, GetLaneX(existingFirstParentLane), RowHeight, GetLaneBrush(existingFirstParentLane), 2));
+                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, GetLaneX(existingFirstParentLane), row.RowHeight, GetLaneBrush(existingFirstParentLane), 2));
                 nextLanes.RemoveAt(commitLane);
             }
             else
             {
                 nextLanes[commitLane] = firstParent;
-                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, row.NodeX, RowHeight, GetLaneBrush(commitLane), 2));
+                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, row.NodeX, row.RowHeight, GetLaneBrush(commitLane), 2));
             }
 
             for (var i = 1; i < commit.ParentHashes.Count; i++)
@@ -107,8 +114,16 @@ namespace Clever.ViewModel.PanelsVM
                     nextLanes.Insert(targetLane, parent);
                 }
 
-                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, GetLaneX(targetLane), RowHeight, GetLaneBrush(targetLane), 2));
+                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, GetLaneX(targetLane), row.RowHeight, GetLaneBrush(targetLane), 2));
             }
+        }
+
+        private static double GetRowHeight(GitCommitVM commit)
+        {
+            if (commit == null || !commit.IsExpanded || commit.Files.Count == 0)
+                return CommitHeight;
+
+            return CommitHeight + ExpandedFilesPadding + commit.Files.Count * FileRowHeight;
         }
 
         private static List<string> NormalizeLanes(IEnumerable<string> lanes)

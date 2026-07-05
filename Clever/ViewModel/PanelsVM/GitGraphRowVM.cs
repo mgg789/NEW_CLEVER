@@ -16,6 +16,7 @@ namespace Clever.ViewModel.PanelsVM
         public double NodeX { get; set; }
         public double NodeY { get; set; }
         public double GraphWidth { get; set; }
+        public double CommitHeight { get; set; }
         public double RowHeight { get; set; }
         public Brush NodeBrush { get; set; }
     }
