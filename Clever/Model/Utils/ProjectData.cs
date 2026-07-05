@@ -69,6 +69,13 @@ namespace Clever.Model.Utils
         public string SelectedItemName()
         {
             string name = "";
+            if (MainWindowVM.CurrentProgram != null)
+            {
+                var currentData = GetProgramData(MainWindowVM.CurrentProgram);
+                if (currentData != null)
+                    return currentData.Name;
+            }
+
             if (data.Count > 0)
             {
                 var values = data.Values;

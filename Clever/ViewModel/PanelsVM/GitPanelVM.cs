@@ -31,6 +31,7 @@ namespace Clever.ViewModel.PanelsVM
             ToggleCommitCommand = new RelayCommand(ToggleCommit, true);
             RevertCommitCommand = new RelayCommand(param => SetCommitActionStatus(param, "GitStatusRevert", "Revert commit is a UI action in this pass."), true);
             DiffCommitCommand = new RelayCommand(OpenCommitDiff, true);
+            OpenChangeFileCommand = new RelayCommand(OpenChangeFile, true);
 
             if (GraphRows.Count > 0)
                 SelectCommit(GraphRows[0].Commit, false);
@@ -47,6 +48,7 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand ToggleCommitCommand { get; private set; }
         public ICommand RevertCommitCommand { get; private set; }
         public ICommand DiffCommitCommand { get; private set; }
+        public ICommand OpenChangeFileCommand { get; private set; }
 
         public ObservableCollection<GitGraphRowVM> GraphRows
         {
@@ -164,6 +166,17 @@ namespace Clever.ViewModel.PanelsVM
 
             MainWindowVM.OpenGitDiffPreview(commit);
             SetCommitActionStatus(commit, "GitStatusDiffOpened", "Opened read-only diff:");
+        }
+
+        private void OpenChangeFile(object parameter)
+        {
+            var file = parameter as GitChangeItemVM;
+            if (file == null)
+                return;
+
+            MainWindowVM.OpenGitChangeFile(file);
+            var message = GUILanguage.GetItem("GitStatusFileOpened");
+            StatusMessage = (string.IsNullOrEmpty(message) ? "Opened file from Git changes:" : message) + " " + file.FileName;
         }
     }
 }

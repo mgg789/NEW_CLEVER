@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -53,6 +54,9 @@ namespace Clever.ViewModel
         
         public ICommand FindCommand { get; set; }
         public ICommand GetProgramNamesCommand { get; set; }
+        public ICommand SplitSideBySideCommand { get; set; }
+        public ICommand SplitTopBottomCommand { get; set; }
+        public ICommand ToggleRightSidebarCommand { get; set; }
         public ICommand AboutCommand { get; set; }
 
         public static ProjectData Project;
@@ -77,6 +81,10 @@ namespace Clever.ViewModel
 
             elements = new Elements();
             _programNameList = new ObservableCollection<TabItem>();
+            _secondaryProgramNameList = new ObservableCollection<TabItem>();
+            EditorPaneRows = 1;
+            EditorPaneColumns = 1;
+            SecondaryEditorVisibility = Visibility.Collapsed;
 
             FileNewCommand = new RelayCommand(param => FileNew(), true);
             FileOpenCommand = new RelayCommand(param => FileOpen(), true);
@@ -111,6 +119,9 @@ namespace Clever.ViewModel
             CloseProgramCommand = new RelayCommand(param => CloseProgram(), true);
             FindCommand = new RelayCommand(param => FindText(), true);
             GetProgramNamesCommand = new RelayCommand(param => SetProgramName(), true);
+            SplitSideBySideCommand = new RelayCommand(param => ToggleEditorSplit(true), true);
+            SplitTopBottomCommand = new RelayCommand(param => ToggleEditorSplit(false), true);
+            ToggleRightSidebarCommand = new RelayCommand(param => ToggleRightSidebar(), true);
             AboutCommand = new RelayCommand(param => About(), true);
 
             ShowNumber = Configurations.Get.ShowNumber;
@@ -238,6 +249,88 @@ namespace Clever.ViewModel
             }
         }
 
+        private static ObservableCollection<TabItem> _secondaryProgramNameList;
+        public static ObservableCollection<TabItem> SecondaryProgramNameList
+        {
+            get { return _secondaryProgramNameList; }
+            set
+            {
+                _secondaryProgramNameList = value;
+                OnStaticPropertyChanged("SecondaryProgramNameList");
+            }
+        }
+
+        private static TabItem _primaryCurrentProgram;
+        public static TabItem PrimaryCurrentProgram
+        {
+            get { return _primaryCurrentProgram; }
+            set
+            {
+                _primaryCurrentProgram = value;
+                OnStaticPropertyChanged("PrimaryCurrentProgram");
+
+                if (!_syncingEditorSelection && value != null)
+                    CurrentProgram = value;
+            }
+        }
+
+        private static TabItem _secondaryCurrentProgram;
+        public static TabItem SecondaryCurrentProgram
+        {
+            get { return _secondaryCurrentProgram; }
+            set
+            {
+                _secondaryCurrentProgram = value;
+                OnStaticPropertyChanged("SecondaryCurrentProgram");
+
+                if (!_syncingEditorSelection && value != null)
+                    CurrentProgram = value;
+            }
+        }
+
+        private static int _editorPaneRows;
+        public static int EditorPaneRows
+        {
+            get { return _editorPaneRows; }
+            private set
+            {
+                _editorPaneRows = value;
+                OnStaticPropertyChanged("EditorPaneRows");
+            }
+        }
+
+        private static int _editorPaneColumns;
+        public static int EditorPaneColumns
+        {
+            get { return _editorPaneColumns; }
+            private set
+            {
+                _editorPaneColumns = value;
+                OnStaticPropertyChanged("EditorPaneColumns");
+            }
+        }
+
+        private static Visibility _secondaryEditorVisibility;
+        public static Visibility SecondaryEditorVisibility
+        {
+            get { return _secondaryEditorVisibility; }
+            private set
+            {
+                _secondaryEditorVisibility = value;
+                OnStaticPropertyChanged("SecondaryEditorVisibility");
+            }
+        }
+
+        private static bool _isEditorSplitActive;
+        internal static bool IsEditorSplitActive
+        {
+            get { return _isEditorSplitActive; }
+        }
+
+        private static bool _syncingEditorSelection;
+        private static bool _rightSidebarVisible = true;
+        private static GridLength _lastRightSidebarWidth = new GridLength(300, GridUnitType.Star);
+
         private static TabItem _currentProgram;
         public static TabItem CurrentProgram
         {
@@ -245,6 +338,16 @@ namespace Clever.ViewModel
             set
             {
                 _currentProgram = value;
+                _syncingEditorSelection = true;
+                if (_currentProgram != null)
+                {
+                    if (ProgramNameList != null && ProgramNameList.Contains(_currentProgram))
+                        PrimaryCurrentProgram = _currentProgram;
+                    if (SecondaryProgramNameList != null && SecondaryProgramNameList.Contains(_currentProgram))
+                        SecondaryCurrentProgram = _currentProgram;
+                    _currentProgram.IsSelected = true;
+                }
+                _syncingEditorSelection = false;
                 OnStaticPropertyChanged("CurrentProgram");
 
                 if (_currentProgram != null)
@@ -276,6 +379,207 @@ namespace Clever.ViewModel
                 {
                     CurrentName = "";
                 }
+            }
+        }
+
+        internal static IEnumerable<TabItem> GetOpenProgramItems()
+        {
+            if (ProgramNameList != null)
+            {
+                foreach (var item in ProgramNameList)
+                    yield return item;
+            }
+
+            if (SecondaryProgramNameList != null)
+            {
+                foreach (var item in SecondaryProgramNameList)
+                    yield return item;
+            }
+        }
+
+        internal static int GetOpenProgramCount()
+        {
+            return GetOpenProgramItems().Count();
+        }
+
+        internal static void ActivateProgram(TabItem item)
+        {
+            if (item == null)
+                return;
+
+            CurrentProgram = item;
+        }
+
+        internal static void ActivateProgramByName(string name)
+        {
+            if (string.IsNullOrEmpty(name) || !Project.ContainsKey(name))
+                return;
+
+            ActivateProgram(Project.GetDictionary()[name].Item);
+        }
+
+        internal static void MoveProgramToPane(TabItem item, bool secondaryPane)
+        {
+            if (item == null)
+                return;
+
+            if (secondaryPane)
+            {
+                if (!_isEditorSplitActive)
+                    SetEditorSplitMode(true);
+
+                if (ProgramNameList.Contains(item))
+                    ProgramNameList.Remove(item);
+                if (!SecondaryProgramNameList.Contains(item))
+                    SecondaryProgramNameList.Add(item);
+
+                SecondaryCurrentProgram = item;
+            }
+            else
+            {
+                if (SecondaryProgramNameList.Contains(item))
+                    SecondaryProgramNameList.Remove(item);
+                if (!ProgramNameList.Contains(item))
+                    ProgramNameList.Add(item);
+
+                PrimaryCurrentProgram = item;
+                if (SecondaryProgramNameList.Count == 0)
+                    DisableEditorSplit();
+            }
+
+            NormalizeEditorTabStyles();
+            CurrentProgram = item;
+        }
+
+        internal static void SetEditorSplitMode(bool sideBySide)
+        {
+            _isEditorSplitActive = true;
+            SecondaryEditorVisibility = Visibility.Visible;
+            EditorPaneRows = sideBySide ? 1 : 2;
+            EditorPaneColumns = sideBySide ? 2 : 1;
+        }
+
+        private static void InsertProgramItem(TabItem item)
+        {
+            var target = GetActiveProgramList();
+            item.Style = (System.Windows.Style)Application.Current.Resources["FirstTabItem"];
+            foreach (var existing in target)
+                existing.Style = (System.Windows.Style)Application.Current.Resources["NextTabItem"];
+
+            target.Insert(0, item);
+            NotifyProgramListChanged(target);
+            CurrentProgram = item;
+        }
+
+        private static ObservableCollection<TabItem> GetActiveProgramList()
+        {
+            if (_isEditorSplitActive && CurrentProgram != null && SecondaryProgramNameList.Contains(CurrentProgram))
+                return SecondaryProgramNameList;
+
+            return ProgramNameList;
+        }
+
+        private static void NotifyProgramListChanged(ObservableCollection<TabItem> list)
+        {
+            if (list == ProgramNameList)
+                OnStaticPropertyChanged("ProgramNameList");
+            else
+                OnStaticPropertyChanged("SecondaryProgramNameList");
+        }
+
+        private static void NormalizeEditorTabStyles()
+        {
+            NormalizeEditorTabStyles(ProgramNameList);
+            NormalizeEditorTabStyles(SecondaryProgramNameList);
+            OnStaticPropertyChanged("ProgramNameList");
+            OnStaticPropertyChanged("SecondaryProgramNameList");
+        }
+
+        private static void NormalizeEditorTabStyles(ObservableCollection<TabItem> items)
+        {
+            if (items == null)
+                return;
+
+            for (var i = 0; i < items.Count; i++)
+                items[i].Style = (System.Windows.Style)Application.Current.Resources[i == 0 ? "FirstTabItem" : "NextTabItem"];
+        }
+
+        private void ToggleEditorSplit(bool sideBySide)
+        {
+            if (_isEditorSplitActive)
+            {
+                DisableEditorSplit();
+                return;
+            }
+
+            SetEditorSplitMode(sideBySide);
+            var current = CurrentProgram;
+            var next = GetNextProgramAfter(current);
+            if (next != null)
+                MoveProgramToPane(next, true);
+            else
+                NormalizeEditorTabStyles();
+
+            CurrentProgram = current ?? ProgramNameList.FirstOrDefault() ?? SecondaryProgramNameList.FirstOrDefault();
+        }
+
+        private static TabItem GetNextProgramAfter(TabItem current)
+        {
+            if (ProgramNameList == null || ProgramNameList.Count <= 1)
+                return null;
+
+            var index = current == null ? -1 : ProgramNameList.IndexOf(current);
+            if (index < 0)
+                index = 0;
+
+            var nextIndex = index + 1;
+            return nextIndex < ProgramNameList.Count ? ProgramNameList[nextIndex] : null;
+        }
+
+        private static void DisableEditorSplit()
+        {
+            var active = CurrentProgram;
+            foreach (var item in SecondaryProgramNameList.ToList())
+            {
+                SecondaryProgramNameList.Remove(item);
+                ProgramNameList.Add(item);
+            }
+
+            _isEditorSplitActive = false;
+            SecondaryEditorVisibility = Visibility.Collapsed;
+            EditorPaneRows = 1;
+            EditorPaneColumns = 1;
+            SecondaryCurrentProgram = null;
+            NormalizeEditorTabStyles();
+            CurrentProgram = active ?? ProgramNameList.FirstOrDefault();
+        }
+
+        private void ToggleRightSidebar()
+        {
+            var grid = MainWindow.GetEditorGrid;
+            if (grid == null || grid.ColumnDefinitions.Count < 3)
+                return;
+
+            var splitterColumn = grid.ColumnDefinitions[1];
+            var sidebarColumn = grid.ColumnDefinitions[2];
+            var sidebarIsVisible = sidebarColumn.ActualWidth > 1 && sidebarColumn.Width.Value > 0;
+
+            if (_rightSidebarVisible && sidebarIsVisible)
+            {
+                if (sidebarColumn.Width.Value > 0)
+                    _lastRightSidebarWidth = sidebarColumn.Width;
+
+                sidebarColumn.MinWidth = 0;
+                sidebarColumn.Width = new GridLength(0);
+                splitterColumn.Width = new GridLength(0);
+                _rightSidebarVisible = false;
+            }
+            else
+            {
+                sidebarColumn.MinWidth = 330;
+                sidebarColumn.Width = _lastRightSidebarWidth.Value <= 0 ? new GridLength(300, GridUnitType.Star) : _lastRightSidebarWidth;
+                splitterColumn.Width = new GridLength(4);
+                _rightSidebarVisible = true;
             }
         }
 
@@ -316,20 +620,61 @@ namespace Clever.ViewModel
             pd.TextChange = false;
 
             if (Project.Add(pd.Name, pd))
-            {
-                var pnl = new ObservableCollection<TabItem>();
-                pnl.Add(pd.Item);
-                foreach (var i in ProgramNameList)
-                {
-                    i.Style = (System.Windows.Style)Application.Current.Resources["NextTabItem"];
-                    pnl.Add(i);
-                }
-                ProgramNameList = pnl;
-                CurrentProgram = pd.Item;
-            }
+                InsertProgramItem(pd.Item);
 
             SetGitDiffStatus(commit);
             Topmost();
+        }
+
+        internal static void OpenGitChangeFile(GitChangeItemVM file)
+        {
+            if (file == null)
+                return;
+
+            var name = file.FileName;
+            if (Project.ContainsKey(name))
+            {
+                CurrentProgram = Project.GetDictionary()[name].Item;
+                Topmost();
+                return;
+            }
+
+            var text = CreateGitChangePreviewText(file);
+            var tmp = new NewTabItem().CreateReadOnlyTextPreview(Project.GetDictionary(), name, text);
+            var pd = new ProgramData();
+            pd.AddToObjects = false;
+            pd.IsPreview = true;
+            pd.IsReadOnlyPreview = true;
+            pd.OldName = name;
+            pd.ClosedName = name;
+            pd.Name = name;
+            pd.Path = file.Folder;
+            pd.FullPath = string.IsNullOrEmpty(file.Folder) ? file.FileName : file.Folder + "\\" + file.FileName;
+            pd.Item = tmp;
+            pd.TextChange = false;
+
+            if (Project.Add(pd.Name, pd))
+                InsertProgramItem(pd.Item);
+
+            CommonData.Status.Clear();
+            var message = GUILanguage.GetItem("GitStatusFileOpened");
+            CommonData.Status.Add((string.IsNullOrEmpty(message) ? "Opened file from Git changes:" : message) + " " + name);
+            Topmost();
+        }
+
+        private static string CreateGitChangePreviewText(GitChangeItemVM file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (extension == ".csv")
+                return "name,status\n" + file.FileName + "," + file.StatusText + "\n";
+
+            if (extension == ".txt")
+                return file.FileName + "\n\nGit change preview: " + file.StatusText + "\n";
+
+            if (extension == ".bp" || extension == ".bpi" || extension == ".bpm")
+                return "start\n  display = \"" + file.FileName + "\"\n  wait 1000\nend\n";
+
+            return file.FileName + "\nGit change preview: " + file.StatusText + "\n";
         }
 
         private static void SetGitDiffStatus(GitCommitVM commit)
@@ -514,18 +859,7 @@ namespace Clever.ViewModel
             pd.Item = tmp;
             pd.TextChange = false;
             if (Project.Add(name, pd))
-            {
-                var pnl = new ObservableCollection<TabItem>();
-                pnl.Add(pd.Item);
-                foreach (var i in ProgramNameList)
-                {
-                    i.Style = (System.Windows.Style)Application.Current.Resources["NextTabItem"];
-                    pnl.Add(i);
-                }
-                ProgramNameList = pnl;
-
-                CurrentProgram = pd.Item;
-            }
+                InsertProgramItem(pd.Item);
             ButtonsPanel.GetFilePopup.IsOpen = false;
         }
 
@@ -580,17 +914,7 @@ namespace Clever.ViewModel
             currentPath = fi.FullName;
 
             if (Project.Add(pd.Name, pd))
-            {
-                var pnl = new ObservableCollection<TabItem>();
-                pnl.Add(pd.Item);
-                foreach (var i in ProgramNameList)
-                {
-                    i.Style = (System.Windows.Style)Application.Current.Resources["NextTabItem"];
-                    pnl.Add(i);
-                }
-                ProgramNameList = pnl;
-                CurrentProgram = pd.Item;
-            }
+                InsertProgramItem(pd.Item);
 
             if (pdOld != null)
                 pdOld.TextChange = tcOld;
@@ -672,15 +996,7 @@ namespace Clever.ViewModel
                     pd.TextChange = false;
                     if (Project.Add(pd.Name, pd))
                     {
-                        var pnl = new ObservableCollection<TabItem>();
-                        pnl.Add(pd.Item);
-                        foreach (var i in ProgramNameList)
-                        {
-                            i.Style = (System.Windows.Style)Application.Current.Resources["NextTabItem"];
-                            pnl.Add(i);
-                        }
-                        ProgramNameList = pnl;
-                        CurrentProgram = pd.Item;
+                        InsertProgramItem(pd.Item);
                         if (!changeCurPrg && tmpCurPrg != null)
                         {
                             tmpCurPrg.TextChange = false;
@@ -698,7 +1014,7 @@ namespace Clever.ViewModel
 
         public void FileSave()
         {
-            if (ProgramNameList.Count == 0)
+            if (GetOpenProgramCount() == 0)
             {
                 CommonData.Status.Clear();
                 CommonData.Status.Add(GetLocalization["prgNotPrograms"]);
@@ -737,7 +1053,7 @@ namespace Clever.ViewModel
 
         public static void SaveAllAndClose()
         {
-            if (ProgramNameList.Count == 0)
+            if (GetOpenProgramCount() == 0)
             {
                 CommonData.Status.Clear();
                 CommonData.Status.Add(GetLocalization["prgNotPrograms"]);
@@ -745,7 +1061,7 @@ namespace Clever.ViewModel
             }
             try
             {
-                foreach (var i in ProgramNameList)
+                foreach (var i in GetOpenProgramItems().ToList())
                 {
                     var pd = Project.GetProgramData(i);
                     if (pd != null && pd.IsPreview)
@@ -779,7 +1095,7 @@ namespace Clever.ViewModel
 
         private void FileSaveAll()
         {
-            if (ProgramNameList.Count == 0)
+            if (GetOpenProgramCount() == 0)
             {
                 CommonData.Status.Clear();
                 CommonData.Status.Add(GetLocalization["prgNotPrograms"]);
@@ -788,7 +1104,7 @@ namespace Clever.ViewModel
 
             try
             {
-                foreach (var i in ProgramNameList)
+                foreach (var i in GetOpenProgramItems().ToList())
                 {
                     var pd = Project.GetProgramData(i);
                     if (pd != null)
@@ -839,7 +1155,7 @@ namespace Clever.ViewModel
 
         private void FileSaveAs()
         {
-            if (ProgramNameList.Count == 0)
+            if (GetOpenProgramCount() == 0)
             {
                 CommonData.Status.Clear();
                 CommonData.Status.Add(GetLocalization["prgNotPrograms"]);
@@ -892,7 +1208,7 @@ namespace Clever.ViewModel
 
         private void FileSaveAsOther()
         {
-            if (ProgramNameList.Count == 0)
+            if (GetOpenProgramCount() == 0)
             {
                 CommonData.Status.Clear();
                 CommonData.Status.Add(GetLocalization["prgNotPrograms"]);
@@ -1017,9 +1333,9 @@ namespace Clever.ViewModel
         private void EditShowLine()
         {
             //indent = !indent;
-            if (ProgramNameList.Count > 0)
+            if (GetOpenProgramCount() > 0)
             {
-                foreach (var doc in ProgramNameList)
+                foreach (var doc in GetOpenProgramItems())
                 {
                     var data = Project.GetProgramData(doc);
                     if (data != null)
@@ -1030,9 +1346,9 @@ namespace Clever.ViewModel
         }
         private void EditShowNumber()
         {
-            if (ProgramNameList.Count > 0)
+            if (GetOpenProgramCount() > 0)
             {
-                foreach (var doc in ProgramNameList)
+                foreach (var doc in GetOpenProgramItems())
                 {
                     var data = Project.GetProgramData(doc);
                     if (data != null)
@@ -1043,9 +1359,9 @@ namespace Clever.ViewModel
         }
         private void EditShowSpace()
         {
-            if (ProgramNameList.Count > 0)
+            if (GetOpenProgramCount() > 0)
             {
-                foreach (var doc in ProgramNameList)
+                foreach (var doc in GetOpenProgramItems())
                 {
                     var data = Project.GetProgramData(doc);
                     if (data != null)
@@ -1056,9 +1372,9 @@ namespace Clever.ViewModel
         }
         private void EditWrap()
         {
-            if (ProgramNameList.Count > 0)
+            if (GetOpenProgramCount() > 0)
             {
-                foreach (var doc in ProgramNameList)
+                foreach (var doc in GetOpenProgramItems())
                 {
                     var data = Project.GetProgramData(doc);
                     if (data != null)
@@ -1142,13 +1458,16 @@ namespace Clever.ViewModel
         }
         private void FileCloseAll()
         {
-            if (ProgramNameList.Count == 0)
+            if (GetOpenProgramCount() == 0)
             {
                 return;
             }
 
             try
             {
+                if (_isEditorSplitActive)
+                    DisableEditorSplit();
+
                 int result = 0;
                 ObservableCollection<TabItem> items = new ObservableCollection<TabItem>();
                 foreach (var item in ProgramNameList)
@@ -1191,9 +1510,18 @@ namespace Clever.ViewModel
             try
             {
                 int result = 0;
-                var pnl = ProgramNameList;
                 var name = EditorHeader.CloseName;
-                ProgramNameList = new CloseProgram().Close(pnl, name, out result);
+                var targetList = ProgramNameList;
+                if (Project.ContainsKey(name) && SecondaryProgramNameList.Contains(Project.GetDictionary()[name].Item))
+                    targetList = SecondaryProgramNameList;
+                var targetWasSecondary = targetList == SecondaryProgramNameList;
+
+                var updatedList = new CloseProgram().Close(targetList, name, out result);
+                if (targetWasSecondary)
+                    SecondaryProgramNameList = updatedList;
+                else
+                    ProgramNameList = updatedList;
+
                 if (result == 0)
                 {
                     Project.Remove(name);
@@ -1205,13 +1533,20 @@ namespace Clever.ViewModel
                     }
                     */
                 }
-                if (ProgramNameList.Count > 0)
+
+                if (_isEditorSplitActive && SecondaryProgramNameList.Count == 0)
+                    DisableEditorSplit();
+
+                var preferredList = targetWasSecondary ? SecondaryProgramNameList : ProgramNameList;
+                var nextProgram = preferredList.Count > 0 ? preferredList[0] : GetOpenProgramItems().FirstOrDefault();
+                if (nextProgram != null)
                 {
-                    CurrentProgram = ProgramNameList[0];
-                    ProgramNameList[0].Style = (System.Windows.Style)Application.Current.Resources["FirstTabItem"];
+                    CurrentProgram = nextProgram;
+                    NormalizeEditorTabStyles();
                 }
                 else
                 {
+                    CurrentProgram = null;
                     IntellisenseParser.Data.Clear();
                 }
                 EditorPanel.GetPopup.IsOpen = false;

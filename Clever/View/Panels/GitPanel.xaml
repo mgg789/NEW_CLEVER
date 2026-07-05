@@ -134,20 +134,60 @@
             </Setter>
         </Style>
 
+        <Style x:Key="GitInlineIconButton" TargetType="Button" BasedOn="{StaticResource GitPopupIconButton}">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="3,0,0,0"/>
+        </Style>
+
+        <Style x:Key="GitFileRowButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#00FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource git_commit_hover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource git_commit_selected}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate x:Key="GitFileTemplate">
-            <Grid Height="24" Margin="0,1,0,1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="34"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="26"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding FileType}" Foreground="{Binding IconBrush}" FontFamily="Calibri" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding FileName}" Foreground="#414659" FontFamily="Calibri" FontSize="14" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding Folder}" Foreground="#8F98AB" FontFamily="Calibri" FontSize="12" Margin="6,2,0,0" TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-                <TextBlock Grid.Column="2" Text="{Binding Status}" Foreground="{Binding StatusBrush}" FontFamily="Calibri" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            </Grid>
+            <Button Command="{Binding DataContext.OpenChangeFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}"
+                    Style="{StaticResource GitFileRowButton}">
+                <Grid Height="24" Margin="0,1,0,1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="34"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="26"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0">
+                        <TextBlock Text="{Binding FileType}" Foreground="{Binding IconBrush}" Visibility="{Binding FileTypeVisibility}" FontFamily="Calibri" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <Image Source="{StaticResource git_icon_file}" Visibility="{Binding DefaultFileIconVisibility}" Width="14" Height="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Grid>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding FileName}" Foreground="#414659" FontFamily="Calibri" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Folder}" Foreground="#8F98AB" FontFamily="Calibri" FontSize="12" Margin="6,2,0,0" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding Status}" Foreground="{Binding StatusBrush}" FontFamily="Calibri" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Grid>
+            </Button>
         </DataTemplate>
 
         <DataTemplate x:Key="GitCommitFileTemplate">
@@ -157,7 +197,10 @@
                     <ColumnDefinition Width="26"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ClipToBounds="False">
-                    <TextBlock Text="{Binding FileType}" Foreground="{Binding IconBrush}" FontFamily="Calibri" FontSize="12" FontWeight="Bold" Width="28" Margin="-32,0,4,0" TextAlignment="Center"/>
+                    <Grid Width="28" Margin="-32,0,4,0">
+                        <TextBlock Text="{Binding FileType}" Foreground="{Binding IconBrush}" Visibility="{Binding FileTypeVisibility}" FontFamily="Calibri" FontSize="12" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center"/>
+                        <Image Source="{StaticResource git_icon_file}" Visibility="{Binding DefaultFileIconVisibility}" Width="14" Height="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Grid>
                     <TextBlock Text="{Binding FileName}" Foreground="#414659" FontFamily="Calibri" FontSize="14" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Text="{Binding Folder}" Foreground="#8F98AB" FontFamily="Calibri" FontSize="12" Margin="6,2,0,0" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
@@ -296,6 +339,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{Binding Commit.Message}" Foreground="#414659" FontFamily="Calibri" FontSize="15" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0,6,0"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
@@ -330,6 +374,32 @@
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <Button Style="{StaticResource GitInlineIconButton}"
+                                                        Command="{Binding DataContext.RevertCommitCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding Commit}"
+                                                        Click="CommitRowActionButton_Click"
+                                                        ToolTip="{Binding Path=DataContext.GetLocalization[tGitRevertCommit], RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                                    <Image Source="{StaticResource git_icon_revert}" Width="12" Height="12"/>
+                                                </Button>
+                                                <Button Style="{StaticResource GitInlineIconButton}"
+                                                        Command="{Binding DataContext.DiffCommitCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding Commit}"
+                                                        Click="CommitRowActionButton_Click"
+                                                        ToolTip="{Binding Path=DataContext.GetLocalization[tGitDiffCommit], RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                                    <Image Source="{StaticResource git_icon_diff}" Width="12" Height="12"/>
+                                                </Button>
                                             </StackPanel>
                                         </Grid>
                                         <ItemsControl Grid.Row="1" ItemsSource="{Binding Commit.Files}" ItemTemplate="{StaticResource GitCommitFileTemplate}" Margin="4,0,6,4">

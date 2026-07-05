@@ -92,12 +92,6 @@ namespace Clever.ViewModel.PanelsVM
 
         private static void AddFileDiff(GitDiffFileVM diffFile, GitChangeItemVM file, GitCommitVM commit)
         {
-            var normalizedPath = diffFile.Path.Replace("\\", "/");
-            diffFile.Lines.Add(new GitDiffLineVM("diff --git a/" + normalizedPath + " b/" + normalizedPath, GitDiffLineKind.Header));
-            diffFile.Lines.Add(new GitDiffLineVM("--- a/" + normalizedPath, GitDiffLineKind.Header));
-            diffFile.Lines.Add(new GitDiffLineVM("+++ b/" + normalizedPath, GitDiffLineKind.Header));
-            diffFile.Lines.Add(new GitDiffLineVM("@@ -1,7 +1,8 @@", GitDiffLineKind.Header));
-
             if (file.Status == "A")
             {
                 diffFile.Lines.Add(new GitDiffLineVM("+// " + commit.Message, GitDiffLineKind.Added));
@@ -129,7 +123,7 @@ namespace Clever.ViewModel.PanelsVM
 
         private static GitChangeItemVM CreateFile(string name, string folder, string status, string statusText, string type, string statusColor, string iconColor)
         {
-            return new GitChangeItemVM
+            var item = new GitChangeItemVM
             {
                 FileName = name,
                 Folder = folder,
@@ -139,6 +133,9 @@ namespace Clever.ViewModel.PanelsVM
                 StatusBrush = CreateBrush(statusColor),
                 IconBrush = CreateBrush(iconColor)
             };
+
+            item.ApplyFixedFileType();
+            return item;
         }
 
         private static Brush CreateBrush(string color)

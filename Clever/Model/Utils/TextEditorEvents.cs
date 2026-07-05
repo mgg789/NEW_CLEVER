@@ -25,6 +25,7 @@ namespace Clever.Model.Utils
         internal static void EditorName_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             var ti = sender as TabItem;
+            MainWindowVM.ActivateProgram(ti);
             var ed = ti.Content as Editor;
             ed.GetTextEditor.TextArea.Focus();
         }

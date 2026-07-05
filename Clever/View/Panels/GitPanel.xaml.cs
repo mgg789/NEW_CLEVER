@@ -68,6 +68,11 @@ namespace Clever.View.Panels
             ExecuteCommitAction(vm => vm.DiffCommitCommand);
         }
 
+        private void CommitRowActionButton_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+        }
+
         private void ExecuteCommitAction(Func<GitPanelVM, ICommand> commandSelector)
         {
             var viewModel = DataContext as GitPanelVM;

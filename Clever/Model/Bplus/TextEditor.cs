@@ -278,6 +278,8 @@ namespace Clever.Model.Bplus
 
         private void TextArea_MouseDown(object sender, MouseEventArgs e)
         {
+            MainWindowVM.ActivateProgramByName(ProgramName);
+
             if (e.Button == MouseButtons.Right)
             {
                 lineStack.bActive = true;
@@ -406,6 +408,17 @@ namespace Clever.Model.Bplus
                 }
             }
 
+            textArea.EmptyUndoBuffer();
+            textArea.ReadOnly = true;
+        }
+
+        internal void ApplyReadOnlyTextPreview(string text)
+        {
+            textArea.ReadOnly = false;
+            textArea.MarkerDeleteAll(DIFF_ADDED_MARKER);
+            textArea.MarkerDeleteAll(DIFF_DELETED_MARKER);
+            textArea.MarkerDeleteAll(DIFF_HEADER_MARKER);
+            textArea.Text = text ?? "";
             textArea.EmptyUndoBuffer();
             textArea.ReadOnly = true;
         }

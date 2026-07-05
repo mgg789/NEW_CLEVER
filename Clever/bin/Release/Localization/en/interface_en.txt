@@ -164,3 +164,7 @@ GitStatusDiff = Diff preview will be connected to Git later:
 GitStatusDiffOpened = Opened read-only diff:
 GitDiffReadOnly = This is a read-only Git diff preview.
 GitDiffNoData = No diff data for this commit.
+GitStatusFileOpened = Opened file from Git changes:
+tSplitSideBySide = Split editor left/right
+tSplitTopBottom = Split editor top/bottom
+tToggleRightSidebar = Show or hide right sidebar

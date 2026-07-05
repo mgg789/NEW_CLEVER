@@ -152,6 +152,34 @@ namespace Clever.Model.Program
             return tabItem;
         }
 
+        public TabItem CreateReadOnlyTextPreview(Dictionary<string, ProgramData> items, string itemName, string text)
+        {
+            TabItem tabItem = new TabItem();
+            tabItem.IsSelected = true;
+            tabItem.Loaded += TextEditorEvents.Editor_Loaded;
+            tabItem.MouseLeftButtonUp += TextEditorEvents.EditorName_MouseLeftButtonUp;
+
+            EditorHeader header = new EditorHeader();
+            Editor editor = new Editor();
+            editor.GetTextEditor.Menu = editor.GetTextEditorPopup;
+            editor.GetTextEditor.ToolsWindow = editor.GetTextEditorTools;
+            editor.GetTextEditor.ApplyReadOnlyTextPreview(text);
+
+            header.HeaderName = itemName;
+            header.HeaderChange = "";
+            tabItem.Header = header;
+            tabItem.Content = editor;
+            tabItem.Style = (Style)Application.Current.Resources["FirstTabItem"];
+
+            if (items.Count == 0)
+            {
+                var element = new Elements();
+                element.SetCloseButtonlMargin(tabItem, 1);
+            }
+
+            return tabItem;
+        }
+
         private int GetProgramNumber(Dictionary<string, ProgramData> items)
         {
             int num = 1;

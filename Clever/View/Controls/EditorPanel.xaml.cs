@@ -1,7 +1,10 @@
 ﻿using Clever.View.Controls.Editors;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
+using Clever.ViewModel;
 using Clever.ViewModel.PanelsVM;
 using TabControl = System.Windows.Controls.TabControl;
 
@@ -13,12 +16,15 @@ namespace Clever.View.Controls
     public partial class EditorPanel : System.Windows.Controls.UserControl
     {
         private static TabControl _tabControl;
+        private static TabControl _secondaryTabControl;
         static Popup _popup;
+        private Point _dragStartPoint;
 
         public EditorPanel()
         {
             InitializeComponent();
             _tabControl = EditorTabControl;
+            _secondaryTabControl = SecondaryEditorTabControl;
             _popup = PopUp;
         }
 
@@ -28,7 +34,7 @@ namespace Clever.View.Controls
             {
                 if (_tabControl.Items.Count > 0)
                 {
-                    return (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
+                    return MainWindowVM.CurrentProgram ?? (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
                 }
                 return null;
             }
@@ -37,6 +43,11 @@ namespace Clever.View.Controls
         public static TabControl GetTabControl
         {
             get { return _tabControl; }
+        }
+
+        public static TabControl GetSecondaryTabControl
+        {
+            get { return _secondaryTabControl; }
         }
 
         public static string SelectedItemHeaderName
@@ -117,6 +128,85 @@ namespace Clever.View.Controls
         public static Popup GetPopup
         {
             get { return _popup; }
+        }
+
+        private void EditorTabControl_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void EditorTabControl_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+                return;
+
+            var currentPosition = e.GetPosition(null);
+            if (System.Math.Abs(currentPosition.X - _dragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                System.Math.Abs(currentPosition.Y - _dragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            var header = FindParent<EditorHeader>(e.OriginalSource as DependencyObject);
+            if (header == null)
+                return;
+
+            var tabItem = FindParent<TabItem>(header);
+            if (tabItem != null)
+                DragDrop.DoDragDrop(tabItem, tabItem, DragDropEffects.Move);
+        }
+
+        private void EditorTabControl_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(typeof(TabItem)) ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void EditorTabControl_Drop(object sender, DragEventArgs e)
+        {
+            var tabItem = e.Data.GetData(typeof(TabItem)) as TabItem;
+            if (tabItem == null)
+                return;
+
+            MainWindowVM.MoveProgramToPane(tabItem, sender == SecondaryEditorTabControl);
+            e.Handled = true;
+        }
+
+        private void EditorSurface_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = e.Data.GetDataPresent(typeof(TabItem)) ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private void EditorSurface_Drop(object sender, DragEventArgs e)
+        {
+            if (MainWindowVM.IsEditorSplitActive)
+                return;
+
+            var tabItem = e.Data.GetData(typeof(TabItem)) as TabItem;
+            if (tabItem == null)
+                return;
+
+            var position = e.GetPosition(EditorSurface);
+            var sideBySide = true;
+            if (position.Y > EditorSurface.ActualHeight * 0.62)
+                sideBySide = false;
+
+            MainWindowVM.SetEditorSplitMode(sideBySide);
+            MainWindowVM.MoveProgramToPane(tabItem, true);
+            e.Handled = true;
+        }
+
+        private static T FindParent<T>(DependencyObject source) where T : DependencyObject
+        {
+            while (source != null)
+            {
+                var typed = source as T;
+                if (typed != null)
+                    return typed;
+
+                source = VisualTreeHelper.GetParent(source);
+            }
+
+            return null;
         }
     }
 }

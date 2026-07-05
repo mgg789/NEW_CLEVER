@@ -37,29 +37,84 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="EditorTabControlStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
+            <Setter Property="BorderBrush" Value="#ECEDF1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#ECEDF1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TabControl}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="auto"/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" Grid.Row="0">
+                                <TabPanel x:Name="HeaderPanel" IsItemsHost="True"/>
+                            </StackPanel>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Center" Width="20" Height="28" BorderThickness="0" BorderBrush="#00FFFFFF">
+                                <Button x:Name="namesButton" Style="{StaticResource prg_name}" Height="16" Width="16" Margin="0,0,2,0" Command="{Binding Path=GetProgramNamesCommand}" Visibility="{Binding Path=HiddenProgramButton}"/>
+                            </Border>
+
+                            <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Grid.Row="1"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
-    <Grid>
-        <TabControl x:Name="EditorTabControl" BorderBrush="#ECEDF1" BorderThickness="1" Background="#ECEDF1" ItemsSource="{Binding ProgramNameList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedItem="{Binding CurrentProgram, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-            <TabControl.Template>
-                <ControlTemplate TargetType="{x:Type TabControl}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="auto"/>
-                            <RowDefinition/>
-                        </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal" Grid.Row="0">
-                            <TabPanel x:Name="HeaderPanel" IsItemsHost="True"/>
-                        </StackPanel>
-                        <Border HorizontalAlignment="Right" VerticalAlignment="Center" Width="20" Height="28" BorderThickness="0" BorderBrush="#00FFFFFF">
-                            <Button x:Name="namesButton" Style="{StaticResource prg_name}" Height="16" Width="16" Margin="0,0,2,0"  Command="{Binding Path=GetProgramNamesCommand}" Visibility="{Binding Path=HiddenProgramButton}"/>
-                        </Border>
-                        
-                        <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Grid.Row="1"/>
-                    </Grid>
-                </ControlTemplate>
-            </TabControl.Template>
-        </TabControl>
-        <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="Calibri" FontSize="14" Foreground="Black" Margin="15"/>
+    <Grid x:Name="EditorSurface" AllowDrop="True" PreviewDragOver="EditorSurface_PreviewDragOver" Drop="EditorSurface_Drop">
+        <UniformGrid Rows="{Binding EditorPaneRows}" Columns="{Binding EditorPaneColumns}">
+            <Border BorderBrush="#D7DCE8" BorderThickness="0" Margin="0">
+                <TabControl x:Name="EditorTabControl"
+                            Style="{StaticResource EditorTabControlStyle}"
+                            ItemsSource="{Binding ProgramNameList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            SelectedItem="{Binding PrimaryCurrentProgram, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            AllowDrop="True"
+                            PreviewMouseLeftButtonDown="EditorTabControl_PreviewMouseLeftButtonDown"
+                            PreviewMouseMove="EditorTabControl_PreviewMouseMove"
+                            PreviewDragOver="EditorTabControl_PreviewDragOver"
+                            Drop="EditorTabControl_Drop"/>
+            </Border>
+            <Border Visibility="{Binding SecondaryEditorVisibility}" BorderBrush="#D7DCE8" BorderThickness="1,0,0,0" Margin="2,0,0,0" Background="#ECEDF1">
+                <Grid>
+                    <TabControl x:Name="SecondaryEditorTabControl"
+                                Style="{StaticResource EditorTabControlStyle}"
+                                ItemsSource="{Binding SecondaryProgramNameList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                SelectedItem="{Binding SecondaryCurrentProgram, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                AllowDrop="True"
+                                PreviewMouseLeftButtonDown="EditorTabControl_PreviewMouseLeftButtonDown"
+                                PreviewMouseMove="EditorTabControl_PreviewMouseMove"
+                                PreviewDragOver="EditorTabControl_PreviewDragOver"
+                                Drop="EditorTabControl_Drop"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="Calibri" FontSize="14" Foreground="#8F98AB" Margin="15">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SecondaryProgramNameList.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+        </UniformGrid>
+        <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="Calibri" FontSize="14" Foreground="Black" Margin="15">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ProgramNameList.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
         <Popup x:Name="PopUp"
                PlacementTarget="{Binding ElementName=EditorTabControl}"
                StaysOpen="False" Placement="Right"

@@ -164,3 +164,7 @@ GitStatusDiff = Перегляд diff буде підключено до Git п�
 GitStatusDiffOpened = Відкрито read-only diff:
 GitDiffReadOnly = Це read-only перегляд змін Git.
 GitDiffNoData = Для цього коміту немає даних diff.
+GitStatusFileOpened = Відкрито файл зі змін Git:
+tSplitSideBySide = Розділити редактор праворуч/ліворуч
+tSplitTopBottom = Розділити редактор зверху/знизу
+tToggleRightSidebar = Показати або сховати праву панель

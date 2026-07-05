@@ -1029,7 +1029,7 @@ namespace Clever.View.Controls.Helps
                 return;
             }
 
-            var programs = MainWindowVM.ProgramNameList;
+            var programs = MainWindowVM.GetOpenProgramItems();
             var listCur = new List<ProgramData>();
             var listPrograms = new List<string>();
             var current = MainWindowVM.Project.GetProgramData(MainWindowVM.CurrentProgram);
