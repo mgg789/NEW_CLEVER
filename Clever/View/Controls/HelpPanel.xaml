@@ -79,7 +79,7 @@
                      VerticalAlignment="Bottom">
                 <TabItem.Header>
                     <Viewbox Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tBrick]}">
-                        <ContentControl Content="{StaticResource canBrickOffmof}"/>
+                        <ContentControl Content="{StaticResource brick_connected_mof}"/>
                     </Viewbox>
                 </TabItem.Header>
                 <helps:EV3Brick Margin="0,0,-1,0"/>
