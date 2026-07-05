@@ -47,11 +47,11 @@
             <Setter Property="Background" Value="{StaticResource brk_but_bgd}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="7"/>
-            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Width="{TemplateBinding Width}" Height="{TemplateBinding Height}" CornerRadius="18" Background="{TemplateBinding Background}">
+                        <Border x:Name="border" Width="{TemplateBinding Width}" Height="{TemplateBinding Height}" CornerRadius="17" Background="{TemplateBinding Background}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -68,8 +68,8 @@
         </Style>
 
         <Style x:Key="GitBranchButton" TargetType="Button" BasedOn="{StaticResource GitRoundToolButton}">
-            <Setter Property="Width" Value="118"/>
-            <Setter Property="Padding" Value="9,6"/>
+            <Setter Property="Width" Value="124"/>
+            <Setter Property="Padding" Value="9,7"/>
         </Style>
 
         <Style x:Key="GitGraphCommitButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -117,7 +117,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="95"/>
+            <RowDefinition Height="115" MinHeight="52"/>
+            <RowDefinition Height="5"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="44"/>
         </Grid.RowDefinitions>
@@ -129,11 +130,12 @@
                          Height="32"
                          Margin="8,0,8,6"
                          Padding="6,5"
-                         BorderThickness="0"
+                         BorderThickness="1"
+                         BorderBrush="{StaticResource git_panel_separator}"
                          FontFamily="Calibri"
                          FontSize="15"
                          Foreground="#414659"
-                         Background="#F6F7FA"
+                         Background="#FFFFFF"
                          ToolTip="{Binding Path=GetLocalization[tGitCommitMessage]}"/>
                 <Button Command="{Binding CommitCommand}" Style="{StaticResource GitCommitButton}" Margin="8,0,8,0" ToolTip="{Binding Path=GetLocalization[tGitCommit]}">
                     <TextBlock Text="{Binding Path=GetLocalization[GitCommit]}"/>
@@ -159,12 +161,53 @@
             </ScrollViewer>
         </Border>
 
-        <Border Grid.Row="3" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1">
+        <GridSplitter Grid.Row="3"
+                      Height="5"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      Background="#00FFFFFF"
+                      ResizeBehavior="PreviousAndNext"
+                      ResizeDirection="Rows"
+                      ShowsPreview="True">
+            <GridSplitter.Style>
+                <Style TargetType="GridSplitter">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="GridSplitter">
+                                <Grid Background="{TemplateBinding Background}">
+                                    <Border Height="1" Background="{StaticResource git_panel_separator}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#24CFD4E3"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </GridSplitter.Style>
+        </GridSplitter>
+
+        <Border Grid.Row="4" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="2,6,4,6">
                 <ItemsControl ItemsSource="{Binding GraphRows}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid>
+                            <Grid Background="#00FFFFFF"
+                                  ToolTipService.InitialShowDelay="250"
+                                  ToolTipService.ShowDuration="12000">
+                                <Grid.ToolTip>
+                                    <Border Background="#F6F7FA" BorderBrush="#BCC3D4" BorderThickness="1" Padding="10" MaxWidth="300">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Commit.Author}" Foreground="#0A86FF" FontFamily="Calibri" FontSize="14" FontWeight="Bold"/>
+                                            <TextBlock Text="{Binding Commit.TimeText}" Foreground="#777777" FontFamily="Calibri" FontSize="12" Margin="0,1,0,7"/>
+                                            <TextBlock Text="{Binding Commit.Message}" Foreground="#414659" FontFamily="Calibri" FontSize="14" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding Commit.StatsText}" Foreground="#777777" FontFamily="Calibri" FontSize="12" Margin="0,7,0,0"/>
+                                            <TextBlock Text="{Binding Commit.ShortHash}" Foreground="#0A86FF" FontFamily="Calibri" FontSize="12" Margin="0,7,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid.ToolTip>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="{Binding RowHeight}"/>
                                     <RowDefinition Height="Auto"/>
@@ -174,31 +217,13 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Canvas Grid.Row="0" Grid.Column="0" Width="{Binding GraphWidth}" Height="{Binding RowHeight}" ClipToBounds="False">
-                                    <ItemsControl ItemsSource="{Binding Segments}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <Canvas/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Line X1="{Binding X1}" Y1="{Binding Y1}" X2="{Binding X2}" Y2="{Binding Y2}" Stroke="{Binding Stroke}" StrokeThickness="{Binding StrokeThickness}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <Ellipse Width="10" Height="10" Fill="{Binding NodeBrush}" Stroke="{StaticResource git_panel_bgd}" StrokeThickness="2" Canvas.Left="{Binding NodeX}" Canvas.Top="{Binding NodeY}">
-                                        <Ellipse.RenderTransform>
-                                            <TranslateTransform X="-5" Y="-5"/>
-                                        </Ellipse.RenderTransform>
-                                    </Ellipse>
-                                </Canvas>
-
                                 <Button Grid.Row="0"
-                                        Grid.Column="1"
+                                        Grid.ColumnSpan="2"
                                         Command="{Binding DataContext.ToggleCommitCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}"
-                                        Style="{StaticResource GitGraphCommitButtonStyle}">
+                                        Style="{StaticResource GitGraphCommitButtonStyle}"
+                                        ToolTipService.InitialShowDelay="250"
+                                        ToolTipService.ShowDuration="12000">
                                     <Button.ToolTip>
                                         <Border Background="#F6F7FA" BorderBrush="#BCC3D4" BorderThickness="1" Padding="10" MaxWidth="300">
                                             <StackPanel>
@@ -222,11 +247,31 @@
                                             </Style>
                                         </Grid.Style>
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Commit.Message}" Foreground="#414659" FontFamily="Calibri" FontSize="15" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0,6,0"/>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+                                        <Canvas Grid.Column="0" Width="{Binding GraphWidth}" Height="{Binding RowHeight}" ClipToBounds="False">
+                                            <ItemsControl ItemsSource="{Binding Segments}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <Canvas/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Line X1="{Binding X1}" Y1="{Binding Y1}" X2="{Binding X2}" Y2="{Binding Y2}" Stroke="{Binding Stroke}" StrokeThickness="{Binding StrokeThickness}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Ellipse Width="10" Height="10" Fill="{Binding NodeBrush}" Stroke="{StaticResource git_panel_bgd}" StrokeThickness="2" Canvas.Left="{Binding NodeX}" Canvas.Top="{Binding NodeY}">
+                                                <Ellipse.RenderTransform>
+                                                    <TranslateTransform X="-5" Y="-5"/>
+                                                </Ellipse.RenderTransform>
+                                            </Ellipse>
+                                        </Canvas>
+                                        <TextBlock Grid.Column="1" Text="{Binding Commit.Message}" Foreground="#414659" FontFamily="Calibri" FontSize="15" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0,6,0"/>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
                                             <ItemsControl ItemsSource="{Binding Commit.RemoteRefs}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -281,16 +326,16 @@
             </ScrollViewer>
         </Border>
 
-        <Border Grid.Row="4" Background="{StaticResource tc_brk_st}" Padding="4,5">
+        <Border Grid.Row="5" Background="#FFFFFF" Padding="4,5">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding PullCommand}" ToolTip="{Binding Path=GetLocalization[tGitPull]}">
-                    <Image Source="{StaticResource git_icon_pull}" Width="19" Height="19"/>
+                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding PullCommand}" ToolTip="{Binding Path=GetLocalization[tGitPull]}" Margin="0,0,0,0">
+                    <Image Source="{StaticResource git_icon_pull}" Width="20" Height="20"/>
                 </Button>
                 <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding PushCommand}" ToolTip="{Binding Path=GetLocalization[tGitPush]}">
-                    <Image Source="{StaticResource git_icon_push}" Width="19" Height="19"/>
+                    <Image Source="{StaticResource git_icon_push}" Width="20" Height="20"/>
                 </Button>
                 <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding ReloadCommand}" ToolTip="{Binding Path=GetLocalization[tGitReload]}">
-                    <Image Source="{StaticResource git_icon_reload}" Width="19" Height="19"/>
+                    <Image Source="{StaticResource git_icon_reload}" Width="20" Height="20"/>
                 </Button>
                 <Button Style="{StaticResource GitBranchButton}" Command="{Binding SelectBranchCommand}" ToolTip="{Binding Path=GetLocalization[tGitBranch]}">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
