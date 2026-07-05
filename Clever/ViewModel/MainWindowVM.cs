@@ -328,8 +328,8 @@ namespace Clever.ViewModel
         }
 
         private static bool _syncingEditorSelection;
-        private static bool _rightSidebarVisible = true;
-        private static GridLength _lastRightSidebarWidth = new GridLength(300, GridUnitType.Star);
+        private const double RightSidebarMinWidth = 330;
+        private const double RightSidebarSplitterWidth = 4;
 
         private static TabItem _currentProgram;
         public static TabItem CurrentProgram
@@ -451,6 +451,19 @@ namespace Clever.ViewModel
             CurrentProgram = item;
         }
 
+        internal static void MoveProgramToPane(string name, bool secondaryPane)
+        {
+            MoveProgramToPane(FindOpenProgramItem(name), secondaryPane);
+        }
+
+        internal static TabItem FindOpenProgramItem(string name)
+        {
+            if (string.IsNullOrEmpty(name) || !Project.ContainsKey(name))
+                return null;
+
+            return Project.GetDictionary()[name].Item;
+        }
+
         internal static void SetEditorSplitMode(bool sideBySide)
         {
             _isEditorSplitActive = true;
@@ -556,30 +569,55 @@ namespace Clever.ViewModel
 
         private void ToggleRightSidebar()
         {
-            var grid = MainWindow.GetEditorGrid;
-            if (grid == null || grid.ColumnDefinitions.Count < 3)
-                return;
-
-            var splitterColumn = grid.ColumnDefinitions[1];
-            var sidebarColumn = grid.ColumnDefinitions[2];
-            var sidebarIsVisible = sidebarColumn.ActualWidth > 1 && sidebarColumn.Width.Value > 0;
-
-            if (_rightSidebarVisible && sidebarIsVisible)
+            try
             {
-                if (sidebarColumn.Width.Value > 0)
-                    _lastRightSidebarWidth = sidebarColumn.Width;
+                var grid = MainWindow.GetEditorGrid;
+                if (grid == null || grid.ColumnDefinitions.Count < 3)
+                    return;
 
-                sidebarColumn.MinWidth = 0;
-                sidebarColumn.Width = new GridLength(0);
-                splitterColumn.Width = new GridLength(0);
-                _rightSidebarVisible = false;
+                var splitterColumn = grid.ColumnDefinitions[1];
+                var sidebarColumn = grid.ColumnDefinitions[2];
+                var splitter = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 1);
+                var sidebar = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 2);
+                var sidebarIsHidden = sidebarColumn.MaxWidth == 0 || sidebar == null || sidebar.Visibility != Visibility.Visible;
+
+                if (!sidebarIsHidden)
+                {
+                    if (sidebar != null)
+                        sidebar.Visibility = Visibility.Collapsed;
+                    if (splitter != null)
+                        splitter.Visibility = Visibility.Collapsed;
+
+                    sidebarColumn.MinWidth = 0;
+                    sidebarColumn.MaxWidth = 0;
+                    splitterColumn.MinWidth = 0;
+                    splitterColumn.MaxWidth = 0;
+                }
+                else
+                {
+                    sidebarColumn.MaxWidth = double.PositiveInfinity;
+                    sidebarColumn.MinWidth = RightSidebarMinWidth;
+
+                    splitterColumn.MaxWidth = double.PositiveInfinity;
+                    splitterColumn.MinWidth = 0;
+                    splitterColumn.Width = new GridLength(RightSidebarSplitterWidth, GridUnitType.Pixel);
+
+                    if (sidebar != null)
+                        sidebar.Visibility = Visibility.Visible;
+                    if (splitter != null)
+                        splitter.Visibility = Visibility.Visible;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                sidebarColumn.MinWidth = 330;
-                sidebarColumn.Width = _lastRightSidebarWidth.Value <= 0 ? new GridLength(300, GridUnitType.Star) : _lastRightSidebarWidth;
-                splitterColumn.Width = new GridLength(4);
-                _rightSidebarVisible = true;
+                try
+                {
+                    CommonData.Status.Clear();
+                    CommonData.Status.Add(ex.Message);
+                }
+                catch
+                {
+                }
             }
         }
 

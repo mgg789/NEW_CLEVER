@@ -18,6 +18,7 @@ namespace Clever.View.Controls
         private static TabControl _tabControl;
         private static TabControl _secondaryTabControl;
         static Popup _popup;
+        private const string EditorTabDragFormat = "Clever.EditorTabName";
         private Point _dragStartPoint;
 
         public EditorPanel()
@@ -32,10 +33,15 @@ namespace Clever.View.Controls
         {
             get
             {
-                if (_tabControl.Items.Count > 0)
-                {
-                    return MainWindowVM.CurrentProgram ?? (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
-                }
+                if (MainWindowVM.CurrentProgram != null)
+                    return MainWindowVM.CurrentProgram;
+
+                if (_tabControl.Items.Count > 0 && _tabControl.SelectedIndex >= 0)
+                    return (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
+
+                if (_secondaryTabControl.Items.Count > 0 && _secondaryTabControl.SelectedIndex >= 0)
+                    return (TabItem)_secondaryTabControl.Items[_secondaryTabControl.SelectedIndex];
+
                 return null;
             }
         }
@@ -54,22 +60,21 @@ namespace Clever.View.Controls
         {
             get
             {
-                if (_tabControl.Items.Count > 0)
-                {
-                    var ti = (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
-                    var h = (EditorHeader)ti.Header;
-                    return h.HeaderName;
-                }
-                return null;
+                var ti = GetSelectedItem;
+                if (ti == null)
+                    return null;
+
+                var h = (EditorHeader)ti.Header;
+                return h.HeaderName;
             }
             set
             {
-                if (_tabControl.Items.Count > 0)
-                {
-                    var ti = (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
-                    var h = (EditorHeader)ti.Header;
-                    h.HeaderName = value;
-                }
+                var ti = GetSelectedItem;
+                if (ti == null)
+                    return;
+
+                var h = (EditorHeader)ti.Header;
+                h.HeaderName = value;
             }
         }
 
@@ -77,22 +82,21 @@ namespace Clever.View.Controls
         {
             get
             {
-                if (_tabControl.Items.Count > 0)
-                {
-                    var ti = (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
-                    var h = (EditorHeader)ti.Header;
-                    return h.HeaderColor;
-                }
-                return null;
+                var ti = GetSelectedItem;
+                if (ti == null)
+                    return null;
+
+                var h = (EditorHeader)ti.Header;
+                return h.HeaderColor;
             }
             set
             {
-                if (_tabControl.Items.Count > 0)
-                {
-                    var ti = (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
-                    var h = (EditorHeader)ti.Header;
-                    h.HeaderColor = value;
-                }
+                var ti = GetSelectedItem;
+                if (ti == null)
+                    return;
+
+                var h = (EditorHeader)ti.Header;
+                h.HeaderColor = value;
             }
         }
 
@@ -100,22 +104,21 @@ namespace Clever.View.Controls
         {
             get
             {
-                if (_tabControl.Items.Count > 0)
-                {
-                    var ti = (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
-                    var h = (EditorHeader)ti.Header;
-                    return h.HeaderChange;
-                }
-                return null;
+                var ti = GetSelectedItem;
+                if (ti == null)
+                    return null;
+
+                var h = (EditorHeader)ti.Header;
+                return h.HeaderChange;
             }
             set
             {
-                if (_tabControl.Items.Count > 0)
-                {
-                    var ti = (TabItem)_tabControl.Items[_tabControl.SelectedIndex];
-                    var h = (EditorHeader)ti.Header;
-                    h.HeaderChange = value;
-                }
+                var ti = GetSelectedItem;
+                if (ti == null)
+                    return;
+
+                var h = (EditorHeader)ti.Header;
+                h.HeaderChange = value;
             }
         }
 
@@ -149,50 +152,115 @@ namespace Clever.View.Controls
             if (header == null)
                 return;
 
-            var tabItem = FindParent<TabItem>(header);
-            if (tabItem != null)
-                DragDrop.DoDragDrop(tabItem, tabItem, DragDropEffects.Move);
+            var closeLabel = FindParent<Label>(e.OriginalSource as DependencyObject);
+            if (closeLabel != null && closeLabel.Name == "lClose")
+                return;
+
+            var tabItem = MainWindowVM.FindOpenProgramItem(header.HeaderName);
+            if (tabItem == null)
+                return;
+
+            var data = new DataObject();
+            data.SetData(EditorTabDragFormat, header.HeaderName);
+            DragDrop.DoDragDrop(tabItem, data, DragDropEffects.Move);
+            e.Handled = true;
         }
 
         private void EditorTabControl_PreviewDragOver(object sender, DragEventArgs e)
         {
-            e.Effects = e.Data.GetDataPresent(typeof(TabItem)) ? DragDropEffects.Move : DragDropEffects.None;
+            e.Effects = IsEditorTabDrag(e) ? DragDropEffects.Move : DragDropEffects.None;
             e.Handled = true;
         }
 
         private void EditorTabControl_Drop(object sender, DragEventArgs e)
         {
-            var tabItem = e.Data.GetData(typeof(TabItem)) as TabItem;
-            if (tabItem == null)
+            var tabName = GetDraggedTabName(e);
+            if (tabName == null)
                 return;
 
-            MainWindowVM.MoveProgramToPane(tabItem, sender == SecondaryEditorTabControl);
+            var position = e.GetPosition(EditorSurface);
+            bool sideBySide;
+            if (!MainWindowVM.IsEditorSplitActive && ShouldCreateSplit(position, out sideBySide))
+            {
+                MainWindowVM.SetEditorSplitMode(sideBySide);
+                MainWindowVM.MoveProgramToPane(tabName, true);
+            }
+            else
+            {
+                MainWindowVM.MoveProgramToPane(tabName, sender == SecondaryEditorTabControl);
+            }
+
             e.Handled = true;
         }
 
         private void EditorSurface_PreviewDragOver(object sender, DragEventArgs e)
         {
-            e.Effects = e.Data.GetDataPresent(typeof(TabItem)) ? DragDropEffects.Move : DragDropEffects.None;
+            e.Effects = IsEditorTabDrag(e) ? DragDropEffects.Move : DragDropEffects.None;
             e.Handled = true;
         }
 
         private void EditorSurface_Drop(object sender, DragEventArgs e)
         {
-            if (MainWindowVM.IsEditorSplitActive)
-                return;
-
-            var tabItem = e.Data.GetData(typeof(TabItem)) as TabItem;
-            if (tabItem == null)
+            var tabName = GetDraggedTabName(e);
+            if (tabName == null)
                 return;
 
             var position = e.GetPosition(EditorSurface);
-            var sideBySide = true;
-            if (position.Y > EditorSurface.ActualHeight * 0.62)
-                sideBySide = false;
+            if (MainWindowVM.IsEditorSplitActive)
+            {
+                MainWindowVM.MoveProgramToPane(tabName, IsSecondaryDropPosition(position));
+                e.Handled = true;
+                return;
+            }
 
-            MainWindowVM.SetEditorSplitMode(sideBySide);
-            MainWindowVM.MoveProgramToPane(tabItem, true);
+            bool sideBySide;
+            if (ShouldCreateSplit(position, out sideBySide))
+            {
+                MainWindowVM.SetEditorSplitMode(sideBySide);
+                MainWindowVM.MoveProgramToPane(tabName, true);
+            }
+            else
+            {
+                MainWindowVM.MoveProgramToPane(tabName, false);
+            }
+
             e.Handled = true;
+        }
+
+        private static bool IsEditorTabDrag(DragEventArgs e)
+        {
+            return e.Data.GetDataPresent(EditorTabDragFormat);
+        }
+
+        private static string GetDraggedTabName(DragEventArgs e)
+        {
+            return e.Data.GetData(EditorTabDragFormat) as string;
+        }
+
+        private bool ShouldCreateSplit(Point position, out bool sideBySide)
+        {
+            sideBySide = true;
+            if (EditorSurface.ActualWidth > 0 && position.X > EditorSurface.ActualWidth * 0.58)
+                return true;
+
+            if (EditorSurface.ActualHeight > 0 && position.Y > EditorSurface.ActualHeight * 0.62)
+            {
+                sideBySide = false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsSecondaryDropPosition(Point position)
+        {
+            if (MainWindowVM.EditorPaneColumns == 2)
+                return position.X >= EditorSurface.ActualWidth / 2;
+
+            if (MainWindowVM.EditorPaneRows == 2)
+                return position.Y >= EditorSurface.ActualHeight / 2;
+
+            return false;
         }
 
         private static T FindParent<T>(DependencyObject source) where T : DependencyObject

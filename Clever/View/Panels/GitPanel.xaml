@@ -135,10 +135,10 @@
         </Style>
 
         <Style x:Key="GitInlineIconButton" TargetType="Button" BasedOn="{StaticResource GitPopupIconButton}">
-            <Setter Property="Width" Value="22"/>
-            <Setter Property="Height" Value="22"/>
-            <Setter Property="Padding" Value="5"/>
-            <Setter Property="Margin" Value="3,0,0,0"/>
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="Margin" Value="2,0,0,0"/>
         </Style>
 
         <Style x:Key="GitFileRowButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -391,14 +391,14 @@
                                                         CommandParameter="{Binding Commit}"
                                                         Click="CommitRowActionButton_Click"
                                                         ToolTip="{Binding Path=DataContext.GetLocalization[tGitRevertCommit], RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                                    <Image Source="{StaticResource git_icon_revert}" Width="12" Height="12"/>
+                                                    <Image Source="{StaticResource git_icon_revert}" Width="10" Height="10"/>
                                                 </Button>
                                                 <Button Style="{StaticResource GitInlineIconButton}"
                                                         Command="{Binding DataContext.DiffCommitCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding Commit}"
                                                         Click="CommitRowActionButton_Click"
                                                         ToolTip="{Binding Path=DataContext.GetLocalization[tGitDiffCommit], RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                                    <Image Source="{StaticResource git_icon_diff}" Width="12" Height="12"/>
+                                                    <Image Source="{StaticResource git_icon_diff}" Width="10" Height="10"/>
                                                 </Button>
                                             </StackPanel>
                                         </Grid>
