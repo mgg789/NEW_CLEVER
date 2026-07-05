@@ -375,7 +375,7 @@
 
         <Popup x:Name="CommitInfoPopup"
                Placement="Relative"
-               HorizontalOffset="70"
+               HorizontalOffset="-260"
                VerticalOffset="18"
                AllowsTransparency="True"
                StaysOpen="True"
