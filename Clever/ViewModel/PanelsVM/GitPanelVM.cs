@@ -1,4 +1,5 @@
 using Clever.CommonData;
+using Clever.ViewModel;
 using Clever.ViewModel.BaseVM;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -29,7 +30,7 @@ namespace Clever.ViewModel.PanelsVM
             SelectBranchCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusBranch", "Branch selection will be connected later."), true);
             ToggleCommitCommand = new RelayCommand(ToggleCommit, true);
             RevertCommitCommand = new RelayCommand(param => SetCommitActionStatus(param, "GitStatusRevert", "Revert commit is a UI action in this pass."), true);
-            DiffCommitCommand = new RelayCommand(param => SetCommitActionStatus(param, "GitStatusDiff", "Diff preview is a UI action in this pass."), true);
+            DiffCommitCommand = new RelayCommand(OpenCommitDiff, true);
 
             if (GraphRows.Count > 0)
                 SelectCommit(GraphRows[0].Commit, false);
@@ -150,6 +151,19 @@ namespace Clever.ViewModel.PanelsVM
                 message = fallback;
 
             StatusMessage = commit == null ? message : message + " " + commit.ShortHash;
+        }
+
+        private void OpenCommitDiff(object parameter)
+        {
+            var commit = parameter as GitCommitVM;
+            if (commit == null)
+            {
+                SetLocalizedStatus("GitDiffNoData", "No diff data for this commit.");
+                return;
+            }
+
+            MainWindowVM.OpenGitDiffPreview(commit);
+            SetCommitActionStatus(commit, "GitStatusDiffOpened", "Opened read-only diff:");
         }
     }
 }

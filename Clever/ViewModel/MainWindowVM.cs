@@ -255,9 +255,17 @@ namespace Clever.ViewModel
                     var name = header.HeaderName;
                     if (Project.ContainsKey(name))
                     {
-                        CurrentName = name;
-                        //var data = Project.GetDictionary()[name];
-                        IntellisenseParser.UpdateMap(CurrentName);
+                        var data = Project.GetDictionary()[name];
+                        if (data.IsPreview)
+                        {
+                            CurrentName = "";
+                        }
+                        else
+                        {
+                            CurrentName = name;
+                            //var data = Project.GetDictionary()[name];
+                            IntellisenseParser.UpdateMap(CurrentName);
+                        }
                     }
                     else
                     {
@@ -269,6 +277,69 @@ namespace Clever.ViewModel
                     CurrentName = "";
                 }
             }
+        }
+
+        internal static void OpenGitDiffPreview(GitCommitVM commit)
+        {
+            if (commit == null || commit.DiffDocument == null || commit.DiffDocument.Files.Count == 0)
+            {
+                CommonData.Status.Clear();
+                var noDataMessage = GUILanguage.GetItem("GitDiffNoData");
+                CommonData.Status.Add(string.IsNullOrEmpty(noDataMessage) ? "No diff data for this commit." : noDataMessage);
+                return;
+            }
+
+            MainWindow.UpdateSize();
+            var name = commit.DiffDocument.Title;
+            if (Project.ContainsKey(name))
+            {
+                var existing = Project.GetDictionary()[name];
+                CurrentProgram = existing.Item;
+                existing.Item.IsSelected = true;
+                SetGitDiffStatus(commit);
+                Topmost();
+                return;
+            }
+
+            var tmp = new NewTabItem().CreateReadOnlyPreview(Project.GetDictionary(), commit.DiffDocument);
+            var pd = new ProgramData();
+            pd.AddToObjects = false;
+            pd.IsPreview = true;
+            pd.IsReadOnlyPreview = true;
+            pd.OldName = name;
+            pd.ClosedName = name;
+            pd.Name = name;
+            pd.Path = "";
+            var tooltip = GUILanguage.GetItem("GitDiffReadOnly");
+            pd.FullPath = string.IsNullOrEmpty(tooltip) ? "Read-only Git diff preview" : tooltip;
+            pd.Item = tmp;
+            pd.TextChange = false;
+
+            if (Project.Add(pd.Name, pd))
+            {
+                var pnl = new ObservableCollection<TabItem>();
+                pnl.Add(pd.Item);
+                foreach (var i in ProgramNameList)
+                {
+                    i.Style = (System.Windows.Style)Application.Current.Resources["NextTabItem"];
+                    pnl.Add(i);
+                }
+                ProgramNameList = pnl;
+                CurrentProgram = pd.Item;
+            }
+
+            SetGitDiffStatus(commit);
+            Topmost();
+        }
+
+        private static void SetGitDiffStatus(GitCommitVM commit)
+        {
+            var message = GUILanguage.GetItem("GitStatusDiffOpened");
+            if (string.IsNullOrEmpty(message))
+                message = "Opened read-only diff:";
+
+            CommonData.Status.Clear();
+            CommonData.Status.Add(message + " " + commit.ShortHash);
         }
 
         internal static string CurrentName { get; private set; }
@@ -639,7 +710,13 @@ namespace Clever.ViewModel
                 if (name != "")
                 {
                     var pd = Project.GetProgramData(CurrentProgram);
-                    if (pd != null && pd.FullPath != "")
+                    if (pd != null && pd.IsPreview)
+                    {
+                        var message = GUILanguage.GetItem("GitDiffReadOnly");
+                        CommonData.Status.Clear();
+                        CommonData.Status.Add(string.IsNullOrEmpty(message) ? "Read-only Git diff preview" : message);
+                    }
+                    else if (pd != null && pd.FullPath != "")
                     {
                         new SaveFile().Save(pd);
                         pd.TextChange = false;
@@ -671,6 +748,9 @@ namespace Clever.ViewModel
                 foreach (var i in ProgramNameList)
                 {
                     var pd = Project.GetProgramData(i);
+                    if (pd != null && pd.IsPreview)
+                        continue;
+
                     if ((pd != null && pd.TextChange) || pd.GetHeaderChangeText != "")
                     {
                         if (pd.FullPath != "")
@@ -713,6 +793,9 @@ namespace Clever.ViewModel
                     var pd = Project.GetProgramData(i);
                     if (pd != null)
                     {
+                        if (pd.IsPreview)
+                            continue;
+
                         if (pd.FullPath != "")
                         {
                             new SaveFile().Save(pd);
@@ -766,6 +849,15 @@ namespace Clever.ViewModel
             try
             {
                 var pd = Project.GetProgramData(CurrentProgram);
+                if (pd != null && pd.IsPreview)
+                {
+                    var message = GUILanguage.GetItem("GitDiffReadOnly");
+                    CommonData.Status.Clear();
+                    CommonData.Status.Add(string.IsNullOrEmpty(message) ? "Read-only Git diff preview" : message);
+                    ButtonsPanel.GetFilePopup.IsOpen = false;
+                    return;
+                }
+
                 string tmpExt = "";
                 for (int a = pd.Name.IndexOf('.'); a < pd.Name.Length; a++)
                 {
@@ -810,6 +902,15 @@ namespace Clever.ViewModel
             try
             {
                 var pd = Project.GetProgramData(CurrentProgram);
+                if (pd != null && pd.IsPreview)
+                {
+                    var message = GUILanguage.GetItem("GitDiffReadOnly");
+                    CommonData.Status.Clear();
+                    CommonData.Status.Add(string.IsNullOrEmpty(message) ? "Read-only Git diff preview" : message);
+                    ButtonsPanel.GetFilePopup.IsOpen = false;
+                    return;
+                }
+
                 string tmpExt = "";
                 for (int a = pd.Name.IndexOf('.'); a < pd.Name.Length; a++)
                 {

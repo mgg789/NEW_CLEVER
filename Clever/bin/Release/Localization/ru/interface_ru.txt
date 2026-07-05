@@ -161,3 +161,6 @@ GitStatusReload = Данные обновлены из design data.
 GitStatusBranch = Выбор ветки будет подключен после backend-слоя Git.
 GitStatusRevert = Откат будет подключен к Git позже:
 GitStatusDiff = Просмотр diff будет подключен к Git позже:
+GitStatusDiffOpened = Открыт read-only diff:
+GitDiffReadOnly = Это read-only просмотр изменений Git.
+GitDiffNoData = Для этого коммита нет данных diff.

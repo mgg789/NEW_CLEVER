@@ -16,10 +16,12 @@
 //along with SB-Prime for Small Basic.  If not, see <http://www.gnu.org/licenses/>. 
 
 using Clever.Model.Utils;
+using Clever.ViewModel.PanelsVM;
 using Clever.ViewModel;
 using ScintillaNET;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Controls.Primitives;
 using System.Windows.Forms;
@@ -220,6 +222,10 @@ namespace Clever.Model.Bplus
         /// </summary>
         ////////public const int HIGHLIGHT_MARKER = 0;
 
+        public const int DIFF_ADDED_MARKER = 20;
+        public const int DIFF_DELETED_MARKER = 21;
+        public const int DIFF_HEADER_MARKER = 22;
+
         /// <summary>
         /// change this to whatever margin you want the code folding tree (+/-) to show in
         /// </summary>
@@ -364,6 +370,51 @@ namespace Clever.Model.Bplus
             Line line = textArea.Lines[iLine];
             textArea.SetSelection(line.Position, line.Position + line.Length);
             textArea.ScrollCaret();
+        }
+
+        internal void ApplyDiffPreview(GitDiffDocumentVM document)
+        {
+            textArea.ReadOnly = false;
+            textArea.MarkerDeleteAll(DIFF_ADDED_MARKER);
+            textArea.MarkerDeleteAll(DIFF_DELETED_MARKER);
+            textArea.MarkerDeleteAll(DIFF_HEADER_MARKER);
+            ConfigureDiffMarker(DIFF_ADDED_MARKER, "#E8F6EC");
+            ConfigureDiffMarker(DIFF_DELETED_MARKER, "#FBEAEA");
+            ConfigureDiffMarker(DIFF_HEADER_MARKER, "#F1F3F7");
+
+            textArea.Text = document == null ? "" : document.ToText();
+
+            if (document != null)
+            {
+                int lineNumber = 0;
+                foreach (var file in document.Files)
+                {
+                    foreach (var diffLine in file.Lines)
+                    {
+                        if (lineNumber >= textArea.Lines.Count)
+                            break;
+
+                        if (diffLine.Kind == GitDiffLineKind.Added)
+                            textArea.Lines[lineNumber].MarkerAdd(DIFF_ADDED_MARKER);
+                        else if (diffLine.Kind == GitDiffLineKind.Deleted)
+                            textArea.Lines[lineNumber].MarkerAdd(DIFF_DELETED_MARKER);
+                        else if (diffLine.Kind == GitDiffLineKind.Header)
+                            textArea.Lines[lineNumber].MarkerAdd(DIFF_HEADER_MARKER);
+
+                        lineNumber++;
+                    }
+                }
+            }
+
+            textArea.EmptyUndoBuffer();
+            textArea.ReadOnly = true;
+        }
+
+        private void ConfigureDiffMarker(int markerNumber, string color)
+        {
+            var marker = textArea.Markers[markerNumber];
+            marker.Symbol = MarkerSymbol.Background;
+            marker.SetBackColor(ColorTranslator.FromHtml(color));
         }
 
         public void SetEmptySelection()

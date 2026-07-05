@@ -161,3 +161,6 @@ GitStatusReload = Design data refreshed.
 GitStatusBranch = Branch selection will be connected after the Git backend layer.
 GitStatusRevert = Revert will be connected to Git later:
 GitStatusDiff = Diff preview will be connected to Git later:
+GitStatusDiffOpened = Opened read-only diff:
+GitDiffReadOnly = This is a read-only Git diff preview.
+GitDiffNoData = No diff data for this commit.

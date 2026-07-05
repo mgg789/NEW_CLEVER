@@ -16,7 +16,9 @@ namespace Clever.Model.Utils
 
             if (MainWindowVM.Project.ContainsKey(name))
             {
-                MainWindowVM.Project.GetDictionary()[name].TextChange = true;
+                var programData = MainWindowVM.Project.GetDictionary()[name];
+                if (!programData.IsReadOnlyPreview)
+                    programData.TextChange = true;
             }
         }
 
@@ -34,6 +36,9 @@ namespace Clever.Model.Utils
             ed.GetTextEditor.TextArea.Focus();
             var header = ti.Header as EditorHeader;
             var data = MainWindowVM.Project.GetProgramData(ti);
+            if (data == null)
+                return;
+
             data.ToolTip = data.FullPath;
             header.MyToolTip = data.ToolTip;
         }

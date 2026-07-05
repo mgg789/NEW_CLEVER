@@ -1038,6 +1038,9 @@ namespace Clever.View.Controls.Helps
             foreach (var cur in programs)
             {
                 var curPrg = MainWindowVM.Project.GetProgramData(cur);
+                if (curPrg == null || curPrg.IsPreview)
+                    continue;
+
                 string tmpExt = "";
                 for (int a = curPrg.Name.IndexOf('.'); a < curPrg.Name.Length; a++)
                 {
@@ -1078,7 +1081,7 @@ namespace Clever.View.Controls.Helps
             }
             else if (listCur.Count > 1)
             {
-                if (current.Name.IndexOf(".bpm") != -1 || current.Name.IndexOf(".bpi") != -1)
+                if (current == null || current.IsPreview || current.Name.IndexOf(".bpm") != -1 || current.Name.IndexOf(".bpi") != -1)
                 {
                     Status.Add(MainWindowVM.GetLocalization["bpCompileNotSelect"]);
                     return;

@@ -70,8 +70,61 @@ namespace Clever.ViewModel.PanelsVM
                 commit.RemoteRefs.Add(remoteRef);
             foreach (var file in files)
                 commit.Files.Add(file);
+            commit.DiffDocument = CreateDiffDocument(commit, files);
 
             return commit;
+        }
+
+        private static GitDiffDocumentVM CreateDiffDocument(GitCommitVM commit, GitChangeItemVM[] files)
+        {
+            var document = new GitDiffDocumentVM(commit.ShortHash, "Diff " + commit.ShortHash + ".diff");
+
+            foreach (var file in files)
+            {
+                var filePath = string.IsNullOrEmpty(file.Folder) ? file.FileName : file.Folder + "\\" + file.FileName;
+                var diffFile = new GitDiffFileVM(filePath);
+                AddFileDiff(diffFile, file, commit);
+                document.Files.Add(diffFile);
+            }
+
+            return document;
+        }
+
+        private static void AddFileDiff(GitDiffFileVM diffFile, GitChangeItemVM file, GitCommitVM commit)
+        {
+            var normalizedPath = diffFile.Path.Replace("\\", "/");
+            diffFile.Lines.Add(new GitDiffLineVM("diff --git a/" + normalizedPath + " b/" + normalizedPath, GitDiffLineKind.Header));
+            diffFile.Lines.Add(new GitDiffLineVM("--- a/" + normalizedPath, GitDiffLineKind.Header));
+            diffFile.Lines.Add(new GitDiffLineVM("+++ b/" + normalizedPath, GitDiffLineKind.Header));
+            diffFile.Lines.Add(new GitDiffLineVM("@@ -1,7 +1,8 @@", GitDiffLineKind.Header));
+
+            if (file.Status == "A")
+            {
+                diffFile.Lines.Add(new GitDiffLineVM("+// " + commit.Message, GitDiffLineKind.Added));
+                diffFile.Lines.Add(new GitDiffLineVM("+start", GitDiffLineKind.Added));
+                diffFile.Lines.Add(new GitDiffLineVM("+  display = \"" + file.FileName + "\"", GitDiffLineKind.Added));
+                diffFile.Lines.Add(new GitDiffLineVM("+  wait 1000", GitDiffLineKind.Added));
+                diffFile.Lines.Add(new GitDiffLineVM("+end", GitDiffLineKind.Added));
+            }
+            else if (file.Status == "D")
+            {
+                diffFile.Lines.Add(new GitDiffLineVM("-// Старый файл проекта", GitDiffLineKind.Deleted));
+                diffFile.Lines.Add(new GitDiffLineVM("-start", GitDiffLineKind.Deleted));
+                diffFile.Lines.Add(new GitDiffLineVM("-  display = \"backup\"", GitDiffLineKind.Deleted));
+                diffFile.Lines.Add(new GitDiffLineVM("-end", GitDiffLineKind.Deleted));
+            }
+            else
+            {
+                diffFile.Lines.Add(new GitDiffLineVM(" start", GitDiffLineKind.Context));
+                diffFile.Lines.Add(new GitDiffLineVM("-  speed = 20", GitDiffLineKind.Deleted));
+                diffFile.Lines.Add(new GitDiffLineVM("+  speed = 35", GitDiffLineKind.Added));
+                diffFile.Lines.Add(new GitDiffLineVM("   steering = 0", GitDiffLineKind.Context));
+                diffFile.Lines.Add(new GitDiffLineVM("-  wait 500", GitDiffLineKind.Deleted));
+                diffFile.Lines.Add(new GitDiffLineVM("+  wait 700", GitDiffLineKind.Added));
+                diffFile.Lines.Add(new GitDiffLineVM(" end", GitDiffLineKind.Context));
+            }
+
+            diffFile.Lines.Add(new GitDiffLineVM("", GitDiffLineKind.Context));
         }
 
         private static GitChangeItemVM CreateFile(string name, string folder, string status, string statusText, string type, string statusColor, string iconColor)

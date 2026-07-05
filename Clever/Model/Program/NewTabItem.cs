@@ -3,6 +3,7 @@ using Clever.Model.Utils;
 using Clever.View.Controls.Editors;
 using Clever.View.Dialogs;
 using Clever.ViewModel;
+using Clever.ViewModel.PanelsVM;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
@@ -119,6 +120,34 @@ namespace Clever.Model.Program
             header.HeaderChange = "";
             tabItem.Header = header;
             tabItem.Content = editor;
+
+            return tabItem;
+        }
+
+        public TabItem CreateReadOnlyPreview(Dictionary<string, ProgramData> items, GitDiffDocumentVM document)
+        {
+            TabItem tabItem = new TabItem();
+            tabItem.IsSelected = true;
+            tabItem.Loaded += TextEditorEvents.Editor_Loaded;
+            tabItem.MouseLeftButtonUp += TextEditorEvents.EditorName_MouseLeftButtonUp;
+
+            EditorHeader header = new EditorHeader();
+            Editor editor = new Editor();
+            editor.GetTextEditor.Menu = editor.GetTextEditorPopup;
+            editor.GetTextEditor.ToolsWindow = editor.GetTextEditorTools;
+            editor.GetTextEditor.ApplyDiffPreview(document);
+
+            header.HeaderName = document.Title;
+            header.HeaderChange = "";
+            tabItem.Header = header;
+            tabItem.Content = editor;
+            tabItem.Style = (Style)Application.Current.Resources["FirstTabItem"];
+
+            if (items.Count == 0)
+            {
+                var element = new Elements();
+                element.SetCloseButtonlMargin(tabItem, 1);
+            }
 
             return tabItem;
         }

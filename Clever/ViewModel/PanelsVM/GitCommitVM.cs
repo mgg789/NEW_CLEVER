@@ -23,6 +23,7 @@ namespace Clever.ViewModel.PanelsVM
         public string TimeText { get; set; }
         public string Summary { get; set; }
         public string StatsText { get; set; }
+        public GitDiffDocumentVM DiffDocument { get; set; }
 
         public ObservableCollection<string> ParentHashes { get; private set; }
         public ObservableCollection<string> LocalRefs { get; private set; }

@@ -23,6 +23,8 @@ namespace Clever.Model.Utils
         internal List<string> Subroutines = new List<string>();
         internal ProgramMap Map { get; set; }
         internal bool AddToObjects = true;
+        internal bool IsPreview { get; set; }
+        internal bool IsReadOnlyPreview { get; set; }
         internal int Number = 0;
         public ProgramData()
         {
@@ -166,6 +168,13 @@ namespace Clever.Model.Utils
             }
             set
             {
+                if (IsReadOnlyPreview)
+                {
+                    _textChange = false;
+                    SetChangeToHeaderNo();
+                    return;
+                }
+
                 _textChange = value;
                 if (_textChange)
                 {

@@ -143,6 +143,10 @@
     <Compile Include="ViewModel\ConfigWindowVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitChangeItemVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitCommitVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitDiffDocumentVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitDiffFileVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitDiffLineKind.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitDiffLineVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitDesignData.cs" />
     <Compile Include="ViewModel\PanelsVM\GitGraphLayoutService.cs" />
     <Compile Include="ViewModel\PanelsVM\GitGraphRowVM.cs" />
