@@ -17,6 +17,7 @@
                 <ResourceDictionary Source="Dictionary/CompileIcons.xaml"/>
                 <ResourceDictionary Source="Dictionary/EV3Icon.xaml"/>
                 <ResourceDictionary Source="Dictionary/RestIcons.xaml"/>
+                <ResourceDictionary Source="Dictionary/Clev3rSetIcons.xaml"/>
                 <ResourceDictionary Source="Dictionary/Dimensions.xaml"/>
                 <ResourceDictionary Source="Dictionary/TabItemStyle.xaml"/>
                 <ResourceDictionary Source="Dictionary/TreeViewItemStyle.xaml"/>

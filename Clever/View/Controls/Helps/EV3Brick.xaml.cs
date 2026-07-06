@@ -245,15 +245,21 @@ namespace Clever.View.Controls.Helps
             {
                 Status.Clear();
                 Status.Add(MainWindowVM.GetLocalization["brkExcept"] + " " + ex.Message);
+                if (connection != null)
+                {
+                    connection.Close();
+                }
+                connection = null;
                 MainWindowVM.BrickConnect = false;
+                AdjustDisabledStates();
             }
             Status.Clear();
-            if (connection != null)
+            if (connection != null && connection.IsOpen())
                 Status.Add(MainWindowVM.GetLocalization["brkConnectYes"]);
             else
                 Status.Add(MainWindowVM.GetLocalization["brkConnectNo"]);
 
-            ButtonsPanel.GetBrickPopup.IsOpen = false;
+            CloseBrickPopup();
         }
 
         private void DeleteFile_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -412,14 +418,14 @@ namespace Clever.View.Controls.Helps
         public void Compile_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             CompileAndDownload(false);
-            ButtonsPanel.GetBrickPopup.IsOpen = false;
+            CloseBrickPopup();
         }
 
         public void CompileAndRun_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (connection == null || !connection.IsOpen())
             {
-                ButtonsPanel.GetBrickPopup.IsOpen = false;
+                CloseBrickPopup();
                 AdjustDisabledStates();
                 return;
             }
@@ -445,7 +451,7 @@ namespace Clever.View.Controls.Helps
                 Reconnect();
             }
 
-            ButtonsPanel.GetBrickPopup.IsOpen = false;
+            CloseBrickPopup();
         }
 
         private void RunFile_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -516,7 +522,7 @@ namespace Clever.View.Controls.Helps
         {
             if (connection == null || !connection.IsOpen())
             {
-                ButtonsPanel.GetBrickPopup.IsOpen = false;
+                CloseBrickPopup();
                 AdjustDisabledStates();
                 return;
             }
@@ -525,7 +531,7 @@ namespace Clever.View.Controls.Helps
             {
                 if (!EV3ProgramRun())
                 {
-                    ButtonsPanel.GetBrickPopup.IsOpen = false;
+                    CloseBrickPopup();
                     return;
                 }
 
@@ -545,7 +551,7 @@ namespace Clever.View.Controls.Helps
                 Reconnect();
             }
 
-            ButtonsPanel.GetBrickPopup.IsOpen = false;
+            CloseBrickPopup();
         }
 
         /*
@@ -1415,7 +1421,7 @@ namespace Clever.View.Controls.Helps
         {
             if (connection == null || !connection.IsOpen())
             {
-                ButtonsPanel.GetBrickPopup.IsOpen = false;
+                CloseBrickPopup();
                 AdjustDisabledStates();
                 return;
             }
@@ -1554,7 +1560,7 @@ namespace Clever.View.Controls.Helps
                 Reconnect();
             }
 
-            ButtonsPanel.GetBrickPopup.IsOpen = false;
+            CloseBrickPopup();
         }
 
         private void EV3Directory_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -1565,6 +1571,29 @@ namespace Clever.View.Controls.Helps
         public static EV3Brick GetEV3Brick
         {
             get { return _ev3Brick; }
+        }
+
+        public static void SwitchDeviceFromCommand(object sender, MouseButtonEventArgs e)
+        {
+            if (_ev3Brick == null)
+            {
+                Status.Clear();
+                Status.Add(MainWindowVM.GetLocalization["brkConnectNo"]);
+                MainWindowVM.BrickConnect = false;
+                CloseBrickPopup();
+                return;
+            }
+
+            _ev3Brick.EV3SwitchDevice_PreviewMouseLeftButtonDown(sender, e);
+        }
+
+        private static void CloseBrickPopup()
+        {
+            Popup popup = ButtonsPanel.GetBrickPopup;
+            if (popup != null)
+            {
+                popup.IsOpen = false;
+            }
         }
 
         public static Popup GetMenurPopup

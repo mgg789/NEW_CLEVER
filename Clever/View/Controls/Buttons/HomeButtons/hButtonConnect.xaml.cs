@@ -25,7 +25,7 @@ namespace Clever.View.Controls.Buttons.HomeButtons
 
         private void toggleButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            EV3Brick.GetEV3Brick.EV3SwitchDevice_PreviewMouseLeftButtonDown(sender, e);
+            EV3Brick.SwitchDeviceFromCommand(sender, e);
         }
     }
 }

@@ -94,7 +94,7 @@ namespace Clever.View.Controls.Menu
 
         private void Connect_Click(object sender, MouseButtonEventArgs e)
         {
-            EV3Brick.GetEV3Brick.EV3SwitchDevice_PreviewMouseLeftButtonDown(sender, e);
+            EV3Brick.SwitchDeviceFromCommand(sender, e);
         }
 
         private void Compile_Click(object sender, MouseButtonEventArgs e)

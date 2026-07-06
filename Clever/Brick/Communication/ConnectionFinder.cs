@@ -68,7 +68,15 @@ namespace Clever.Brick.Communication
                 if (ConObjList.ConCOMList.Count == 1)
                 {
                     var tmpPort = ConObjList.ConCOMList[0].ComPort.ToUpper();
-                    c = TestConnection(new EV3ConnectionBluetooth(tmpPort));
+                    try
+                    {
+                        c = TestConnection(new EV3ConnectionBluetooth(tmpPort));
+                    }
+                    catch (Exception)
+                    {
+                        c = null;
+                    }
+
                     if (c != null && c.IsOpen())
                     {
                         return c;
