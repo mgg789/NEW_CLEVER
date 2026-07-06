@@ -78,9 +78,7 @@
                      FontSize="14"
                      VerticalAlignment="Bottom">
                 <TabItem.Header>
-                    <Viewbox Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tBrick]}">
-                        <ContentControl Content="{StaticResource brick_connected_mof}"/>
-                    </Viewbox>
+                    <Image Source="{StaticResource git_sidebar_icon_brick}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tBrick]}"/>
                 </TabItem.Header>
                 <helps:EV3Brick Margin="0,0,-1,0"/>
             </TabItem>
@@ -93,7 +91,7 @@
                      FontSize="14"
                      VerticalAlignment="Bottom">
                 <TabItem.Header>
-                    <Image Source="{StaticResource git_icon_help}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tHelp]}"/>
+                    <Image Source="{StaticResource git_sidebar_icon_help}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tHelp]}"/>
                 </TabItem.Header>
                 <panel:HelperPanel Margin="0"/>
             </TabItem>
@@ -106,7 +104,7 @@
                      FontSize="14"
                      VerticalAlignment="Bottom">
                 <TabItem.Header>
-                    <Image Source="{StaticResource git_icon_file}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tView]}"/>
+                    <Image Source="{StaticResource git_sidebar_icon_file}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tView]}"/>
                 </TabItem.Header>
                 <helps:View/>
             </TabItem>
@@ -121,7 +119,7 @@
                      BorderThickness="0"
                      BorderBrush="#00000000">
                 <TabItem.Header>
-                    <Image Source="{StaticResource git_icon_media}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tMedia]}"/>
+                    <Image Source="{StaticResource git_sidebar_icon_media}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tMedia]}"/>
                 </TabItem.Header>
                 <panel:MediaPanel/>
             </TabItem>
@@ -136,7 +134,7 @@
                      BorderThickness="0"
                      BorderBrush="#00000000">
                 <TabItem.Header>
-                    <Image Source="{StaticResource git_icon_branch}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tGit]}"/>
+                    <Image Source="{StaticResource git_sidebar_icon_branch}" Width="20" Height="20" ToolTip="{Binding Path=GetLocalization[tGit]}"/>
                 </TabItem.Header>
                 <panel:GitPanel/>
             </TabItem>

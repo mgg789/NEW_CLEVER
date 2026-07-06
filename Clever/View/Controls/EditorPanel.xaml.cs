@@ -18,7 +18,6 @@ namespace Clever.View.Controls
         private static TabControl _tabControl;
         private static TabControl _secondaryTabControl;
         static Popup _popup;
-        private const string EditorTabDragFormat = "Clever.EditorTabName";
         private Point _dragStartPoint;
 
         private enum SplitPreviewTarget
@@ -170,7 +169,9 @@ namespace Clever.View.Controls
                 return;
 
             var data = new DataObject();
-            data.SetData(EditorTabDragFormat, header.HeaderName);
+            data.SetData(MainWindowVM.EditorTabDragFormat, header.HeaderName);
+            data.SetData(System.Windows.DataFormats.StringFormat, header.HeaderName);
+            data.SetData(System.Windows.DataFormats.UnicodeText, header.HeaderName);
             DragDrop.DoDragDrop(tabItem, data, DragDropEffects.Move);
             e.Handled = true;
         }
@@ -289,12 +290,12 @@ namespace Clever.View.Controls
 
         private static bool IsEditorTabDrag(DragEventArgs e)
         {
-            return e.Data.GetDataPresent(EditorTabDragFormat);
+            return MainWindowVM.IsEditorTabDragData(e.Data);
         }
 
         private static string GetDraggedTabName(DragEventArgs e)
         {
-            return e.Data.GetData(EditorTabDragFormat) as string;
+            return MainWindowVM.GetDraggedEditorTabName(e.Data);
         }
 
         private bool ShouldCreateSplit(SplitPreviewTarget target)

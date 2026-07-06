@@ -509,6 +509,7 @@ namespace Clever.ViewModel
         private static bool _rightSidebarHidden;
         private static GridLength _lastEditorColumnWidth;
         private static GridLength _lastRightSidebarColumnWidth;
+        internal const string EditorTabDragFormat = "Clever.EditorTabName";
         private const double RightSidebarMinWidth = 330;
         private const double RightSidebarSplitterWidth = 4;
 
@@ -635,6 +636,68 @@ namespace Clever.ViewModel
         internal static void MoveProgramToPane(string name, bool secondaryPane)
         {
             MoveProgramToPane(FindOpenProgramItem(name), secondaryPane);
+        }
+
+        internal static bool IsEditorTabDragData(System.Windows.IDataObject data)
+        {
+            return !string.IsNullOrEmpty(GetDraggedEditorTabName(data));
+        }
+
+        internal static bool IsEditorTabDragData(System.Windows.Forms.IDataObject data)
+        {
+            return !string.IsNullOrEmpty(GetDraggedEditorTabName(data));
+        }
+
+        internal static string GetDraggedEditorTabName(System.Windows.IDataObject data)
+        {
+            if (data == null)
+                return null;
+
+            var name = data.GetData(EditorTabDragFormat) as string;
+            if (string.IsNullOrEmpty(name))
+                name = data.GetData(System.Windows.DataFormats.StringFormat) as string;
+            if (string.IsNullOrEmpty(name))
+                name = data.GetData(System.Windows.DataFormats.UnicodeText) as string;
+
+            return FindOpenProgramItem(name) == null ? null : name;
+        }
+
+        internal static string GetDraggedEditorTabName(System.Windows.Forms.IDataObject data)
+        {
+            if (data == null)
+                return null;
+
+            var name = data.GetData(EditorTabDragFormat) as string;
+            if (string.IsNullOrEmpty(name))
+                name = data.GetData(System.Windows.Forms.DataFormats.StringFormat) as string;
+            if (string.IsNullOrEmpty(name))
+                name = data.GetData(System.Windows.Forms.DataFormats.UnicodeText) as string;
+
+            return FindOpenProgramItem(name) == null ? null : name;
+        }
+
+        internal static bool MoveDraggedEditorTabToEditor(System.Windows.Forms.IDataObject data, TextEditor targetEditor)
+        {
+            var tabName = GetDraggedEditorTabName(data);
+            if (string.IsNullOrEmpty(tabName))
+                return false;
+
+            MoveProgramToPane(tabName, IsEditorInSecondaryPane(targetEditor));
+            return true;
+        }
+
+        private static bool IsEditorInSecondaryPane(TextEditor targetEditor)
+        {
+            if (targetEditor == null || Project == null || SecondaryProgramNameList == null)
+                return false;
+
+            foreach (var data in Project.GetDictionary().Values)
+            {
+                if (ReferenceEquals(data.Editor, targetEditor))
+                    return SecondaryProgramNameList.Contains(data.Item);
+            }
+
+            return false;
         }
 
         internal static TabItem FindOpenProgramItem(string name)

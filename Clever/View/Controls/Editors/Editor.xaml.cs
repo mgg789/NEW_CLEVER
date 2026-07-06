@@ -1,5 +1,6 @@
 ﻿using Clever.Model.Bplus;
 using Clever.Model.Utils;
+using Clever.ViewModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -26,6 +27,9 @@ namespace Clever.View.Controls.Editors
             te = new TextEditor();
             te.TextArea.BorderStyle = BorderStyle.None;
             wfh.Child = te.TextArea;
+            te.TextArea.DragEnter += TextArea_EditorTabDragEnter;
+            te.TextArea.DragOver += TextArea_EditorTabDragOver;
+            te.TextArea.DragDrop += TextArea_EditorTabDragDrop;
         }
 
         public TextEditor GetTextEditor
@@ -37,6 +41,24 @@ namespace Clever.View.Controls.Editors
         private void edit_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
             editorPopup.IsOpen = true;
+        }
+
+        private void TextArea_EditorTabDragEnter(object sender, System.Windows.Forms.DragEventArgs e)
+        {
+            if (MainWindowVM.IsEditorTabDragData(e.Data))
+                e.Effect = System.Windows.Forms.DragDropEffects.Move;
+        }
+
+        private void TextArea_EditorTabDragOver(object sender, System.Windows.Forms.DragEventArgs e)
+        {
+            if (MainWindowVM.IsEditorTabDragData(e.Data))
+                e.Effect = System.Windows.Forms.DragDropEffects.Move;
+        }
+
+        private void TextArea_EditorTabDragDrop(object sender, System.Windows.Forms.DragEventArgs e)
+        {
+            if (MainWindowVM.MoveDraggedEditorTabToEditor(e.Data, te))
+                e.Effect = System.Windows.Forms.DragDropEffects.Move;
         }
 
         public Popup GetTextEditorPopup
