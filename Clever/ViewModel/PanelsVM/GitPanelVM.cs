@@ -174,6 +174,36 @@ namespace Clever.ViewModel.PanelsVM
             }
         }
 
+        public Visibility GitCommitActionIconVisibility
+        {
+            get { return _state == GitDesignUiState.DirtyNoRemote ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public Visibility GitRemoteActionIconVisibility
+        {
+            get { return _state == GitDesignUiState.CleanAfterCommitNoRemote ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public Visibility GitSyncActionIconVisibility
+        {
+            get { return _state == GitDesignUiState.CleanWithRemote ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public Visibility GitSyncCountersVisibility
+        {
+            get { return _state == GitDesignUiState.CleanWithRemote ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public int GitOutgoingCommitCount
+        {
+            get { return _state == GitDesignUiState.CleanWithRemote ? 2 : 0; }
+        }
+
+        public int GitIncomingCommitCount
+        {
+            get { return _state == GitDesignUiState.CleanWithRemote ? 1 : 0; }
+        }
+
         public bool IsGitActionButtonEnabled
         {
             get { return _state == GitDesignUiState.DirtyNoRemote || _state == GitDesignUiState.CleanAfterCommitNoRemote || _state == GitDesignUiState.CleanWithRemote; }
@@ -482,6 +512,12 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("MainGitVisibility");
             OnPropertyChanged("SetupButtonText");
             OnPropertyChanged("GitActionButtonText");
+            OnPropertyChanged("GitCommitActionIconVisibility");
+            OnPropertyChanged("GitRemoteActionIconVisibility");
+            OnPropertyChanged("GitSyncActionIconVisibility");
+            OnPropertyChanged("GitSyncCountersVisibility");
+            OnPropertyChanged("GitOutgoingCommitCount");
+            OnPropertyChanged("GitIncomingCommitCount");
             OnPropertyChanged("IsGitActionButtonEnabled");
             OnPropertyChanged("GitActionButtonBackground");
             OnPropertyChanged("GitActionButtonForeground");

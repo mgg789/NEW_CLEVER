@@ -278,7 +278,18 @@
                         Foreground="{Binding GitActionButtonForeground}"
                         IsEnabled="{Binding IsGitActionButtonEnabled}"
                         ToolTip="{Binding Path=GetLocalization[tGitCommit]}">
-                    <TextBlock Text="{Binding GitActionButtonText}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Image Source="{StaticResource git_icon_action_check}" Width="15" Height="15" Margin="0,0,6,0" Visibility="{Binding GitCommitActionIconVisibility}"/>
+                        <Image Source="{StaticResource git_icon_action_cloud}" Width="16" Height="16" Margin="0,0,6,0" Visibility="{Binding GitRemoteActionIconVisibility}"/>
+                        <Image Source="{StaticResource git_icon_action_sync}" Width="15" Height="15" Margin="0,0,6,0" Visibility="{Binding GitSyncActionIconVisibility}"/>
+                        <TextBlock Text="{Binding GitActionButtonText}" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Margin="10,0,0,0" Visibility="{Binding GitSyncCountersVisibility}" VerticalAlignment="Center">
+                            <Image Source="{StaticResource git_icon_action_arrow_up}" Width="12" Height="12" Margin="0,1,2,0"/>
+                            <TextBlock Text="{Binding GitOutgoingCommitCount}" FontSize="12" VerticalAlignment="Center"/>
+                            <Image Source="{StaticResource git_icon_action_arrow_down}" Width="12" Height="12" Margin="7,1,2,0"/>
+                            <TextBlock Text="{Binding GitIncomingCommitCount}" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
                 </Button>
                 <TextBlock Text="{Binding StatusMessage}" Foreground="#8F98AB" FontFamily="Calibri" FontSize="12" Margin="9,5,9,0" TextTrimming="CharacterEllipsis"/>
             </StackPanel>

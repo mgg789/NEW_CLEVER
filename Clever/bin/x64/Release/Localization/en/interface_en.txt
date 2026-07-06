@@ -180,3 +180,6 @@ GitRemoteTokenField = Token
 GitRemoteConnect = Connect
 GitInstallGit = Install Git
 GitStatusInstallGit = Git install completed in design mode.
+tAiChat = AI chat
+tFixBugs = Fix bugs
+tAiCompetitions = AI competitions

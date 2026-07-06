@@ -180,3 +180,6 @@ GitRemoteTokenField = Token
 GitRemoteConnect = Connect
 GitInstallGit = Install Git
 GitStatusInstallGit = Git установлен в design-режиме.
+tAiChat = AI-чат
+tFixBugs = Исправить ошибки
+tAiCompetitions = AI-соревнования

@@ -66,6 +66,39 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="HomeAiChatImageStyle" TargetType="Image">
+            <Setter Property="Source" Value="{StaticResource git_icon_ai_chat}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_ai_chat_hover}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPressed, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_ai_chat_pressed}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="HomeFixBugsImageStyle" TargetType="Image">
+            <Setter Property="Source" Value="{StaticResource git_icon_fix_bugs}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_fix_bugs_hover}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPressed, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_fix_bugs_pressed}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="HomeAiCompetitionsImageStyle" TargetType="Image">
+            <Setter Property="Source" Value="{StaticResource git_icon_ai_competitions}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_ai_competitions_hover}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPressed, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_ai_competitions_pressed}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     <Grid>
         <WrapPanel x:Name="filePanel" VerticalAlignment="Center" Margin="5,0,0,0">
@@ -127,6 +160,15 @@
                     </DrawingBrush>
                 </Canvas.Background>
             </Canvas>
+            <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tAiChat]}" AutomationProperties.Name="{Binding Path=GetLocalization[tAiChat]}">
+                <Image Style="{StaticResource HomeAiChatImageStyle}" Width="17" Height="17"/>
+            </Button>
+            <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tFixBugs]}" AutomationProperties.Name="{Binding Path=GetLocalization[tFixBugs]}">
+                <Image Style="{StaticResource HomeFixBugsImageStyle}" Width="17" Height="17"/>
+            </Button>
+            <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,10,0" ToolTip="{Binding Path=GetLocalization[tAiCompetitions]}" AutomationProperties.Name="{Binding Path=GetLocalization[tAiCompetitions]}">
+                <Image Style="{StaticResource HomeAiCompetitionsImageStyle}" Width="17" Height="17"/>
+            </Button>
             <home_but:hButtonEditUndo Margin="0,0,10,0" Visibility="{Binding Path=EditUndoV}"/>
             <home_but:hButtonEditRedo Margin="0,0,10,0" Visibility="{Binding Path=EditRedoV}"/>
             <Canvas Width="2" Height="{StaticResource pnl_but_height}" Margin="0,0,10,0" Visibility="{Binding Path=EditDV1}">
