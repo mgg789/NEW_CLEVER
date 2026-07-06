@@ -274,6 +274,20 @@ namespace Clever.ViewModel.PanelsVM
             get { return _isRemoteCredentialsVisible ? Visibility.Visible : Visibility.Collapsed; }
         }
 
+        public bool IsRemoteConnectSubmitEnabled
+        {
+            get
+            {
+                if (!_isRemoteCredentialsVisible)
+                    return false;
+
+                if (UseTokenAuth)
+                    return !string.IsNullOrWhiteSpace(RemoteToken);
+
+                return !string.IsNullOrWhiteSpace(RemoteLogin) && !string.IsNullOrWhiteSpace(RemotePassword);
+            }
+        }
+
         public bool UseTokenAuth
         {
             get { return _useTokenAuth; }
@@ -284,6 +298,7 @@ namespace Clever.ViewModel.PanelsVM
                 OnPropertyChanged("UseLoginPasswordAuth");
                 OnPropertyChanged("LoginPasswordVisibility");
                 OnPropertyChanged("TokenVisibility");
+                OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             }
         }
 
@@ -320,6 +335,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _remoteLogin = value;
                 OnPropertyChanged("RemoteLogin");
+                OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             }
         }
 
@@ -330,6 +346,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _remotePassword = value;
                 OnPropertyChanged("RemotePassword");
+                OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             }
         }
 
@@ -340,6 +357,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _remoteToken = value;
                 OnPropertyChanged("RemoteToken");
+                OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             }
         }
 
@@ -478,6 +496,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("RemoteCredentialsVisibility");
             OnPropertyChanged("RemoteCheckVisibility");
             OnPropertyChanged("RemoteConnectSubmitVisibility");
+            OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             IsRemotePopupOpen = true;
         }
 
@@ -487,11 +506,15 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("RemoteCredentialsVisibility");
             OnPropertyChanged("RemoteCheckVisibility");
             OnPropertyChanged("RemoteConnectSubmitVisibility");
+            OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             SetLocalizedStatus("GitStatusRemoteChecked", "Remote URL checked in design mode.");
         }
 
         private void ConnectRemote()
         {
+            if (!IsRemoteConnectSubmitEnabled)
+                return;
+
             var repoName = ParseRemoteName(RemoteUrl);
             if (!string.IsNullOrEmpty(repoName))
                 _remoteRepository = repoName;
@@ -525,6 +548,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("RemoteConnectedVisibility");
             OnPropertyChanged("RemoteConnectVisibility");
             OnPropertyChanged("RemoteStatusText");
+            OnPropertyChanged("IsRemoteConnectSubmitEnabled");
         }
 
         private static string ParseRemoteName(string remoteUrl)

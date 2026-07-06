@@ -45,14 +45,14 @@
                     <ColumnDefinition Width="30"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Name="txtAnsver" Text="" Grid.Row="0" Grid.Column="1" FontFamily="Calibri" FontSize="14" Foreground="#000000" TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <TextBlock Name="txtAnsver" Text="" Grid.Row="0" Grid.Column="1" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 
                 <ComboBox Grid.Row="1" Grid.Column="1" x:Name="Combo" SelectionChanged="Combo_SelectionChanged" Margin="0,5,0,0"/>
                 
                 <WrapPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"  HorizontalAlignment="Right" VerticalAlignment="Bottom">
                     <Button x:Name="butClose" Style="{StaticResource close_button}" Click="butClose_Click"  Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="70" Height="20">
                         <Button.Content>
-                            <TextBlock x:Name="butText" Text="Close" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="butText" Text="Close" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Button.Content>
                     </Button>
                 </WrapPanel>

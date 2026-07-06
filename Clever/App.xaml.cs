@@ -27,7 +27,8 @@ namespace Clever
         public static SplashScreen SplashScreen;
 
         public App()
-        {           
+        {
+            Exit += (sender, args) => PrivateFontLoader.UnloadBundledFonts();
         }
 
         void Aplication_StartUp(object sender, StartupEventArgs e)
@@ -58,6 +59,7 @@ namespace Clever
                 {
                     var server = new CleverServer();
                     server.Start();
+                    PrivateFontLoader.LoadBundledFonts();
                     SplashScreen = new SplashScreen("Resources/splashscreen_nover.png");
                     SplashScreen.Show(false);
                     Configurations.Install();

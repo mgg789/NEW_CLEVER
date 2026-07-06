@@ -23,6 +23,7 @@ using ScintillaNET;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Text;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -38,6 +39,8 @@ namespace Clever.Model.Bplus
         private TextEditor sbDocument;
         private Scintilla textArea;
         private int linesCount = 999;
+        private const string PreferredEditorFont = "JetBrains Mono";
+        private const string FallbackEditorFont = "Consolas";
 
         private int STYLE_UNKNOWN_NEW = 0;
         private int STYLE_COMMENT_NEW = 1;
@@ -190,16 +193,17 @@ namespace Clever.Model.Bplus
             Color backColor = BpColors.Back_Color;
 
             textArea.StyleResetDefault();
-            
-            textArea.Styles[Style.Default].Font = "Consolas";
+
+            var editorFont = ResolveEditorFont();
+            textArea.Styles[Style.Default].Font = editorFont;
             textArea.Styles[Style.Default].Size = 12;
             textArea.Styles[Style.Default].BackColor = backColor;
             textArea.Styles[Style.Default].ForeColor = foreColor;
-            textArea.Styles[Style.LineNumber].Font = "Consolas";
+            textArea.Styles[Style.LineNumber].Font = editorFont;
             textArea.Styles[Style.LineNumber].Bold = false;
             textArea.Styles[Style.LineNumber].Italic = false;
             textArea.Styles[Style.LineNumber].Size = 12;
-            textArea.Styles[Style.CallTip].Font = "Consolas";
+            textArea.Styles[Style.CallTip].Font = editorFont;
             textArea.Styles[Style.CallTip].Size = 8;
 
             textArea.CaretForeColor = foreColor;
@@ -263,6 +267,26 @@ namespace Clever.Model.Bplus
             textArea.Styles[Style.CallTip].BackColor = BpColors.Back_Calltip_Color;
             textArea.Styles[Style.CallTip].ForeColor = BpColors.Fore_Calltip_Color;
             textArea.CallTipSetForeHlt(BpColors.Fore_Calltip_Color);
+        }
+
+        private static string ResolveEditorFont()
+        {
+            if (PrivateFontLoader.IsFontLoaded(PreferredEditorFont))
+                return PreferredEditorFont;
+
+            try
+            {
+                using (var fonts = new InstalledFontCollection())
+                {
+                    return fonts.Families.Any(font => string.Equals(font.Name, PreferredEditorFont, StringComparison.OrdinalIgnoreCase))
+                        ? PreferredEditorFont
+                        : FallbackEditorFont;
+                }
+            }
+            catch
+            {
+                return FallbackEditorFont;
+            }
         }
 
         private void InitAutoComplete()

@@ -113,26 +113,26 @@
                     <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Name="txtAnswer" Text="Ansver" Grid.Row="0" FontFamily="Calibri" FontSize="14" Foreground="#000000" TextWrapping="Wrap" MinWidth="250"/>
+                <TextBlock Name="txtAnswer" Text="Ansver" Grid.Row="0" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" TextWrapping="Wrap" MinWidth="250"/>
 
                 <StackPanel Orientation="Horizontal" Grid.Row="2">
                     <CheckBox Background="#00FFFFFF" Width="16" Height="16" VerticalAlignment="Center" HorizontalAlignment="Center" x:Name="notShow" Click="notShow_Click"  Style="{DynamicResource CheckBoxMenuStyle}"/>
-                    <TextBlock Name="txtNotShow" Text="Don't show again" FontFamily="Calibri" FontSize="14" Foreground="#000000" TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <TextBlock Name="txtNotShow" Text="Don't show again" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" TextWrapping="Wrap" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
                 
                 <Button x:Name="butNo" Style="{StaticResource win_button}" Click="butNo_Click"  Grid.Row="4" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="90" Height="20" Margin="0">
                     <Button.Content>
-                        <TextBlock x:Name="butTextNo" Text="No" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="butTextNo" Text="No" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button.Content>
                 </Button>
                 <WrapPanel Grid.Row="4" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                     <Button x:Name="butYes" Style="{StaticResource win_button}" Click="butYes_Click"  Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="90" Height="20">
                         <Button.Content>
-                            <TextBlock x:Name="butTextYes" Text="Yes" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="butTextYes" Text="Yes" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Button.Content>
                     </Button>
                     <Button x:Name="butCancel" Style="{StaticResource win_button}" Click="butCancel_Click"  VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="90" Height="20" Margin="10,0,0,0">
-                        <TextBlock x:Name="butTextCancel" Text="Cancel" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="butTextCancel" Text="Cancel" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </WrapPanel>
             </Grid>

@@ -30,7 +30,7 @@
                        Background="White"
                        Foreground="Black"
                        FontSize="16"
-                       FontFamily="Calibri"/>
+                       FontFamily="{StaticResource ui_fontfamily}"/>
         </Popup>
 
     </Grid>

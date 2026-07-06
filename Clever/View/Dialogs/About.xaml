@@ -23,27 +23,27 @@
                     <RowDefinition Height="25"/>
 
                 </Grid.RowDefinitions>
-                <TextBlock Text="UI design:" Margin="5,0,0,0" Grid.Row="0" FontFamily="Calibri" FontSize="16" VerticalAlignment="Center"/>
-                <TextBlock Text="ATOMo team." Margin="5,0,0,0" Grid.Row="1" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                <TextBlock Text="UI design:" Margin="5,0,0,0" Grid.Row="0" FontFamily="{StaticResource ui_fontfamily}" FontSize="16" VerticalAlignment="Center"/>
+                <TextBlock Text="ATOMo team." Margin="5,0,0,0" Grid.Row="1" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                 <Label Grid.Row="2" Height="25">
                     <Hyperlink NavigateUri="http://atomorobotics.ru/" Click="Atom_Click">
-                        <TextBlock Text="http://atomorobotics.ru/" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="http://atomorobotics.ru/" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                     </Hyperlink>
                 </Label>
 
-                <TextBlock Text="Tests:" Margin="5,0,0,0" Grid.Row="4" FontFamily="Calibri" FontSize="16" VerticalAlignment="Center"/>
-                <TextBlock Text="Op[ti]mum team." Margin="5,0,0,0" Grid.Row="5" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                <TextBlock Text="Tests:" Margin="5,0,0,0" Grid.Row="4" FontFamily="{StaticResource ui_fontfamily}" FontSize="16" VerticalAlignment="Center"/>
+                <TextBlock Text="Op[ti]mum team." Margin="5,0,0,0" Grid.Row="5" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                 <Label Grid.Row="6" Height="25">
                     <Hyperlink NavigateUri="https://facebook.com/optimum.robotics.team" Click="Optimum_Click">
-                        <TextBlock Text="https://facebook.com/optimum.robotics.team" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="https://facebook.com/optimum.robotics.team" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                     </Hyperlink>
                 </Label>
 
-                <TextBlock Text="Development:" Margin="5,0,0,0" Grid.Row="8" FontFamily="Calibri" FontSize="16" VerticalAlignment="Center"/>
-                <TextBlock Text="i4e][" Margin="5,0,0,0" Grid.Row="9" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                <TextBlock Text="Development:" Margin="5,0,0,0" Grid.Row="8" FontFamily="{StaticResource ui_fontfamily}" FontSize="16" VerticalAlignment="Center"/>
+                <TextBlock Text="i4e][" Margin="5,0,0,0" Grid.Row="9" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                 <Label Grid.Row="10" Height="25">
                     <Hyperlink NavigateUri="https://t.me/clev3r_chat" Click="Robomaks_Click">
-                        <TextBlock Text="https://t.me/clev3r_chat" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="https://t.me/clev3r_chat" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                     </Hyperlink>
                 </Label>
             </Grid>

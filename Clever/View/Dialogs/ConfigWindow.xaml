@@ -876,7 +876,7 @@
                 <Button.Content>
                     <TextBlock x:Name="saveText"
                                Text="Save"
-                               FontFamily="Calibri"
+                               FontFamily="{StaticResource ui_fontfamily}"
                                FontSize="12"
                                Foreground="#000000"
                                VerticalAlignment="Center"
@@ -895,7 +895,7 @@
                 <Button.Content>
                     <TextBlock x:Name="defaultColorText"
                                Text="Default Colors"
-                               FontFamily="Calibri"
+                               FontFamily="{StaticResource ui_fontfamily}"
                                FontSize="12"
                                Foreground="#000000"
                                VerticalAlignment="Center"

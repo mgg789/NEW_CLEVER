@@ -35,7 +35,7 @@
         </Setter>
         
         <Setter Property="Height" Value="28"/>
-        <Setter Property="FontFamily" Value="Calibri"/>
+        <Setter Property="FontFamily" Value="{StaticResource ui_fontfamily}"/>
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="VerticalAlignment" Value="Bottom"/>
         <Setter Property="Margin" Value="0,2,1,0"/>
@@ -74,7 +74,7 @@
         </Setter>
         
         <Setter Property="Height" Value="28"/>
-        <Setter Property="FontFamily" Value="Calibri"/>
+        <Setter Property="FontFamily" Value="{StaticResource ui_fontfamily}"/>
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="VerticalAlignment" Value="Bottom"/>
         <Setter Property="Margin" Value="0,2,1,0"/>

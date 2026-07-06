@@ -182,7 +182,7 @@
                             <RowDefinition Height="20px"/>
                         </Grid.RowDefinitions>
                         <Image Grid.Column="0" Grid.Row="0" Source="Image/bluebox.png" Width="14px" Height="14px" SnapsToDevicePixels="True"/>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Motor" Margin="10,0,0,0" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Motor" Margin="10,0,0,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                     </Grid>
                 </TreeViewItem.Header>
 
@@ -197,7 +197,7 @@
                                 <RowDefinition Height="20px"/>
                             </Grid.RowDefinitions>
                             <Image Grid.Column="0" Grid.Row="0" Source="Image/bluebox.png" Width="14px" Height="14px" SnapsToDevicePixels="True"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Motor" Margin="10,0,0,0" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Motor" Margin="10,0,0,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Center"/>
                         </Grid>
                     </TreeViewItem.Header>
                 </TreeViewItem>

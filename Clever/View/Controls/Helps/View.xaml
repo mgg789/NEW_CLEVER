@@ -17,7 +17,7 @@
         <local:EV3Preview Grid.Row="0" Grid.RowSpan="2" Margin="0,20,2,0" HorizontalAlignment="Stretch"/>
         
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Grid.Row="0">
-            <TextBox Margin="0" FontFamily="Calibri" FontSize="12" x:Name="edtFileContents" Text="" Background="#00FFFFFF" BorderThickness="0" BorderBrush="#00FFFFFF" IsReadOnly="True" PreviewMouseRightButtonUp="edtFileContents_PreviewMouseRightButtonUp"/>
+            <TextBox Margin="0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" x:Name="edtFileContents" Text="" Background="#00FFFFFF" BorderThickness="0" BorderBrush="#00FFFFFF" IsReadOnly="True" PreviewMouseRightButtonUp="edtFileContents_PreviewMouseRightButtonUp"/>
         </ScrollViewer>
         <Popup PlacementTarget="{Binding ElementName=edtFileContents}" x:Name="previewPopup" StaysOpen="False" Placement="MousePoint" Width="{StaticResource preview_menu_width}" Height="{StaticResource preview_menu_height_one}">
             <menu:PreviewMenu/>

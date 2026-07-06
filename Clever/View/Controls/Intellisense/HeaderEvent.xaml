@@ -15,6 +15,6 @@
             <RowDefinition Height="20px"/>
         </Grid.RowDefinitions>
         <Image x:Name="hoImage" Source="Image/Event.png" Grid.Column="0" Grid.Row="0" Width="14px" Height="14px" SnapsToDevicePixels="True" Margin="3"/>
-        <TextBlock x:Name="hoText" Grid.Column="1" Grid.Row="0" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="14" FontFamily="Calibri" Foreground="#000000"/>
+        <TextBlock x:Name="hoText" Grid.Column="1" Grid.Row="0" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="14" FontFamily="{StaticResource ui_fontfamily}" Foreground="#000000"/>
     </Grid>
 </UserControl>

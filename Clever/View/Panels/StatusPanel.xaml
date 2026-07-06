@@ -26,7 +26,7 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel>
-                        <TextBlock Text="{Binding}" TextWrapping="WrapWithOverflow" Margin="5,2,10,2" FontSize="12" FontFamily="Calibri" Foreground="#BBC0CC"/>
+                        <TextBlock Text="{Binding}" TextWrapping="WrapWithOverflow" Margin="5,2,10,2" FontSize="12" FontFamily="{StaticResource ui_fontfamily}" Foreground="#BBC0CC"/>
                     </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>

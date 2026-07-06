@@ -9,10 +9,10 @@
     <Grid Background="White">
         <FlowDocumentReader>
             <FlowDocument>
-                <Paragraph FontSize="14" FontFamily="Calibri" FontWeight="Bold">
+                <Paragraph FontSize="14" FontFamily="{StaticResource ui_fontfamily}" FontWeight="Bold">
                     <Run Text="For"/>
                 </Paragraph>
-                <Paragraph FontSize="14" FontFamily="Calibri">
+                <Paragraph FontSize="14" FontFamily="{StaticResource ui_fontfamily}">
                     <Run Text="Оператор"/>
                     <Span>
                         <Bold>

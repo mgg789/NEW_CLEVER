@@ -53,27 +53,27 @@
     </UserControl.Resources>
     <Grid Background="{StaticResource buttons_panel_bgd}">
         <TabControl BorderBrush="{StaticResource tce_bgb}" BorderThickness="1" Background="{StaticResource tce_bgb}">
-            <TabItem x:Name="home" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70"  FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom">
+            <TabItem x:Name="home" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70"  FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom">
                 <TabItem.Header>
-                    <TextBlock Text="{Binding Path=GetLocalization[Home]}" FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="Home_PreviewMouseRightButtonUp"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[Home]}" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="Home_PreviewMouseRightButtonUp"/>
                 </TabItem.Header>
                 <buttons:HomeButton/>
             </TabItem>
-            <TabItem x:Name="file" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70" FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom">
+            <TabItem x:Name="file" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom">
                 <TabItem.Header>
-                    <TextBlock Text="{Binding Path=GetLocalization[File]}" FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="File_PreviewMouseRightButtonUp"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[File]}" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="File_PreviewMouseRightButtonUp"/>
                 </TabItem.Header>
                 <buttons:FileButton/>
             </TabItem>
-            <TabItem x:Name="edit" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70" FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom">
+            <TabItem x:Name="edit" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom">
                 <TabItem.Header>
-                    <TextBlock Text="{Binding Path=GetLocalization[Edit]}" FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="Edit_PreviewMouseRightButtonUp"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[Edit]}" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="Edit_PreviewMouseRightButtonUp"/>
                 </TabItem.Header>
                 <buttons:EditButton/>
             </TabItem>
-            <TabItem x:Name="compile" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70" FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom">
+            <TabItem x:Name="compile" Style="{StaticResource RoundedTabItemBut}" Margin="-6,0,-2,0" Height="26" Width="70" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom">
                 <TabItem.Header>
-                    <TextBlock Text="{Binding Path=GetLocalization[Brick]}" FontFamily="Calibri" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="Brick_PreviewMouseRightButtonUp"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[Brick]}" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" VerticalAlignment="Bottom" PreviewMouseRightButtonUp="Brick_PreviewMouseRightButtonUp"/>
                 </TabItem.Header>
                 <buttons:CompileButton/>
             </TabItem>

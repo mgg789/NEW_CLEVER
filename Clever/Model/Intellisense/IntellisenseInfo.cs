@@ -20,7 +20,7 @@ namespace Clever.Model.Intellisense
         internal void GetInfo()
         {
             var treeView = Help.GetHelpTree;
-            treeView.FontFamily = new FontFamily("Calibri");
+            treeView.FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
 
             CreateOperators(treeView);
             

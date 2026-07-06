@@ -106,7 +106,7 @@
                                 PreviewMouseMove="EditorTabControl_PreviewMouseMove"
                                 PreviewDragOver="EditorTabControl_PreviewDragOver"
                                 Drop="EditorTabControl_Drop"/>
-                    <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="Calibri" FontSize="14" Foreground="#8F98AB" Margin="15">
+                    <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#8F98AB" Margin="15">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -170,7 +170,7 @@
                     Background="#D7DCE8"
                     Visibility="{Binding EditorRowSplitterVisibility}"/>
         </Grid>
-        <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="Calibri" FontSize="14" Foreground="Black" Margin="15">
+        <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="Black" Margin="15">
             <TextBlock.Style>
                 <Style TargetType="TextBlock">
                     <Setter Property="Visibility" Value="Collapsed"/>

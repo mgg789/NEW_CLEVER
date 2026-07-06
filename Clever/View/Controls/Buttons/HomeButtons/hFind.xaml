@@ -10,7 +10,7 @@
     <Grid Height="22">
         <Rectangle Height="22" Fill="White" Width="175" RadiusX="3" RadiusY="3" HorizontalAlignment="Left"/>
         <StackPanel Orientation="Horizontal" Margin="5,0,0,0">
-            <TextBox x:Name="FindFile" Background="White" BorderThickness="0" BorderBrush="White" Height="20" Width="149" Margin="0" FontFamily="Consolas" FontSize="12" Padding="3" KeyDown="FindFile_KeyDown" Text="{Binding Path=TextFind, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+            <TextBox x:Name="FindFile" Background="White" BorderThickness="0" BorderBrush="White" Height="20" Width="149" Margin="0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Padding="3" KeyDown="FindFile_KeyDown" Text="{Binding Path=TextFind, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
             <find_but:hButtonFind Margin="2,0,0,0"/>
         </StackPanel>
     </Grid>

@@ -38,12 +38,12 @@
                     <RowDefinition Height="30"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Name="txtAnswer" Text="Ansver" Grid.Row="0" FontFamily="Calibri" FontSize="14" Foreground="#000000" TextWrapping="Wrap" Height="40" MinWidth="400"/>
+                <TextBlock Name="txtAnswer" Text="Ansver" Grid.Row="0" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" TextWrapping="Wrap" Height="40" MinWidth="400"/>
                 
                 <WrapPanel Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                     <Button x:Name="butClose" Style="{StaticResource close_button}" Click="btnDialogClose_Click" Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="70" Height="20">
                         <Button.Content>
-                            <TextBlock x:Name="butText" Text="Close" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="butText" Text="Close" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Button.Content>
                     </Button>
                 </WrapPanel>

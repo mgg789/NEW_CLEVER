@@ -8,6 +8,7 @@
 
     <sys:Double x:Key="brk_but_height">33</sys:Double>
     <sys:Double x:Key="brk_but_width">33</sys:Double>
+    <FontFamily x:Key="ui_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     
     <!-- Стили Home menu 3 - 78   4 - 104 -->
     <sys:Double x:Key="home_menu_height_all">104</sys:Double>
@@ -17,7 +18,7 @@
     <GridLength x:Key="home_menu_c1_width">135</GridLength>
     <sys:Double x:Key="home_menu_label_width">135</sys:Double>
     <sys:Double x:Key="home_menu_text_width">130</sys:Double>
-    <FontFamily x:Key="home_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="home_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="home_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="home_menu_foreground" Color="#000000"/>
 
@@ -29,7 +30,7 @@
     <GridLength x:Key="brk_menu_c1_width">135</GridLength>
     <sys:Double x:Key="brk_menu_label_width">135</sys:Double>
     <sys:Double x:Key="brk_menu_text_width">130</sys:Double>
-    <FontFamily x:Key="brk_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="brk_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="brk_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="brk_menu_foreground" Color="#000000"/>
 
@@ -40,7 +41,7 @@
     <GridLength x:Key="status_menu_c1_width">135</GridLength>
     <sys:Double x:Key="status_menu_label_width">135</sys:Double>
     <sys:Double x:Key="status_menu_text_width">130</sys:Double>
-    <FontFamily x:Key="status_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="status_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="status_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="status_menu_foreground" Color="#000000"/>
 
@@ -53,7 +54,7 @@
     <GridLength x:Key="file_menu_c2_width">60</GridLength>
     <sys:Double x:Key="file_menu_label_width">160</sys:Double>
     <sys:Double x:Key="file_menu_text_width">155</sys:Double>
-    <FontFamily x:Key="file_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="file_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="file_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="file_menu_foreground" Color="#000000"/>
 
@@ -66,7 +67,7 @@
     <GridLength x:Key="edit_menu_c2_width">60</GridLength>
     <sys:Double x:Key="edit_menu_label_width">160</sys:Double>
     <sys:Double x:Key="edit_menu_text_width">155</sys:Double>
-    <FontFamily x:Key="edit_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="edit_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="edit_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="edit_menu_foreground" Color="#000000"/>
 
@@ -79,7 +80,7 @@
     <GridLength x:Key="preview_menu_c2_width">60</GridLength>
     <sys:Double x:Key="preview_menu_label_width">160</sys:Double>
     <sys:Double x:Key="preview_menu_text_width">155</sys:Double>
-    <FontFamily x:Key="preview_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="preview_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="preview_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="preview_menu_foreground" Color="#000000"/>
 
@@ -92,7 +93,7 @@
     <GridLength x:Key="te_menu_c2_width">60</GridLength>
     <sys:Double x:Key="te_menu_label_width">160</sys:Double>
     <sys:Double x:Key="te_menu_text_width">155</sys:Double>
-    <FontFamily x:Key="te_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="te_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="te_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="te_menu_foreground" Color="#000000"/>
 
@@ -105,7 +106,7 @@
     <GridLength x:Key="com_menu_c2_width">60</GridLength>
     <sys:Double x:Key="com_menu_label_width">190</sys:Double>
     <sys:Double x:Key="com_menu_text_width">185</sys:Double>
-    <FontFamily x:Key="com_menu_fontfamily">Calibri</FontFamily>
+    <FontFamily x:Key="com_menu_fontfamily">Segoe UI Variable Text, Segoe UI</FontFamily>
     <sys:Double x:Key="com_menu_fontsize">14</sys:Double>
     <SolidColorBrush x:Key="com_menu_foreground" Color="#000000"/>
 

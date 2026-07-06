@@ -1,4 +1,4 @@
-﻿<Window 
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="window" 
     Title="" Height="265" Width="350"
@@ -31,8 +31,8 @@
 
     <Grid   Margin="0" Background="{StaticResource about_bgd}">
         <Grid Margin="10,15,10,10">
-            <TextBlock x:Name="headerText"  Margin="1,0,0,0" TextWrapping="Wrap" VerticalAlignment="Top" FontFamily="Calibri" FontSize="14" Foreground="#000000" Height="40" Text="Please select the connection to access the EV3 brick."/>
-            <ListBox x:Name="PortList" KeyDown="PortList_keydown" Margin="1,50,0,35" VerticalContentAlignment="Bottom" Cursor="Arrow" BorderThickness="1" FontWeight="Bold" FontFamily="Calibri" FontSize="14" Foreground="#000000" Background="{StaticResource about_bgd}">
+            <TextBlock x:Name="headerText"  Margin="1,0,0,0" TextWrapping="Wrap" VerticalAlignment="Top" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" Height="40" Text="Please select the connection to access the EV3 brick."/>
+            <ListBox x:Name="PortList" KeyDown="PortList_keydown" Margin="1,50,0,35" VerticalContentAlignment="Bottom" Cursor="Arrow" BorderThickness="1" FontWeight="Bold" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" Background="{StaticResource about_bgd}">
 
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
@@ -42,15 +42,14 @@
 
             </ListBox>
             <Button Style="{StaticResource win_button}" Click="WiFiButton_clicked" HorizontalAlignment="Right" Margin="0,0,180,0" VerticalAlignment="Bottom" Width="80" Height="20">
-                <TextBlock x:Name="butWiFi" Text="WiFi..." FontFamily="Calibri" FontSize="14" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="butWiFi" Text="WiFi..." FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
             </Button>
             <Button Style="{StaticResource win_button}" Click="RetryButton_clicked" HorizontalAlignment="Right" Margin="0,0,90,0" VerticalAlignment="Bottom" Width="80" Height="20" IsCancel="True">
-                <TextBlock x:Name="butRetry" Text="Подключить" FontFamily="Calibri" FontSize="14" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="butRetry" Text="Подключить" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
             </Button>
             <Button Style="{StaticResource win_button}" Click="CancelButton_clicked" HorizontalAlignment="Right" Margin="0,0,0,0" VerticalAlignment="Bottom" Width="80" Height="20" IsCancel="True">
-                <TextBlock x:Name="butCancel" Text="Отмена" FontFamily="Calibri" FontSize="14" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="butCancel" Text="Отмена" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
             </Button>
         </Grid>
     </Grid>
 </Window>
-    

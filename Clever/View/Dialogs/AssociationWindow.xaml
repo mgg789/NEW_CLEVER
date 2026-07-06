@@ -38,21 +38,21 @@
                     <RowDefinition Height="30"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Name="txtAnswer" Text="Ansver" Grid.Row="0" FontFamily="Calibri" FontSize="14" Foreground="#000000" TextWrapping="Wrap" MinWidth="250"/>
+                <TextBlock Name="txtAnswer" Text="Ansver" Grid.Row="0" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" TextWrapping="Wrap" MinWidth="250"/>
 
                 <Button x:Name="butNo" Style="{StaticResource win_button}" Click="btnDialogNo_Click" Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Left" Width="90" Height="20" Margin="0">
                     <Button.Content>
-                        <TextBlock x:Name="butTextNo" Text="No" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="butTextNo" Text="No" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button.Content>
                 </Button>
                 <WrapPanel Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Bottom">
                     <Button x:Name="butYes" Style="{StaticResource win_button}" Click="btnDialogYes_Click" Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="90" Height="20">
                         <Button.Content>
-                            <TextBlock x:Name="butTextYes" Text="Yes" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="butTextYes" Text="Yes" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         </Button.Content>
                     </Button>
                     <Button x:Name="butCancel" Style="{StaticResource win_button}" Click="btnDialogCancel_Click" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="90" Height="20" Margin="10,0,0,0">
-                        <TextBlock x:Name="butTextCancel" Text="Cancel" FontFamily="Calibri" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="butTextCancel" Text="Cancel" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </WrapPanel>
             </Grid>

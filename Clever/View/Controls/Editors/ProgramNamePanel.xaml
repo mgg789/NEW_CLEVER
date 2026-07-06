@@ -35,7 +35,7 @@
         </Grid.ColumnDefinitions>
 
         <Label Style="{StaticResource TextLabel1}" Margin="0" Grid.Column="0" Height="26" x:Name="nameLabel">
-            <TextBlock x:Name="hdrText" Text="Program" FontFamily="Calibri" FontSize="14" Grid.Column="0" Width="156" Height="26" Foreground="Black"/>
+            <TextBlock x:Name="hdrText" Text="Program" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Grid.Column="0" Width="156" Height="26" Foreground="Black"/>
         </Label>
         <Label x:Name="lClose" Margin="0" Style="{StaticResource TextLabel2}" Width="20" Height="26" HorizontalAlignment="Right" Grid.Column="1">
             <Hyperlink TextDecorations="None" Click="Hyperlink_Click" Command="{Binding Path=CloseProgramCommand}">
