@@ -23,15 +23,48 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{StaticResource pnl_data}"/>
+                                <Setter TargetName="border" Property="Background" Value="#00FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{StaticResource pnl_clc_check}"/>
+                                <Setter TargetName="border" Property="Background" Value="#00FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="HomeSplitHorizontalImageStyle" TargetType="Image">
+            <Setter Property="Source" Value="{StaticResource git_icon_split_horizontal}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_split_horizontal_hover}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPressed, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_split_horizontal_pressed}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="HomeSplitVerticalImageStyle" TargetType="Image">
+            <Setter Property="Source" Value="{StaticResource git_icon_split_vertical}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_split_vertical_hover}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPressed, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_split_vertical_pressed}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="HomePanelRightImageStyle" TargetType="Image">
+            <Setter Property="Source" Value="{StaticResource git_icon_panel_right}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_panel_right_hover}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPressed, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_panel_right_pressed}"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
     </UserControl.Resources>
     <Grid>
@@ -73,13 +106,13 @@
                 </Canvas.Background>
             </Canvas>
             <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" Command="{Binding SplitSideBySideCommand}" ToolTip="{Binding Path=GetLocalization[tSplitSideBySide]}" AutomationProperties.Name="{Binding Path=GetLocalization[tSplitSideBySide]}">
-                <Image Source="{StaticResource git_icon_split_horizontal}" Width="17" Height="17"/>
+                <Image Style="{StaticResource HomeSplitHorizontalImageStyle}" Width="17" Height="17"/>
             </Button>
             <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" Command="{Binding SplitTopBottomCommand}" ToolTip="{Binding Path=GetLocalization[tSplitTopBottom]}" AutomationProperties.Name="{Binding Path=GetLocalization[tSplitTopBottom]}">
-                <Image Source="{StaticResource git_icon_split_vertical}" Width="17" Height="17"/>
+                <Image Style="{StaticResource HomeSplitVerticalImageStyle}" Width="17" Height="17"/>
             </Button>
             <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,10,0" Command="{Binding ToggleRightSidebarCommand}" ToolTip="{Binding Path=GetLocalization[tToggleRightSidebar]}" AutomationProperties.Name="{Binding Path=GetLocalization[tToggleRightSidebar]}">
-                <Image Source="{StaticResource git_icon_panel_right}" Width="17" Height="17"/>
+                <Image Style="{StaticResource HomePanelRightImageStyle}" Width="17" Height="17"/>
             </Button>
             <Canvas Width="2" Height="{StaticResource pnl_but_height}" Margin="0,0,10,0">
                 <Canvas.Background>

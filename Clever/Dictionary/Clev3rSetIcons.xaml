@@ -1433,7 +1433,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -1464,7 +1464,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -1495,7 +1495,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -1621,7 +1621,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -1676,7 +1676,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -1731,7 +1731,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -1953,7 +1953,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2008,7 +2008,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2063,7 +2063,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2285,7 +2285,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2316,7 +2316,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2347,7 +2347,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2473,7 +2473,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2504,7 +2504,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2535,7 +2535,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2661,7 +2661,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2700,7 +2700,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2739,7 +2739,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2897,7 +2897,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2936,7 +2936,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -2975,7 +2975,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -3133,7 +3133,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -3180,7 +3180,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -3227,7 +3227,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -3511,7 +3511,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -3574,7 +3574,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -3637,7 +3637,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4017,7 +4017,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4080,7 +4080,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4143,7 +4143,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4523,7 +4523,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4570,7 +4570,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4617,7 +4617,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4901,7 +4901,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4932,7 +4932,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -4963,7 +4963,7 @@
                     <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.76,0,0,0.76,2.88,2.88"/>
+                                <MatrixTransform Matrix="0.62,0,0,0.62,4.56,4.56"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -6551,7 +6551,7 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.86,0,0,0.86,6.18,6.18"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -6595,7 +6595,7 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.86,0,0,0.86,6.18,6.18"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -6639,7 +6639,7 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.86,0,0,0.86,6.18,6.18"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -7149,7 +7149,7 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.86,0,0,0.86,6.18,6.18"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -7193,7 +7193,7 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.86,0,0,0.86,6.18,6.18"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -7237,7 +7237,7 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.86,0,0,0.86,6.18,6.18"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
@@ -7281,14 +7281,30 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.83,0,0,0.83,6.54,6.54"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
                         <Pen Brush="{StaticResource brk_mot}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
                     </GeometryDrawing.Pen>
                     <GeometryDrawing.Geometry>
-                        <PathGeometry Figures="m21 21-4.34-4.34"/>
+                        <PathGeometry Figures="m13 13.5 2-2.5-2-2.5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource brk_mot}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="m21 21-4.3-4.3"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource brk_mot}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M9 8.5 7 11l2 2.5"/>
                     </GeometryDrawing.Geometry>
                 </GeometryDrawing>
                 <GeometryDrawing Brush="{x:Null}">
@@ -7299,6 +7315,7 @@
                         <EllipseGeometry Center="11,11" RadiusX="8" RadiusY="8"/>
                     </GeometryDrawing.Geometry>
                 </GeometryDrawing>
+
                         </DrawingGroup>
                     </DrawingGroup>
                 </DrawingBrush.Drawing>
@@ -7317,14 +7334,30 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.83,0,0,0.83,6.54,6.54"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
                         <Pen Brush="{StaticResource brk_mof}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
                     </GeometryDrawing.Pen>
                     <GeometryDrawing.Geometry>
-                        <PathGeometry Figures="m21 21-4.34-4.34"/>
+                        <PathGeometry Figures="m13 13.5 2-2.5-2-2.5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource brk_mof}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="m21 21-4.3-4.3"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource brk_mof}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M9 8.5 7 11l2 2.5"/>
                     </GeometryDrawing.Geometry>
                 </GeometryDrawing>
                 <GeometryDrawing Brush="{x:Null}">
@@ -7335,6 +7368,7 @@
                         <EllipseGeometry Center="11,11" RadiusX="8" RadiusY="8"/>
                     </GeometryDrawing.Geometry>
                 </GeometryDrawing>
+
                         </DrawingGroup>
                     </DrawingGroup>
                 </DrawingBrush.Drawing>
@@ -7353,14 +7387,30 @@
                         </GeometryDrawing>
                         <DrawingGroup>
                             <DrawingGroup.Transform>
-                                <MatrixTransform Matrix="0.72,0,0,0.72,7.86,7.86"/>
+                                <MatrixTransform Matrix="0.83,0,0,0.83,6.54,6.54"/>
                             </DrawingGroup.Transform>
                 <GeometryDrawing Brush="{x:Null}">
                     <GeometryDrawing.Pen>
                         <Pen Brush="{StaticResource brk_clc}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
                     </GeometryDrawing.Pen>
                     <GeometryDrawing.Geometry>
-                        <PathGeometry Figures="m21 21-4.34-4.34"/>
+                        <PathGeometry Figures="m13 13.5 2-2.5-2-2.5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource brk_clc}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="m21 21-4.3-4.3"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource brk_clc}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M9 8.5 7 11l2 2.5"/>
                     </GeometryDrawing.Geometry>
                 </GeometryDrawing>
                 <GeometryDrawing Brush="{x:Null}">
@@ -7371,6 +7421,7 @@
                         <EllipseGeometry Center="11,11" RadiusX="8" RadiusY="8"/>
                     </GeometryDrawing.Geometry>
                 </GeometryDrawing>
+
                         </DrawingGroup>
                     </DrawingGroup>
                 </DrawingBrush.Drawing>
