@@ -253,6 +253,40 @@ namespace Clever.View.Controls
             e.Handled = true;
         }
 
+        private void EditorColumnSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            if (!MainWindowVM.IsEditorSplitActive || MainWindowVM.EditorPaneColumns != 2)
+                return;
+
+            var first = PrimaryColumn.ActualWidth;
+            var second = SecondaryColumn.ActualWidth;
+            if (first <= 0 || second <= 0)
+                return;
+
+            var firstLength = new GridLength(first, GridUnitType.Star);
+            var secondLength = new GridLength(second, GridUnitType.Star);
+            PrimaryColumn.SetCurrentValue(ColumnDefinition.WidthProperty, firstLength);
+            SecondaryColumn.SetCurrentValue(ColumnDefinition.WidthProperty, secondLength);
+            MainWindowVM.SetEditorSplitProportion(firstLength, secondLength, true);
+        }
+
+        private void EditorRowSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            if (!MainWindowVM.IsEditorSplitActive || MainWindowVM.EditorPaneRows != 2)
+                return;
+
+            var first = PrimaryRow.ActualHeight;
+            var second = SecondaryRow.ActualHeight;
+            if (first <= 0 || second <= 0)
+                return;
+
+            var firstLength = new GridLength(first, GridUnitType.Star);
+            var secondLength = new GridLength(second, GridUnitType.Star);
+            PrimaryRow.SetCurrentValue(RowDefinition.HeightProperty, firstLength);
+            SecondaryRow.SetCurrentValue(RowDefinition.HeightProperty, secondLength);
+            MainWindowVM.SetEditorSplitProportion(firstLength, secondLength, false);
+        }
+
         private static bool IsEditorTabDrag(DragEventArgs e)
         {
             return e.Data.GetDataPresent(EditorTabDragFormat);

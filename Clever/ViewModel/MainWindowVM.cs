@@ -322,6 +322,50 @@ namespace Clever.ViewModel
             }
         }
 
+        private static Visibility _editorColumnSplitterVisibility;
+        public static Visibility EditorColumnSplitterVisibility
+        {
+            get { return _editorColumnSplitterVisibility; }
+            private set
+            {
+                _editorColumnSplitterVisibility = value;
+                OnStaticPropertyChanged("EditorColumnSplitterVisibility");
+            }
+        }
+
+        private static Visibility _editorRowSplitterVisibility;
+        public static Visibility EditorRowSplitterVisibility
+        {
+            get { return _editorRowSplitterVisibility; }
+            private set
+            {
+                _editorRowSplitterVisibility = value;
+                OnStaticPropertyChanged("EditorRowSplitterVisibility");
+            }
+        }
+
+        private static Thickness _secondaryEditorBorderThickness;
+        public static Thickness SecondaryEditorBorderThickness
+        {
+            get { return _secondaryEditorBorderThickness; }
+            private set
+            {
+                _secondaryEditorBorderThickness = value;
+                OnStaticPropertyChanged("SecondaryEditorBorderThickness");
+            }
+        }
+
+        private static Thickness _secondaryEditorMargin;
+        public static Thickness SecondaryEditorMargin
+        {
+            get { return _secondaryEditorMargin; }
+            private set
+            {
+                _secondaryEditorMargin = value;
+                OnStaticPropertyChanged("SecondaryEditorMargin");
+            }
+        }
+
         private static GridLength _editorFirstColumnWidth;
         public static GridLength EditorFirstColumnWidth
         {
@@ -461,6 +505,10 @@ namespace Clever.ViewModel
         }
 
         private static bool _syncingEditorSelection;
+        private static bool _isEditorSplitSideBySide = true;
+        private static bool _rightSidebarHidden;
+        private static GridLength _lastEditorColumnWidth;
+        private static GridLength _lastRightSidebarColumnWidth;
         private const double RightSidebarMinWidth = 330;
         private const double RightSidebarSplitterWidth = 4;
 
@@ -600,6 +648,7 @@ namespace Clever.ViewModel
         internal static void SetEditorSplitMode(bool sideBySide)
         {
             _isEditorSplitActive = true;
+            _isEditorSplitSideBySide = sideBySide;
             SecondaryEditorVisibility = Visibility.Visible;
             EditorPaneRows = sideBySide ? 1 : 2;
             EditorPaneColumns = sideBySide ? 2 : 1;
@@ -658,7 +707,10 @@ namespace Clever.ViewModel
         {
             if (_isEditorSplitActive)
             {
-                DisableEditorSplit();
+                if (_isEditorSplitSideBySide == sideBySide)
+                    DisableEditorSplit();
+                else
+                    SetEditorSplitMode(sideBySide);
                 return;
             }
 
@@ -700,6 +752,7 @@ namespace Clever.ViewModel
             }
 
             _isEditorSplitActive = false;
+            _isEditorSplitSideBySide = true;
             SecondaryEditorVisibility = Visibility.Collapsed;
             EditorPaneRows = 1;
             EditorPaneColumns = 1;
@@ -715,6 +768,10 @@ namespace Clever.ViewModel
             EditorSecondColumnWidth = new GridLength(0, GridUnitType.Pixel);
             EditorFirstRowHeight = new GridLength(1, GridUnitType.Star);
             EditorSecondRowHeight = new GridLength(0, GridUnitType.Pixel);
+            EditorColumnSplitterVisibility = Visibility.Collapsed;
+            EditorRowSplitterVisibility = Visibility.Collapsed;
+            SecondaryEditorBorderThickness = new Thickness(0);
+            SecondaryEditorMargin = new Thickness(0);
 
             PrimaryEditorRow = 0;
             PrimaryEditorColumn = 0;
@@ -733,6 +790,10 @@ namespace Clever.ViewModel
             EditorSecondColumnWidth = new GridLength(1, GridUnitType.Star);
             EditorFirstRowHeight = new GridLength(1, GridUnitType.Star);
             EditorSecondRowHeight = new GridLength(0, GridUnitType.Pixel);
+            EditorColumnSplitterVisibility = Visibility.Visible;
+            EditorRowSplitterVisibility = Visibility.Collapsed;
+            SecondaryEditorBorderThickness = new Thickness(1, 0, 0, 0);
+            SecondaryEditorMargin = new Thickness(2, 0, 0, 0);
 
             PrimaryEditorRow = 0;
             PrimaryEditorColumn = 0;
@@ -751,6 +812,10 @@ namespace Clever.ViewModel
             EditorSecondColumnWidth = new GridLength(0, GridUnitType.Pixel);
             EditorFirstRowHeight = new GridLength(1, GridUnitType.Star);
             EditorSecondRowHeight = new GridLength(1, GridUnitType.Star);
+            EditorColumnSplitterVisibility = Visibility.Collapsed;
+            EditorRowSplitterVisibility = Visibility.Visible;
+            SecondaryEditorBorderThickness = new Thickness(0, 1, 0, 0);
+            SecondaryEditorMargin = new Thickness(0, 2, 0, 0);
 
             PrimaryEditorRow = 0;
             PrimaryEditorColumn = 0;
@@ -763,6 +828,23 @@ namespace Clever.ViewModel
             SecondaryEditorColumnSpan = 2;
         }
 
+        internal static void SetEditorSplitProportion(GridLength first, GridLength second, bool sideBySide)
+        {
+            if (!_isEditorSplitActive)
+                return;
+
+            if (sideBySide)
+            {
+                EditorFirstColumnWidth = first;
+                EditorSecondColumnWidth = second;
+            }
+            else
+            {
+                EditorFirstRowHeight = first;
+                EditorSecondRowHeight = second;
+            }
+        }
+
         private void ToggleRightSidebar()
         {
             try
@@ -771,43 +853,61 @@ namespace Clever.ViewModel
                 if (grid == null || grid.ColumnDefinitions.Count < 3)
                     return;
 
+                var editorColumn = grid.ColumnDefinitions[0];
                 var splitterColumn = grid.ColumnDefinitions[1];
                 var sidebarColumn = grid.ColumnDefinitions[2];
                 var editor = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 0);
                 var splitter = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 1);
                 var sidebar = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 2);
-                var sidebarIsHidden = sidebarColumn.MaxWidth == 0 || sidebar == null || sidebar.Visibility != Visibility.Visible;
+                var sidebarIsHidden = _rightSidebarHidden || sidebarColumn.ActualWidth <= 1 || sidebar == null || sidebar.Visibility != Visibility.Visible;
 
                 if (!sidebarIsHidden)
                 {
+                    _lastEditorColumnWidth = editorColumn.Width.Value > 0 ? editorColumn.Width : new GridLength(700, GridUnitType.Star);
+                    _lastRightSidebarColumnWidth = sidebarColumn.Width.Value > 0 ? sidebarColumn.Width : new GridLength(300, GridUnitType.Star);
+
                     if (editor != null)
-                        Grid.SetColumnSpan(editor, 3);
+                        Grid.SetColumnSpan(editor, 1);
                     if (sidebar != null)
                         sidebar.Visibility = Visibility.Collapsed;
                     if (splitter != null)
                         splitter.Visibility = Visibility.Collapsed;
 
-                    sidebarColumn.MinWidth = 0;
-                    sidebarColumn.MaxWidth = 0;
+                    editorColumn.MinWidth = 0;
+                    editorColumn.MaxWidth = double.PositiveInfinity;
+                    editorColumn.Width = new GridLength(1, GridUnitType.Star);
+
                     splitterColumn.MinWidth = 0;
                     splitterColumn.MaxWidth = 0;
+                    splitterColumn.Width = new GridLength(0, GridUnitType.Pixel);
+
+                    sidebarColumn.MinWidth = 0;
+                    sidebarColumn.MaxWidth = 0;
+                    sidebarColumn.Width = new GridLength(0, GridUnitType.Pixel);
+                    _rightSidebarHidden = true;
                 }
                 else
                 {
                     if (editor != null)
                         Grid.SetColumnSpan(editor, 1);
 
-                    sidebarColumn.MaxWidth = double.PositiveInfinity;
-                    sidebarColumn.MinWidth = RightSidebarMinWidth;
+                    editorColumn.MaxWidth = double.PositiveInfinity;
+                    editorColumn.MinWidth = 400;
+                    editorColumn.Width = _lastEditorColumnWidth.Value > 0 ? _lastEditorColumnWidth : new GridLength(700, GridUnitType.Star);
 
                     splitterColumn.MaxWidth = double.PositiveInfinity;
                     splitterColumn.MinWidth = 0;
                     splitterColumn.Width = new GridLength(RightSidebarSplitterWidth, GridUnitType.Pixel);
 
+                    sidebarColumn.MaxWidth = double.PositiveInfinity;
+                    sidebarColumn.MinWidth = RightSidebarMinWidth;
+                    sidebarColumn.Width = _lastRightSidebarColumnWidth.Value > 0 ? _lastRightSidebarColumnWidth : new GridLength(300, GridUnitType.Star);
+
                     if (sidebar != null)
                         sidebar.Visibility = Visibility.Visible;
                     if (splitter != null)
                         splitter.Visibility = Visibility.Visible;
+                    _rightSidebarHidden = false;
                 }
             }
             catch (Exception ex)

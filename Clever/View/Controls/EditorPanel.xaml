@@ -67,12 +67,12 @@
     <Grid x:Name="EditorSurface" AllowDrop="True" PreviewDragOver="EditorSurface_PreviewDragOver" PreviewDragLeave="EditorSurface_PreviewDragLeave" Drop="EditorSurface_Drop">
         <Grid x:Name="EditorPaneGrid">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="{Binding EditorFirstColumnWidth}"/>
-                <ColumnDefinition Width="{Binding EditorSecondColumnWidth}"/>
+                <ColumnDefinition x:Name="PrimaryColumn" Width="{Binding EditorFirstColumnWidth}"/>
+                <ColumnDefinition x:Name="SecondaryColumn" Width="{Binding EditorSecondColumnWidth}"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="{Binding EditorFirstRowHeight}"/>
-                <RowDefinition Height="{Binding EditorSecondRowHeight}"/>
+                <RowDefinition x:Name="PrimaryRow" Height="{Binding EditorFirstRowHeight}"/>
+                <RowDefinition x:Name="SecondaryRow" Height="{Binding EditorSecondRowHeight}"/>
             </Grid.RowDefinitions>
             <Border BorderBrush="#D7DCE8" BorderThickness="0" Margin="0"
                     Grid.Row="{Binding PrimaryEditorRow}"
@@ -89,7 +89,9 @@
                             PreviewDragOver="EditorTabControl_PreviewDragOver"
                             Drop="EditorTabControl_Drop"/>
             </Border>
-            <Border Visibility="{Binding SecondaryEditorVisibility}" BorderBrush="#D7DCE8" BorderThickness="1,0,0,0" Margin="2,0,0,0" Background="#ECEDF1"
+            <Border Visibility="{Binding SecondaryEditorVisibility}" BorderBrush="#D7DCE8"
+                    BorderThickness="{Binding SecondaryEditorBorderThickness}"
+                    Margin="{Binding SecondaryEditorMargin}" Background="#ECEDF1"
                     Grid.Row="{Binding SecondaryEditorRow}"
                     Grid.Column="{Binding SecondaryEditorColumn}"
                     Grid.RowSpan="{Binding SecondaryEditorRowSpan}"
@@ -118,6 +120,55 @@
                     </TextBlock>
                 </Grid>
             </Border>
+            <GridSplitter x:Name="EditorColumnSplitter"
+                          Grid.Row="0"
+                          Grid.Column="0"
+                          Grid.RowSpan="2"
+                          Width="5"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Stretch"
+                          ShowsPreview="False"
+                          Background="#7A8193"
+                          Visibility="{Binding EditorColumnSplitterVisibility}"
+                          DragCompleted="EditorColumnSplitter_DragCompleted"/>
+            <GridSplitter x:Name="EditorRowSplitter"
+                          Grid.Row="0"
+                          Grid.Column="0"
+                          Grid.ColumnSpan="2"
+                          Height="5"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Bottom"
+                          ShowsPreview="False"
+                          Background="#7A8193"
+                          Visibility="{Binding EditorRowSplitterVisibility}"
+                          DragCompleted="EditorRowSplitter_DragCompleted"/>
+        </Grid>
+        <Grid IsHitTestVisible="False" Panel.ZIndex="10" Background="#7A8193">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding ProgramNameList.Count}" Value="0"/>
+                                <Condition Binding="{Binding SecondaryProgramNameList.Count}" Value="0"/>
+                                <Condition Binding="{Binding SecondaryEditorVisibility}" Value="Visible"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Border Width="5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Background="#D7DCE8"
+                    Visibility="{Binding EditorColumnSplitterVisibility}"/>
+            <Border Height="5"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Background="#D7DCE8"
+                    Visibility="{Binding EditorRowSplitterVisibility}"/>
         </Grid>
         <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="Calibri" FontSize="14" Foreground="Black" Margin="15">
             <TextBlock.Style>
