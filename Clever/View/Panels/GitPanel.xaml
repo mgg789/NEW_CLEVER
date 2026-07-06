@@ -35,6 +35,38 @@
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#0066C0"/>
                             </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#D6DAE4"/>
+                                <Setter Property="Foreground" Value="#8F98AB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GitPopupPanelButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="10,2"/>
+            <Setter Property="Background" Value="#ECEDF1"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#414659"/>
+            <Setter Property="FontFamily" Value="Calibri"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#DCEBFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#C9DDF8"/>
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -73,7 +105,8 @@
         </Style>
 
         <Style x:Key="GitBranchButton" TargetType="Button" BasedOn="{StaticResource GitRoundToolButton}">
-            <Setter Property="Width" Value="124"/>
+            <Setter Property="Width" Value="Auto"/>
+            <Setter Property="MinWidth" Value="124"/>
             <Setter Property="Padding" Value="9,7"/>
         </Style>
 
@@ -214,7 +247,7 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource git_panel_bgd}">
+    <Grid x:Name="GitRoot" Background="{StaticResource git_panel_bgd}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -224,7 +257,7 @@
             <RowDefinition Height="44"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1" Padding="0,0,0,8">
+        <Border Grid.Row="0" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1" Padding="0,0,0,8" Visibility="{Binding MainGitVisibility}">
             <StackPanel>
                 <TextBlock Text="{Binding Path=GetLocalization[GitChanges]}" Style="{StaticResource GitSectionHeader}"/>
                 <TextBox Text="{Binding CommitMessage, UpdateSourceTrigger=PropertyChanged}"
@@ -238,14 +271,20 @@
                          Foreground="#414659"
                          Background="#FFFFFF"
                          ToolTip="{Binding Path=GetLocalization[tGitCommitMessage]}"/>
-                <Button Command="{Binding CommitCommand}" Style="{StaticResource GitCommitButton}" Margin="8,0,8,0" ToolTip="{Binding Path=GetLocalization[tGitCommit]}">
-                    <TextBlock Text="{Binding Path=GetLocalization[GitCommit]}"/>
+                <Button Command="{Binding CommitCommand}"
+                        Style="{StaticResource GitCommitButton}"
+                        Margin="8,0,8,0"
+                        Background="{Binding GitActionButtonBackground}"
+                        Foreground="{Binding GitActionButtonForeground}"
+                        IsEnabled="{Binding IsGitActionButtonEnabled}"
+                        ToolTip="{Binding Path=GetLocalization[tGitCommit]}">
+                    <TextBlock Text="{Binding GitActionButtonText}"/>
                 </Button>
                 <TextBlock Text="{Binding StatusMessage}" Foreground="#8F98AB" FontFamily="Calibri" FontSize="12" Margin="9,5,9,0" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
         </Border>
 
-        <Grid Grid.Row="1" Margin="0,0,0,0">
+        <Grid Grid.Row="1" Margin="0,0,0,0" Visibility="{Binding MainGitVisibility}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="34"/>
@@ -256,13 +295,14 @@
             </Border>
         </Grid>
 
-        <Border Grid.Row="2" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="2" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1" Visibility="{Binding MainGitVisibility}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="3,0,5,4">
                 <ItemsControl ItemsSource="{Binding Changes}" ItemTemplate="{StaticResource GitFileTemplate}"/>
             </ScrollViewer>
         </Border>
 
         <GridSplitter Grid.Row="3"
+                      Visibility="{Binding MainGitVisibility}"
                       Height="5"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
@@ -290,7 +330,7 @@
             </GridSplitter.Style>
         </GridSplitter>
 
-        <Border Grid.Row="4" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0" ClipToBounds="True">
+        <Border Grid.Row="4" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0" ClipToBounds="True" Visibility="{Binding MainGitVisibility}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="2,6,4,6" ClipToBounds="True">
                 <ItemsControl ItemsSource="{Binding GraphRows}" HorizontalAlignment="Stretch" ClipToBounds="True">
                     <ItemsControl.ItemTemplate>
@@ -429,25 +469,36 @@
             </ScrollViewer>
         </Border>
 
-        <Border Grid.Row="5" Background="#FFFFFF" Padding="10,1,0,10">
+        <Border Grid.Row="5" Background="#FFFFFF" Padding="10,1,0,10" Visibility="{Binding MainGitVisibility}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding PullCommand}" ToolTip="{Binding Path=GetLocalization[tGitPull]}" Margin="0,0,0,0">
+                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding PullCommand}" IsEnabled="{Binding RemoteToolsEnabled}" ToolTip="{Binding Path=GetLocalization[tGitPull]}" Margin="0,0,0,0">
                     <Image Source="{StaticResource git_icon_pull}" Width="15" Height="15"/>
                 </Button>
-                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding PushCommand}" ToolTip="{Binding Path=GetLocalization[tGitPush]}">
+                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding PushCommand}" IsEnabled="{Binding RemoteToolsEnabled}" ToolTip="{Binding Path=GetLocalization[tGitPush]}">
                     <Image Source="{StaticResource git_icon_push}" Width="15" Height="15"/>
                 </Button>
-                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding ReloadCommand}" ToolTip="{Binding Path=GetLocalization[tGitReload]}">
+                <Button Style="{StaticResource GitRoundToolButton}" Command="{Binding ReloadCommand}" IsEnabled="{Binding RemoteToolsEnabled}" ToolTip="{Binding Path=GetLocalization[tGitReload]}">
                     <Image Source="{StaticResource git_icon_reload}" Width="15" Height="15"/>
                 </Button>
-                <Button Style="{StaticResource GitBranchButton}" Command="{Binding SelectBranchCommand}" ToolTip="{Binding Path=GetLocalization[tGitBranch]}">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Image Source="{StaticResource git_icon_branch}" Width="14" Height="14" Margin="0,0,5,0"/>
-                        <TextBlock Text="{Binding BranchName}" Foreground="#777777" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                <Button x:Name="BranchButton" Style="{StaticResource GitBranchButton}" Command="{Binding SelectBranchCommand}" ToolTip="{Binding Path=GetLocalization[tGitBranch]}">
+                    <Grid HorizontalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="14"/>
+                            <ColumnDefinition Width="5"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Image Source="{StaticResource git_icon_branch}" Width="14" Height="14" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="{Binding BranchName}" Foreground="#777777" FontFamily="Calibri" FontSize="14" VerticalAlignment="Center"/>
+                    </Grid>
                 </Button>
             </StackPanel>
         </Border>
+
+        <Grid Grid.RowSpan="6" Visibility="{Binding SetupVisibility}">
+            <Button Command="{Binding SetupGitCommand}" Style="{StaticResource GitCommitButton}" Width="190" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="{Binding SetupButtonText}"/>
+            </Button>
+        </Grid>
 
         <Popup x:Name="CommitInfoPopup"
                Placement="Relative"
@@ -483,6 +534,98 @@
                             </Button>
                         </StackPanel>
                     </Grid>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <Popup x:Name="BranchPopup"
+               PlacementTarget="{Binding ElementName=BranchButton}"
+               Placement="Top"
+               VerticalOffset="-4"
+               AllowsTransparency="True"
+               StaysOpen="False"
+               IsOpen="{Binding IsBranchPopupOpen, Mode=TwoWay}">
+            <Border Background="#F6F7FA"
+                    BorderBrush="#BCC3D4"
+                    BorderThickness="1"
+                    Padding="8"
+                    Width="230">
+                <StackPanel>
+                    <TextBlock Text="{Binding Path=GetLocalization[GitBranches]}" Foreground="#414659" FontFamily="Calibri" FontSize="14" FontWeight="Bold" Margin="2,0,2,6"/>
+                    <ItemsControl ItemsSource="{Binding Branches}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Command="{Binding DataContext.SelectBranchItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource GitFileRowButton}">
+                                    <Grid Height="26">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="22"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="✓" Visibility="{Binding ActiveVisibility}" Foreground="{StaticResource pnl_clc}" FontFamily="Calibri" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Image Source="{StaticResource git_icon_branch}" Width="13" Height="13" Margin="0,0,5,0"/>
+                                            <TextBlock Text="{Binding Name}" Foreground="#414659" FontFamily="Calibri" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Height="1" Background="{StaticResource git_panel_separator}" Margin="0,6,0,6"/>
+                    <TextBlock Text="{Binding RemoteStatusText}" Visibility="{Binding RemoteConnectedVisibility}" Foreground="#777777" FontFamily="Calibri" FontSize="13" Margin="2,0,2,0" TextTrimming="CharacterEllipsis"/>
+                    <Button Command="{Binding OpenRemotePopupCommand}" Visibility="{Binding RemoteConnectVisibility}" Style="{StaticResource GitPopupPanelButton}" HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding Path=GetLocalization[GitConnectRemote]}"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <Popup x:Name="RemotePopup"
+               PlacementTarget="{Binding ElementName=GitRoot}"
+               Placement="Center"
+               AllowsTransparency="True"
+               StaysOpen="False"
+               IsOpen="{Binding IsRemotePopupOpen, Mode=TwoWay}">
+            <Border Background="#F6F7FA"
+                    BorderBrush="#BCC3D4"
+                    BorderThickness="1"
+                    Padding="12"
+                    Width="320">
+                <StackPanel>
+                    <TextBlock Text="{Binding Path=GetLocalization[GitConnectRemote]}" Foreground="#414659" FontFamily="Calibri" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[GitRemoteUrl]}" Foreground="#777777" FontFamily="Calibri" FontSize="12"/>
+                    <TextBox Text="{Binding RemoteUrl, UpdateSourceTrigger=PropertyChanged}" Height="28" Margin="0,3,0,8" Padding="6,3" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" FontFamily="Calibri" FontSize="13" Foreground="#414659" Background="#FFFFFF"/>
+
+                    <StackPanel Visibility="{Binding RemoteCredentialsVisibility}">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <RadioButton Content="{Binding Path=GetLocalization[GitRemoteLoginPassword]}" IsChecked="{Binding UseLoginPasswordAuth}" GroupName="GitRemoteAuth" FontFamily="Calibri" FontSize="13" Foreground="#414659" Margin="0,0,12,0"/>
+                            <RadioButton Content="{Binding Path=GetLocalization[GitRemoteToken]}" IsChecked="{Binding UseTokenAuth}" GroupName="GitRemoteAuth" FontFamily="Calibri" FontSize="13" Foreground="#414659"/>
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding LoginPasswordVisibility}">
+                            <TextBlock Text="{Binding Path=GetLocalization[GitRemoteLogin]}" Foreground="#777777" FontFamily="Calibri" FontSize="12"/>
+                            <TextBox Text="{Binding RemoteLogin, UpdateSourceTrigger=PropertyChanged}" Height="28" Margin="0,3,0,7" Padding="6,3" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" FontFamily="Calibri" FontSize="13" Background="#FFFFFF"/>
+                            <TextBlock Text="{Binding Path=GetLocalization[GitRemotePassword]}" Foreground="#777777" FontFamily="Calibri" FontSize="12"/>
+                            <TextBox Text="{Binding RemotePassword, UpdateSourceTrigger=PropertyChanged}" Height="28" Margin="0,3,0,8" Padding="6,3" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" FontFamily="Calibri" FontSize="13" Background="#FFFFFF"/>
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding TokenVisibility}">
+                            <TextBlock Text="{Binding Path=GetLocalization[GitRemoteTokenField]}" Foreground="#777777" FontFamily="Calibri" FontSize="12"/>
+                            <TextBox Text="{Binding RemoteToken, UpdateSourceTrigger=PropertyChanged}" Height="28" Margin="0,3,0,8" Padding="6,3" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" FontFamily="Calibri" FontSize="13" Background="#FFFFFF"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{Binding RemoteCheckCommand}" Visibility="{Binding RemoteCheckVisibility}" Style="{StaticResource GitCommitButton}" Width="82" Height="28">
+                            <TextBlock Text="{Binding Path=GetLocalization[GitRemoteCheck]}"/>
+                        </Button>
+                        <Button Command="{Binding RemoteConnectCommand}" Visibility="{Binding RemoteConnectSubmitVisibility}" Style="{StaticResource GitCommitButton}" Width="92" Height="28">
+                            <TextBlock Text="{Binding Path=GetLocalization[GitRemoteConnect]}"/>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </Popup>
