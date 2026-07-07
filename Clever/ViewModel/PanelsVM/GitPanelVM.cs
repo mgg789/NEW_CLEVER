@@ -1,4 +1,5 @@
 using Clever.CommonData;
+using Clever.Model.Utils;
 using Clever.ViewModel;
 using Clever.ViewModel.BaseVM;
 using System.Collections.Generic;
@@ -74,6 +75,8 @@ namespace Clever.ViewModel.PanelsVM
             RevertCommitCommand = new RelayCommand(param => SetCommitActionStatus(param, "GitStatusRevert", "Revert commit is a UI action in this pass."), true);
             DiffCommitCommand = new RelayCommand(OpenCommitDiff, true);
             OpenChangeFileCommand = new RelayCommand(OpenChangeFile, true);
+            GenerateCommitMessageCommand = new RelayCommand(param => GenerateCommitMessage(), true);
+            AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
 
             if (GraphRows.Count > 0)
                 SelectCommit(GraphRows[0].Commit, false);
@@ -115,6 +118,7 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand RevertCommitCommand { get; private set; }
         public ICommand DiffCommitCommand { get; private set; }
         public ICommand OpenChangeFileCommand { get; private set; }
+        public ICommand GenerateCommitMessageCommand { get; private set; }
 
         public ObservableCollection<GitGraphRowVM> GraphRows
         {
@@ -139,6 +143,11 @@ namespace Clever.ViewModel.PanelsVM
         public Dictionary<string, string> GetLocalization
         {
             get { return GUILanguage.Items; }
+        }
+
+        public Visibility AiGenerateVisibility
+        {
+            get { return AiAppSettingsStore.Settings.AiEnabled ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public Visibility SetupVisibility
@@ -599,6 +608,22 @@ namespace Clever.ViewModel.PanelsVM
             MainWindowVM.OpenGitChangeFile(file);
             var message = GUILanguage.GetItem("GitStatusFileOpened");
             StatusMessage = (string.IsNullOrEmpty(message) ? "Opened file from Git changes:" : message) + " " + file.FileName;
+        }
+
+        private void GenerateCommitMessage()
+        {
+            if (!AiAppSettingsStore.Settings.AiEnabled)
+                return;
+
+            CommitMessage = Changes != null && Changes.Count > 0
+                ? "Save current project changes"
+                : "Update project backup";
+            SetLocalizedStatus("GitStatusGenerateCommitMessage", "Commit message generated in design mode.");
+        }
+
+        private void AiAppSettingsStore_SettingsChanged(object sender, System.EventArgs e)
+        {
+            OnPropertyChanged("AiGenerateVisibility");
         }
     }
 

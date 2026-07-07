@@ -1,8 +1,11 @@
+using Clever.Model.Utils;
 using Clever.ViewModel.BaseVM;
 using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
@@ -22,6 +25,7 @@ namespace Clever.ViewModel.PanelsVM
         private string _wheelDiameter;
         private string _wheelBaseWidth;
         private string _robotDescription;
+        private string _currentSessionId;
 
         public AiChatPanelVM()
         {
@@ -29,27 +33,27 @@ namespace Clever.ViewModel.PanelsVM
             ReasoningModes = new ObservableCollection<string> { "Fast", "Balanced", "Deep" };
             SelectedModel = Models[0];
             SelectedReasoning = ReasoningModes[1];
-            WheelDiameter = "56";
-            WheelBaseWidth = "120";
-            RobotDescription = "EV3 robot with two drive motors and a front color sensor.";
+
+            _wheelDiameter = AiAppSettingsStore.Settings.WheelDiameter;
+            _wheelBaseWidth = AiAppSettingsStore.Settings.WheelBaseWidth;
+            _robotDescription = AiAppSettingsStore.Settings.RobotDescription;
+            if (string.IsNullOrWhiteSpace(_robotDescription))
+                _robotDescription = "EV3 robot with two drive motors and a front color sensor.";
 
             Messages = new ObservableCollection<AiChatMessageVM>();
             Attachments = new ObservableCollection<AiAttachmentVM>();
-            HistoryItems = new ObservableCollection<AiChatHistoryItemVM>
-            {
-                new AiChatHistoryItemVM("Перед уроком", "Проверка маршрута и датчиков"),
-                new AiChatHistoryItemVM("Движение по линии", "PID, повороты, калибровка"),
-                new AiChatHistoryItemVM("Git backup", "Как сохранить рабочую версию")
-            };
+            HistoryItems = new ObservableCollection<AiChatHistoryItemVM>();
 
             NewChatCommand = new RelayCommand(param => StartNewChat(), true);
             HistoryCommand = new RelayCommand(param => IsHistoryOpen = true, true);
             OpenHistoryItemCommand = new RelayCommand(OpenHistoryItem, true);
+            ClearHistoryCommand = new RelayCommand(param => ClearHistory(), true);
             ToggleSettingsCommand = new RelayCommand(param => IsSettingsOpen = !IsSettingsOpen, true);
             AttachFileCommand = new RelayCommand(param => PickFiles(), true);
             RemoveAttachmentCommand = new RelayCommand(RemoveAttachment, true);
             SendOrStopCommand = new RelayCommand(param => SendOrStop(), true);
 
+            ReloadHistoryItems();
             SeedDemoMessages();
         }
 
@@ -62,6 +66,7 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand NewChatCommand { get; private set; }
         public ICommand HistoryCommand { get; private set; }
         public ICommand OpenHistoryItemCommand { get; private set; }
+        public ICommand ClearHistoryCommand { get; private set; }
         public ICommand ToggleSettingsCommand { get; private set; }
         public ICommand AttachFileCommand { get; private set; }
         public ICommand RemoveAttachmentCommand { get; private set; }
@@ -141,6 +146,8 @@ namespace Clever.ViewModel.PanelsVM
             set
             {
                 _wheelDiameter = value;
+                AiAppSettingsStore.Settings.WheelDiameter = value ?? "";
+                AiAppSettingsStore.SaveSettings();
                 OnPropertyChanged("WheelDiameter");
             }
         }
@@ -151,6 +158,8 @@ namespace Clever.ViewModel.PanelsVM
             set
             {
                 _wheelBaseWidth = value;
+                AiAppSettingsStore.Settings.WheelBaseWidth = value ?? "";
+                AiAppSettingsStore.SaveSettings();
                 OnPropertyChanged("WheelBaseWidth");
             }
         }
@@ -161,6 +170,8 @@ namespace Clever.ViewModel.PanelsVM
             set
             {
                 _robotDescription = value;
+                AiAppSettingsStore.Settings.RobotDescription = value ?? "";
+                AiAppSettingsStore.SaveSettings();
                 OnPropertyChanged("RobotDescription");
                 OnPropertyChanged("RobotDescriptionCounter");
             }
@@ -237,15 +248,16 @@ namespace Clever.ViewModel.PanelsVM
 
         private void SeedDemoMessages()
         {
+            _currentSessionId = Guid.NewGuid().ToString("N");
             Messages.Clear();
-            Messages.Add(AiChatMessageVM.CreateUser("Помоги быстро проверить программу перед запуском на роботе."));
+            Messages.Add(AiChatMessageVM.CreateUser("Help me quickly check the program before running it on the robot."));
             Messages.Add(AiChatMessageVM.CreateAssistant(
-@"# План проверки
-Я могу пройтись по программе перед загрузкой на EV3:
+@"# Check plan
+I can inspect the program before uploading it to EV3:
 
-- **Ошибки синтаксиса** и незакрытые блоки.
-- _Подозрительные значения_ скорости и поворотов.
-- Проверка переменных вроде `wheelDiameter`.
+- **Syntax mistakes** and unclosed blocks.
+- _Suspicious speed values_ and turns.
+- Variable checks such as `wheelDiameter`.
 
 ```bp
 start
@@ -254,7 +266,7 @@ start
 end
 ```
 
-> Совет: перед уроком удобно сохранить чистый коммит и потом экспериментировать в отдельной ветке."));
+> Tip: before class, save a clean commit and experiment in a separate branch."));
         }
 
         private void StartNewChat()
@@ -273,10 +285,26 @@ end
             if (item == null)
                 return;
 
+            var session = AiAppSettingsStore.LoadChatSessions().FirstOrDefault(candidate => candidate.Id == item.Id);
+            if (session == null)
+                return;
+
+            _currentSessionId = session.Id;
             IsHistoryOpen = false;
             Messages.Clear();
-            Messages.Add(AiChatMessageVM.CreateUser("Открой контекст: " + item.Title));
-            Messages.Add(AiChatMessageVM.CreateAssistant("## " + item.Title + "\n" + item.Subtitle + "\n\nСодержимое истории показано как frontend-заготовка."));
+            foreach (var message in session.Messages)
+                Messages.Add(AiChatMessageVM.Create(message.Markdown, message.IsUser));
+        }
+
+        private void ClearHistory()
+        {
+            var result = MessageBox.Show("Clear AI chat history?", "AI chat", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            AiAppSettingsStore.ClearChatSessions();
+            ReloadHistoryItems();
+            StartNewChat();
         }
 
         private void PickFiles()
@@ -314,7 +342,41 @@ end
             InputText = "";
             Attachments.Clear();
             OnPropertyChanged("AttachmentVisibility");
+            SaveCurrentSession();
+            ReloadHistoryItems();
             IsBotWorking = true;
+        }
+
+        private void SaveCurrentSession()
+        {
+            var userMessages = Messages.Where(item => item.IsUser).ToList();
+            var title = userMessages.Count == 0 ? "New chat" : TrimForTitle(userMessages[userMessages.Count - 1].Markdown, 34);
+            var subtitle = Messages.Count == 0 ? "" : TrimForTitle(Messages[Messages.Count - 1].Markdown, 54);
+            var session = new AiChatSessionData
+            {
+                Id = _currentSessionId,
+                Title = title,
+                Subtitle = subtitle,
+                Messages = Messages.Select(item => new AiChatMessageData { Markdown = item.Markdown, IsUser = item.IsUser }).ToList()
+            };
+
+            AiAppSettingsStore.SaveChatSession(session);
+        }
+
+        private void ReloadHistoryItems()
+        {
+            HistoryItems.Clear();
+            foreach (var session in AiAppSettingsStore.LoadChatSessions())
+                HistoryItems.Add(new AiChatHistoryItemVM(session.Id, session.Title, session.Subtitle));
+        }
+
+        private static string TrimForTitle(string text, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "New chat";
+
+            var normalized = text.Replace("\r", " ").Replace("\n", " ").Trim();
+            return normalized.Length <= maxLength ? normalized : normalized.Substring(0, maxLength - 3) + "...";
         }
     }
 
@@ -322,9 +384,9 @@ end
     {
         private AiChatMessageVM(string markdown, bool isUser)
         {
-            Markdown = markdown;
+            Markdown = markdown ?? "";
             IsUser = isUser;
-            Document = AiMarkdownRenderer.CreateDocument(markdown, isUser);
+            Document = AiMarkdownRenderer.CreateDocument(Markdown, isUser);
         }
 
         public string Markdown { get; private set; }
@@ -339,6 +401,11 @@ end
         public Visibility AssistantVisibility
         {
             get { return IsUser ? Visibility.Collapsed : Visibility.Visible; }
+        }
+
+        public static AiChatMessageVM Create(string markdown, bool isUser)
+        {
+            return new AiChatMessageVM(markdown, isUser);
         }
 
         public static AiChatMessageVM CreateUser(string markdown)
@@ -368,12 +435,14 @@ end
 
     internal class AiChatHistoryItemVM
     {
-        public AiChatHistoryItemVM(string title, string subtitle)
+        public AiChatHistoryItemVM(string id, string title, string subtitle)
         {
-            Title = title;
-            Subtitle = subtitle;
+            Id = id;
+            Title = string.IsNullOrWhiteSpace(title) ? "New chat" : title;
+            Subtitle = subtitle ?? "";
         }
 
+        public string Id { get; private set; }
         public string Title { get; private set; }
         public string Subtitle { get; private set; }
     }
@@ -390,7 +459,8 @@ end
                 FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI"),
                 FontSize = compact ? 13 : 14,
                 Foreground = BrushFrom("#414659"),
-                LineHeight = compact ? 18 : 20
+                LineHeight = compact ? 18 : 20,
+                ColumnWidth = 999999
             };
 
             var text = (markdown ?? "").Replace("\r\n", "\n");
@@ -437,8 +507,7 @@ end
                     continue;
                 }
 
-                var paragraph = CreateParagraph(line, compact);
-                document.Blocks.Add(paragraph);
+                document.Blocks.Add(CreateParagraph(line, compact));
             }
 
             return document;
@@ -467,7 +536,7 @@ end
 
             if (trimmed.StartsWith("- "))
             {
-                paragraph.Inlines.Add(new Run("• ") { FontWeight = FontWeights.Bold });
+                paragraph.Inlines.Add(new Run("* ") { FontWeight = FontWeights.Bold });
                 AddInlineMarkdown(paragraph.Inlines, trimmed.Substring(2));
                 return paragraph;
             }

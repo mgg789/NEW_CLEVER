@@ -12,12 +12,16 @@ namespace Clever.View.Controls
         private static UserControl _control;
         private static TabControl _tcHelps;
         private static TabItem _tiView;
+        private static TabItem _tiBrick;
+        private static TabItem _tiAiChat;
         public HelpPanel()
         {
             InitializeComponent();
             _control = this;
             _tcHelps = TcHelps;
             _tiView = TiView;
+            _tiBrick = TiBrick;
+            _tiAiChat = TiAiChat;
         }
 
         private void Grid_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -53,6 +57,18 @@ namespace Clever.View.Controls
         public static TabItem GetTabItemView()
         {
             return _tiView;
+        }
+
+        public static void SelectAiChatTab()
+        {
+            if (_tcHelps != null && _tiAiChat != null && _tiAiChat.Visibility == Visibility.Visible)
+                _tcHelps.SelectedItem = _tiAiChat;
+        }
+
+        public static void EnsureAiChatNotSelected()
+        {
+            if (_tcHelps != null && _tiAiChat != null && _tcHelps.SelectedItem == _tiAiChat)
+                _tcHelps.SelectedItem = _tiBrick;
         }
     }
 }

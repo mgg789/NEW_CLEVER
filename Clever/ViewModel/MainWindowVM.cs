@@ -57,6 +57,7 @@ namespace Clever.ViewModel
         public ICommand SplitSideBySideCommand { get; set; }
         public ICommand SplitTopBottomCommand { get; set; }
         public ICommand ToggleRightSidebarCommand { get; set; }
+        public ICommand OpenAiChatCommand { get; set; }
         public ICommand AboutCommand { get; set; }
 
         public static ProjectData Project;
@@ -123,7 +124,9 @@ namespace Clever.ViewModel
             SplitSideBySideCommand = new RelayCommand(param => ToggleEditorSplit(true), true);
             SplitTopBottomCommand = new RelayCommand(param => ToggleEditorSplit(false), true);
             ToggleRightSidebarCommand = new RelayCommand(param => ToggleRightSidebar(), true);
+            OpenAiChatCommand = new RelayCommand(param => OpenAiChatSidebar(), true);
             AboutCommand = new RelayCommand(param => About(), true);
+            AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
 
             ShowNumber = Configurations.Get.ShowNumber;
             EditShowNumber();
@@ -984,6 +987,37 @@ namespace Clever.ViewModel
                 {
                 }
             }
+        }
+
+        private void OpenAiChatSidebar()
+        {
+            if (!AiAppSettingsStore.Settings.AiEnabled)
+                return;
+
+            try
+            {
+                var grid = MainWindow.GetEditorGrid;
+                if (grid != null && grid.ColumnDefinitions.Count >= 3)
+                {
+                    var sidebarColumn = grid.ColumnDefinitions[2];
+                    var sidebar = grid.Children.Cast<UIElement>().FirstOrDefault(child => Grid.GetColumn(child) == 2);
+                    var sidebarIsHidden = _rightSidebarHidden || sidebarColumn.ActualWidth <= 1 || sidebar == null || sidebar.Visibility != Visibility.Visible;
+                    if (sidebarIsHidden)
+                        ToggleRightSidebar();
+                }
+
+                HelpPanel.SelectAiChatTab();
+            }
+            catch
+            {
+            }
+        }
+
+        private void AiAppSettingsStore_SettingsChanged(object sender, EventArgs e)
+        {
+            OnPropertyChanged("AiFunctionsVisibility");
+            if (!AiAppSettingsStore.Settings.AiEnabled)
+                HelpPanel.EnsureAiChatNotSelected();
         }
 
         internal static void OpenGitDiffPreview(GitCommitVM commit)
@@ -1977,6 +2011,11 @@ namespace Clever.ViewModel
             {
                 return App.Errors;
             }
+        }
+
+        public Visibility AiFunctionsVisibility
+        {
+            get { return AiAppSettingsStore.Settings.AiEnabled ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         private static Visibility _hiddenProgramButton;

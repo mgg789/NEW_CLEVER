@@ -260,17 +260,27 @@
         <Border Grid.Row="0" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1" Padding="0,0,0,8" Visibility="{Binding MainGitVisibility}">
             <StackPanel>
                 <TextBlock Text="{Binding Path=GetLocalization[GitChanges]}" Style="{StaticResource GitSectionHeader}"/>
-                <TextBox Text="{Binding CommitMessage, UpdateSourceTrigger=PropertyChanged}"
-                         Height="32"
-                         Margin="8,0,8,6"
-                         Padding="6,5"
-                         BorderThickness="1"
-                         BorderBrush="{StaticResource git_panel_separator}"
-                         FontFamily="{StaticResource ui_fontfamily}"
-                         FontSize="15"
-                         Foreground="#414659"
-                         Background="#FFFFFF"
-                         ToolTip="{Binding Path=GetLocalization[tGitCommitMessage]}"/>
+                <Grid Margin="8,0,8,6">
+                    <TextBox Text="{Binding CommitMessage, UpdateSourceTrigger=PropertyChanged}"
+                             Height="32"
+                             Padding="6,5,32,5"
+                             BorderThickness="1"
+                             BorderBrush="{StaticResource git_panel_separator}"
+                             FontFamily="{StaticResource ui_fontfamily}"
+                             FontSize="15"
+                             Foreground="#414659"
+                             Background="#FFFFFF"
+                             ToolTip="{Binding Path=GetLocalization[tGitCommitMessage]}"/>
+                    <Button Command="{Binding GenerateCommitMessageCommand}"
+                            Style="{StaticResource GitInlineIconButton}"
+                            Visibility="{Binding AiGenerateVisibility}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Margin="0,0,5,0"
+                            ToolTip="Generate">
+                        <Image Source="{StaticResource ai_icon_generate}" Width="12" Height="12"/>
+                    </Button>
+                </Grid>
                 <Button Command="{Binding CommitCommand}"
                         Style="{StaticResource GitCommitButton}"
                         Margin="8,0,8,0"

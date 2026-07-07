@@ -146,6 +146,7 @@
                      Margin="8,0,-8,0"
                      Height="26"
                      Width="{Binding ActualWidth, ElementName=TabGrid_6}"
+                     Visibility="{Binding AiFunctionsVisibility}"
                      FontFamily="{StaticResource ui_fontfamily}"
                      FontSize="14"
                      VerticalAlignment="Bottom"

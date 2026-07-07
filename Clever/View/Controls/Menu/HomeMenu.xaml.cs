@@ -61,5 +61,12 @@ namespace Clever.View.Controls.Menu
                 cdc.ColorItems.Clear();
             }
         }
+
+        private void Ai_Click(object sender, RoutedEventArgs e)
+        {
+            ButtonsPanel.GetHomePopup.IsOpen = false;
+            var win = new AiSettingsWindow();
+            win.ShowDialog();
+        }
     }
 }

@@ -134,6 +134,74 @@
         </DrawingImage.Drawing>
     </DrawingImage>
 
+    <DrawingImage x:Key="ai_icon_history">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource git_sidebar_icon}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M3,12A9,9 0,1 0,12,3A9.75,9.75 0,0 0,5.26,5.74L3,8 M3,3L3,8 8,8 M12,7L12,12 16,14"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="ai_icon_settings">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource git_sidebar_icon}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M10,5L3,5 M12,19L3,19 M14,3L14,7 M16,17L16,21 M21,12L12,12 M21,19L16,19 M21,5L14,5 M8,10L8,14 M8,12L3,12"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="ai_icon_send">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="White" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M5,12L12,5 19,12 M12,19L12,5"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <DrawingImage x:Key="ai_icon_generate">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource git_icon_mof}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M11.017,2.814A1,1 0,0 1,12.983,2.814L14.034,8.372A2,2 0,0 0,15.628,9.966L21.186,11.017A1,1 0,0 1,21.186,12.983L15.628,14.034A2,2 0,0 0,14.034,15.628L12.983,21.186A1,1 0,0 1,11.017,21.186L9.966,15.628A2,2 0,0 0,8.372,14.034L2.814,12.983A1,1 0,0 1,2.814,11.017L8.372,9.966A2,2 0,0 0,9.966,8.372z M20,2L20,6 M22,4L18,4"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="{x:Null}">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource git_icon_mof}" Thickness="2" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="4,20" RadiusX="2" RadiusY="2"/>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
     <DrawingImage x:Key="git_icon_help">
         <DrawingImage.Drawing>
             <DrawingGroup>
