@@ -12,6 +12,8 @@ namespace Clever.View.Controls.Menu
     /// </summary>
     public partial class HomeMenu : UserControl
     {
+        private static AiSettingsWindow aiSettingsWindow;
+
         public HomeMenu()
         {
             InitializeComponent();
@@ -65,8 +67,25 @@ namespace Clever.View.Controls.Menu
         private void Ai_Click(object sender, RoutedEventArgs e)
         {
             ButtonsPanel.GetHomePopup.IsOpen = false;
-            var win = new AiSettingsWindow();
-            win.ShowDialog();
+
+            if (aiSettingsWindow != null)
+            {
+                aiSettingsWindow.Activate();
+                aiSettingsWindow.Focus();
+                return;
+            }
+
+            aiSettingsWindow = new AiSettingsWindow
+            {
+                Owner = Window.GetWindow(this),
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ShowInTaskbar = false
+            };
+            aiSettingsWindow.Closed += (closedSender, closedArgs) => aiSettingsWindow = null;
+            aiSettingsWindow.Show();
+            aiSettingsWindow.Topmost = true;
+            aiSettingsWindow.Topmost = false;
+            aiSettingsWindow.Activate();
         }
     }
 }

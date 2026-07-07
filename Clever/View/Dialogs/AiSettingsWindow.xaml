@@ -8,7 +8,7 @@
         Height="430"
         Width="520"
         ResizeMode="NoResize"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <Style x:Key="AiSettingsButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Height" Value="30"/>
@@ -41,12 +41,15 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <CheckBox IsChecked="{Binding AiEnabled}"
-                  Content="Enable AI functions"
-                  FontFamily="{StaticResource ui_fontfamily}"
-                  FontSize="15"
-                  Foreground="#414659"
-                  Margin="0,0,0,14"/>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+            <CheckBox IsChecked="{Binding AiEnabled}"
+                      VerticalAlignment="Top"
+                      Margin="0,4,8,0"/>
+            <TextBlock Text="Enable AI functions"
+                       FontFamily="{StaticResource ui_fontfamily}"
+                       FontSize="15"
+                       Foreground="#414659"/>
+        </StackPanel>
 
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
