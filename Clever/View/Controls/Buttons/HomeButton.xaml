@@ -107,13 +107,13 @@
                     </Canvas.Background>
                 </Canvas>
                 <Button Style="{StaticResource HomeEditorToolButton}" Command="{Binding OpenAiChatCommand}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tAiChat]}" AutomationProperties.Name="{Binding Path=GetLocalization[tAiChat]}">
-                    <Image Style="{StaticResource HomeAiChatImageStyle}" Width="22" Height="22"/>
+                    <Image Style="{StaticResource HomeAiChatImageStyle}" Width="19" Height="19"/>
                 </Button>
                 <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tFixBugs]}" AutomationProperties.Name="{Binding Path=GetLocalization[tFixBugs]}">
-                    <Image Style="{StaticResource HomeFixBugsImageStyle}" Width="22" Height="22"/>
+                    <Image Style="{StaticResource HomeFixBugsImageStyle}" Width="19" Height="19"/>
                 </Button>
                 <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tAiCompetitions]}" AutomationProperties.Name="{Binding Path=GetLocalization[tAiCompetitions]}">
-                    <Image Style="{StaticResource HomeAiCompetitionsImageStyle}" Width="22" Height="22"/>
+                    <Image Style="{StaticResource HomeAiCompetitionsImageStyle}" Width="19" Height="19"/>
                 </Button>
             </StackPanel>
             <home_but:hButtonEditUndo Margin="0,0,10,0" Visibility="{Binding Path=EditUndoV}"/>

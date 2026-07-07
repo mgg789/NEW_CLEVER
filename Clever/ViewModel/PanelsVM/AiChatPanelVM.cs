@@ -107,6 +107,7 @@ namespace Clever.ViewModel.PanelsVM
                 OnPropertyChanged("IsHistoryOpen");
                 OnPropertyChanged("ConversationVisibility");
                 OnPropertyChanged("HistoryVisibility");
+                OnPropertyChanged("ComposerVisibility");
             }
         }
 
@@ -215,6 +216,11 @@ namespace Clever.ViewModel.PanelsVM
         public Visibility HistoryVisibility
         {
             get { return IsHistoryOpen ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public Visibility ComposerVisibility
+        {
+            get { return IsHistoryOpen ? Visibility.Collapsed : Visibility.Visible; }
         }
 
         public Visibility AttachmentVisibility

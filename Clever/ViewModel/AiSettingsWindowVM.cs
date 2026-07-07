@@ -80,7 +80,7 @@ namespace Clever.ViewModel
 
         public Visibility CodexStatusVisibility
         {
-            get { return CodexConnected ? Visibility.Visible : Visibility.Collapsed; }
+            get { return Visibility.Visible; }
         }
 
         public string CodexStatusText
@@ -88,7 +88,10 @@ namespace Clever.ViewModel
             get
             {
                 var settings = AiAppSettingsStore.Settings;
-                return "Email: " + settings.CodexEmail + "\n5h: " + settings.CodexLimit5h + "   7d: " + settings.CodexLimit7d;
+                if (CodexConnected)
+                    return "Email: " + settings.CodexEmail + "\n5h: " + settings.CodexLimit5h + "   7d: " + settings.CodexLimit7d;
+
+                return "5h: " + settings.CodexLimit5h + "   7d: " + settings.CodexLimit7d;
             }
         }
 

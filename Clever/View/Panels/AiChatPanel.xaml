@@ -178,7 +178,7 @@
                 <Grid Margin="12,10,8,8">
                     <TextBlock Text="Chat history" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
                     <Button Command="{Binding ClearHistoryCommand}" Style="{StaticResource AiIconButton}" Width="26" Height="26" Padding="5" HorizontalAlignment="Right" ToolTip="Clear history">
-                        <Path Data="M8,7L8,19 M12,7L12,19 M16,7L16,19 M5,5L19,5 M9,5L10,3L14,3L15,5 M6,5L7,21L17,21L18,5" Stroke="#8F98AB" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="15" Height="15" Stretch="Uniform"/>
+                        <Image Source="{StaticResource ai_icon_trash}" Width="18" Height="18"/>
                     </Button>
                 </Grid>
                 <ItemsControl Grid.Row="1" ItemsSource="{Binding HistoryItems}" Margin="6,0,6,8">
@@ -205,7 +205,7 @@
             </Grid>
         </Grid>
 
-        <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,1,0,0" Padding="8">
+        <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,1,0,0" Padding="8" Visibility="{Binding ComposerVisibility}">
             <StackPanel>
                 <ItemsControl ItemsSource="{Binding Attachments}" ItemTemplate="{StaticResource AiAttachmentTemplate}" Visibility="{Binding AttachmentVisibility}">
                     <ItemsControl.ItemsPanel>
