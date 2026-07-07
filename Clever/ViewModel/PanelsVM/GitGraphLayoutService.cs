@@ -35,8 +35,8 @@ namespace Clever.ViewModel.PanelsVM
                 var laneIndex = activeLanes.IndexOf(commit.Hash);
                 if (laneIndex < 0)
                 {
-                    activeLanes.Insert(0, commit.Hash);
-                    laneIndex = 0;
+                    activeLanes.Add(commit.Hash);
+                    laneIndex = activeLanes.Count - 1;
                 }
 
                 var nextLanes = new List<string>(activeLanes);
@@ -67,6 +67,9 @@ namespace Clever.ViewModel.PanelsVM
         {
             for (var i = 0; i < activeLanes.Count; i++)
             {
+                if (string.IsNullOrEmpty(activeLanes[i]))
+                    continue;
+
                 var x = GetLaneX(i);
                 if (i == commitLane)
                 {
@@ -86,7 +89,7 @@ namespace Clever.ViewModel.PanelsVM
         {
             if (commit.ParentHashes.Count == 0)
             {
-                nextLanes.RemoveAt(commitLane);
+                ClearLane(nextLanes, commitLane);
                 return;
             }
 
@@ -95,7 +98,7 @@ namespace Clever.ViewModel.PanelsVM
             if (existingFirstParentLane >= 0)
             {
                 AddSideConnector(row, existingFirstParentLane, GetLaneBrush(existingFirstParentLane), false);
-                nextLanes.RemoveAt(commitLane);
+                ClearLane(nextLanes, commitLane);
             }
             else
             {
@@ -110,10 +113,17 @@ namespace Clever.ViewModel.PanelsVM
                 var insertedLane = false;
                 if (targetLane < 0)
                 {
-                    targetLane = commitLane + i;
-                    if (targetLane > nextLanes.Count)
+                    targetLane = FindReusableLane(nextLanes, commitLane + 1);
+                    if (targetLane >= 0)
+                    {
+                        nextLanes[targetLane] = parent;
+                    }
+                    else
+                    {
                         targetLane = nextLanes.Count;
-                    nextLanes.Insert(targetLane, parent);
+                        nextLanes.Add(parent);
+                    }
+
                     insertedLane = true;
                 }
 
@@ -144,10 +154,42 @@ namespace Clever.ViewModel.PanelsVM
             var result = new List<string>();
             foreach (var lane in lanes)
             {
-                if (!string.IsNullOrEmpty(lane) && !result.Contains(lane))
+                if (string.IsNullOrEmpty(lane))
+                {
+                    result.Add(null);
+                }
+                else if (!result.Contains(lane))
+                {
                     result.Add(lane);
+                }
             }
+
+            while (result.Count > 0 && string.IsNullOrEmpty(result[result.Count - 1]))
+                result.RemoveAt(result.Count - 1);
+
             return result;
+        }
+
+        private static void ClearLane(IList<string> lanes, int lane)
+        {
+            if (lane < 0 || lane >= lanes.Count)
+                return;
+
+            if (lane == lanes.Count - 1)
+                lanes.RemoveAt(lane);
+            else
+                lanes[lane] = null;
+        }
+
+        private static int FindReusableLane(IList<string> lanes, int startLane)
+        {
+            for (var i = startLane; i < lanes.Count; i++)
+            {
+                if (string.IsNullOrEmpty(lanes[i]))
+                    return i;
+            }
+
+            return -1;
         }
 
         private static int FindLane(IList<string> lanes, string hash, int ignoredLane)
