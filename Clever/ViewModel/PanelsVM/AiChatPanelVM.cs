@@ -450,6 +450,14 @@ end
     internal static class AiMarkdownRenderer
     {
         private static readonly Regex LinkRegex = new Regex(@"^\[([^\]]+)\]\(([^)]+)\)", RegexOptions.Compiled);
+        private static readonly Regex OrderedListRegex = new Regex(@"^\d+[\.)]\s+(.+)$", RegexOptions.Compiled);
+
+        private enum AiListKind
+        {
+            None,
+            Unordered,
+            Ordered
+        }
 
         public static FlowDocument CreateDocument(string markdown, bool compact)
         {
@@ -467,12 +475,17 @@ end
             var lines = text.Split('\n');
             var inCode = false;
             Paragraph codeParagraph = null;
+            System.Windows.Documents.List currentList = null;
+            var currentListKind = AiListKind.None;
 
             foreach (var rawLine in lines)
             {
                 var line = rawLine ?? "";
                 if (line.TrimStart().StartsWith("```"))
                 {
+                    currentList = null;
+                    currentListKind = AiListKind.None;
+
                     if (!inCode)
                     {
                         inCode = true;
@@ -503,14 +516,66 @@ end
 
                 if (string.IsNullOrWhiteSpace(line))
                 {
+                    currentList = null;
+                    currentListKind = AiListKind.None;
                     document.Blocks.Add(new Paragraph { Margin = new Thickness(0, 2, 0, 2) });
                     continue;
                 }
 
+                ListItem listItem;
+                AiListKind listKind;
+                if (TryCreateListItem(line, out listItem, out listKind))
+                {
+                    if (currentList == null || currentListKind != listKind)
+                    {
+                        currentListKind = listKind;
+                        currentList = new System.Windows.Documents.List
+                        {
+                            MarkerStyle = listKind == AiListKind.Ordered ? TextMarkerStyle.Decimal : TextMarkerStyle.Disc,
+                            Margin = new Thickness(13, 2, 0, 2),
+                            Padding = new Thickness(10, 0, 0, 0)
+                        };
+                        document.Blocks.Add(currentList);
+                    }
+
+                    currentList.ListItems.Add(listItem);
+                    continue;
+                }
+
+                currentList = null;
+                currentListKind = AiListKind.None;
                 document.Blocks.Add(CreateParagraph(line, compact));
             }
 
             return document;
+        }
+
+        private static bool TryCreateListItem(string line, out ListItem item, out AiListKind kind)
+        {
+            item = null;
+            kind = AiListKind.None;
+
+            var trimmed = line.TrimStart();
+            var content = "";
+            if (trimmed.StartsWith("- ") || trimmed.StartsWith("* ") || trimmed.StartsWith("+ "))
+            {
+                kind = AiListKind.Unordered;
+                content = trimmed.Substring(2);
+            }
+            else
+            {
+                var ordered = OrderedListRegex.Match(trimmed);
+                if (!ordered.Success)
+                    return false;
+
+                kind = AiListKind.Ordered;
+                content = ordered.Groups[1].Value;
+            }
+
+            var paragraph = new Paragraph { Margin = new Thickness(0, 1, 0, 1) };
+            AddInlineMarkdown(paragraph.Inlines, content);
+            item = new ListItem(paragraph) { Margin = new Thickness(0) };
+            return true;
         }
 
         private static Paragraph CreateParagraph(string line, bool compact)
@@ -531,13 +596,6 @@ end
                 paragraph.FontSize = compact ? 14 : 16;
                 paragraph.FontWeight = FontWeights.Bold;
                 AddInlineMarkdown(paragraph.Inlines, trimmed.Substring(3));
-                return paragraph;
-            }
-
-            if (trimmed.StartsWith("- "))
-            {
-                paragraph.Inlines.Add(new Run("* ") { FontWeight = FontWeights.Bold });
-                AddInlineMarkdown(paragraph.Inlines, trimmed.Substring(2));
                 return paragraph;
             }
 
@@ -582,6 +640,9 @@ end
                 if (TryAddDelimited(inlines, text, ref index, "**", span => span.FontWeight = FontWeights.Bold))
                     continue;
 
+                if (TryAddDelimited(inlines, text, ref index, "*", span => span.FontStyle = FontStyles.Italic))
+                    continue;
+
                 if (TryAddDelimited(inlines, text, ref index, "_", span => span.FontStyle = FontStyles.Italic))
                     continue;
 
@@ -610,7 +671,7 @@ end
         private static int FindNextMarker(string text, int start)
         {
             var next = text.Length;
-            foreach (var marker in new[] { "`", "**", "_", "[" })
+            foreach (var marker in new[] { "`", "**", "*", "_", "[" })
             {
                 var markerIndex = text.IndexOf(marker, start, StringComparison.Ordinal);
                 if (markerIndex >= 0 && markerIndex < next)
