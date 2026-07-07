@@ -1,5 +1,6 @@
 ﻿using Clever.Model.Bplus;
 using Clever.Model.Utils;
+using Clever.View.Controls;
 using Clever.ViewModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,6 +30,7 @@ namespace Clever.View.Controls.Editors
             wfh.Child = te.TextArea;
             te.TextArea.DragEnter += TextArea_EditorTabDragEnter;
             te.TextArea.DragOver += TextArea_EditorTabDragOver;
+            te.TextArea.DragLeave += TextArea_EditorTabDragLeave;
             te.TextArea.DragDrop += TextArea_EditorTabDragDrop;
         }
 
@@ -46,18 +48,29 @@ namespace Clever.View.Controls.Editors
         private void TextArea_EditorTabDragEnter(object sender, System.Windows.Forms.DragEventArgs e)
         {
             if (MainWindowVM.IsEditorTabDragData(e.Data))
+            {
+                EditorPanel.PreviewEditorTabDragFromWinForms(System.Windows.Forms.Cursor.Position);
                 e.Effect = System.Windows.Forms.DragDropEffects.Move;
+            }
         }
 
         private void TextArea_EditorTabDragOver(object sender, System.Windows.Forms.DragEventArgs e)
         {
             if (MainWindowVM.IsEditorTabDragData(e.Data))
+            {
+                EditorPanel.PreviewEditorTabDragFromWinForms(System.Windows.Forms.Cursor.Position);
                 e.Effect = System.Windows.Forms.DragDropEffects.Move;
+            }
+        }
+
+        private void TextArea_EditorTabDragLeave(object sender, System.EventArgs e)
+        {
+            EditorPanel.HideEditorTabDragPreview();
         }
 
         private void TextArea_EditorTabDragDrop(object sender, System.Windows.Forms.DragEventArgs e)
         {
-            if (MainWindowVM.MoveDraggedEditorTabToEditor(e.Data, te))
+            if (EditorPanel.DropEditorTabFromWinForms(e.Data, System.Windows.Forms.Cursor.Position))
                 e.Effect = System.Windows.Forms.DragDropEffects.Move;
         }
 

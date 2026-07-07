@@ -17,6 +17,7 @@ namespace Clever.View.Controls
     {
         private static TabControl _tabControl;
         private static TabControl _secondaryTabControl;
+        private static EditorPanel _activePanel;
         static Popup _popup;
         private Point _dragStartPoint;
 
@@ -32,6 +33,7 @@ namespace Clever.View.Controls
         public EditorPanel()
         {
             InitializeComponent();
+            _activePanel = this;
             _tabControl = EditorTabControl;
             _secondaryTabControl = SecondaryEditorTabControl;
             _popup = PopUp;
@@ -252,6 +254,57 @@ namespace Clever.View.Controls
             }
 
             e.Handled = true;
+        }
+
+        internal static bool PreviewEditorTabDragFromWinForms(System.Drawing.Point screenPoint)
+        {
+            if (_activePanel == null)
+                return false;
+
+            var surfacePoint = _activePanel.EditorSurface.PointFromScreen(new Point(screenPoint.X, screenPoint.Y));
+            _activePanel.UpdateSplitPreview(surfacePoint);
+            return true;
+        }
+
+        internal static bool DropEditorTabFromWinForms(System.Windows.Forms.IDataObject data, System.Drawing.Point screenPoint)
+        {
+            if (_activePanel == null)
+                return false;
+
+            _activePanel.HideSplitPreview();
+            var tabName = MainWindowVM.GetDraggedEditorTabName(data);
+            if (tabName == null)
+                return false;
+
+            var surfacePoint = _activePanel.EditorSurface.PointFromScreen(new Point(screenPoint.X, screenPoint.Y));
+            _activePanel.DropEditorTab(tabName, surfacePoint);
+            return true;
+        }
+
+        internal static void HideEditorTabDragPreview()
+        {
+            if (_activePanel != null)
+                _activePanel.HideSplitPreview();
+        }
+
+        private void DropEditorTab(string tabName, Point position)
+        {
+            if (MainWindowVM.IsEditorSplitActive)
+            {
+                MainWindowVM.MoveProgramToPane(tabName, IsSecondaryDropPosition(DetermineSplitPreviewTarget(position)));
+                return;
+            }
+
+            var target = DetermineSplitPreviewTarget(position);
+            if (ShouldCreateSplit(target))
+            {
+                MainWindowVM.SetEditorSplitMode(target == SplitPreviewTarget.Left || target == SplitPreviewTarget.Right);
+                MainWindowVM.MoveProgramToPane(tabName, true);
+            }
+            else
+            {
+                MainWindowVM.MoveProgramToPane(tabName, false);
+            }
         }
 
         private void EditorColumnSplitter_DragCompleted(object sender, DragCompletedEventArgs e)

@@ -1,4 +1,5 @@
 using Clever.ViewModel.BaseVM;
+using System.Windows;
 using System.Windows.Media;
 
 namespace Clever.ViewModel.PanelsVM
@@ -11,5 +12,6 @@ namespace Clever.ViewModel.PanelsVM
         public double Y2 { get; set; }
         public double StrokeThickness { get; set; }
         public Brush Stroke { get; set; }
+        public PointCollection Points { get; set; }
     }
 }

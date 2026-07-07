@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows;
 using System.Windows.Media;
 
 namespace Clever.ViewModel.PanelsVM
@@ -93,7 +94,7 @@ namespace Clever.ViewModel.PanelsVM
             var existingFirstParentLane = FindLane(nextLanes, firstParent, commitLane);
             if (existingFirstParentLane >= 0)
             {
-                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, GetLaneX(existingFirstParentLane), row.RowHeight, GetLaneBrush(existingFirstParentLane), 2));
+                AddSideConnector(row, existingFirstParentLane, GetLaneBrush(existingFirstParentLane), false);
                 nextLanes.RemoveAt(commitLane);
             }
             else
@@ -106,16 +107,28 @@ namespace Clever.ViewModel.PanelsVM
             {
                 var parent = commit.ParentHashes[i];
                 var targetLane = nextLanes.IndexOf(parent);
+                var insertedLane = false;
                 if (targetLane < 0)
                 {
                     targetLane = commitLane + i;
                     if (targetLane > nextLanes.Count)
                         targetLane = nextLanes.Count;
                     nextLanes.Insert(targetLane, parent);
+                    insertedLane = true;
                 }
 
-                row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, GetLaneX(targetLane), row.RowHeight, GetLaneBrush(targetLane), 2));
+                AddSideConnector(row, targetLane, GetLaneBrush(targetLane), insertedLane);
             }
+        }
+
+        private static void AddSideConnector(GitGraphRowVM row, int targetLane, Brush stroke, bool drawTargetContinuation)
+        {
+            var targetX = GetLaneX(targetLane);
+            var nodeSideX = targetX < row.NodeX ? row.NodeX - NodeRadius : row.NodeX + NodeRadius;
+            if (drawTargetContinuation)
+                row.Segments.Add(CreateSegment(targetX, NodeY, targetX, row.RowHeight, stroke, 2));
+
+            row.Segments.Add(CreateSegment(targetX, NodeY, nodeSideX, NodeY, stroke, 2));
         }
 
         private static double GetRowHeight(GitCommitVM commit)
@@ -157,7 +170,12 @@ namespace Clever.ViewModel.PanelsVM
                 X2 = x2,
                 Y2 = y2,
                 Stroke = stroke,
-                StrokeThickness = thickness
+                StrokeThickness = thickness,
+                Points = new PointCollection
+                {
+                    new Point(x1, y1),
+                    new Point(x2, y2)
+                }
             };
         }
 

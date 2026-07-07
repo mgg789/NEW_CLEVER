@@ -377,7 +377,7 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Line X1="{Binding X1}" Y1="{Binding Y1}" X2="{Binding X2}" Y2="{Binding Y2}" Stroke="{Binding Stroke}" StrokeThickness="{Binding StrokeThickness}" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                                    <Polyline Points="{Binding Points}" Stroke="{Binding Stroke}" StrokeThickness="{Binding StrokeThickness}" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
