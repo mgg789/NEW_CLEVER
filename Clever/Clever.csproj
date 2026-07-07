@@ -153,6 +153,7 @@
     <Compile Include="ViewModel\PanelsVM\GitGraphRowVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitGraphSegmentVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitPanelVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\AiChatPanelVM.cs" />
     <Compile Include="ViewModel\PanelsVM\HelperPanelVM.cs" />
     <Compile Include="ViewModel\PanelsVM\MediaPanelVM.cs" />
     <Compile Include="View\Content\HelpToolTip.xaml.cs">
@@ -163,6 +164,9 @@
     </Compile>
     <Compile Include="View\Panels\HelperPanel.xaml.cs">
       <DependentUpon>HelperPanel.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Panels\AiChatPanel.xaml.cs">
+      <DependentUpon>AiChatPanel.xaml</DependentUpon>
     </Compile>
     <Compile Include="View\Panels\GitPanel.xaml.cs">
       <DependentUpon>GitPanel.xaml</DependentUpon>
@@ -1070,6 +1074,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="View\Panels\HelperPanel.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Panels\AiChatPanel.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -23,8 +23,8 @@ namespace Clever.View.Controls
         private void Grid_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             var width = e.NewSize.Width;
-            MainWindowVM.SpWidth = width - 55;
-            MainWindowVM.SpWidthCl = width - 50;
+            MainWindowVM.SpWidth = width - 66;
+            MainWindowVM.SpWidthCl = width - 60;
 
             var height = e.NewSize.Height;
             MainWindowVM.WidthHelpPanel = width;
