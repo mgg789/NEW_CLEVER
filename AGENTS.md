@@ -78,6 +78,7 @@ Start-Process -FilePath (Resolve-Path 'Clever/bin/CodexRelease/Clever.exe') -Wor
 - Git status is based on saved files on disk. After `Ctrl+S`, Save All, Save As, or the save step before EV3 compile, the Git panel should refresh itself; Git actions also force a fresh `git status` before commit/message generation.
 - Save-triggered Git refresh is intentionally debounced and status-only; full history refresh is reserved for init, reload, commit, restore, and branch switch.
 - Git diff previews render parsed display lines in a read-only Scintilla tab. Keep Git metadata lines visually separate from added/deleted content instead of dumping raw patch text directly.
+- Diff preview files are Scintilla fold headers and should open collapsed. Use hunk coordinates to insert compact hidden-context placeholders instead of expanding full unchanged file ranges.
 - After local Git operations that change files on disk, call `MainWindowVM.ReloadOpenProjectFilesFromDisk(repositoryRoot)` so already-open `.bp/.bpi/.bpm` tabs update without reopening.
 - The commit-history rollback button restores the repository files to the selected commit snapshot with `git restore --source <hash> --staged --worktree :/`, then leaves the rollback as local changes for the user to review and commit. It intentionally does not use `git revert`, because inverse patches can conflict after later edits to the same files.
 - EV3 compilation adds a `.gitignore` block for `~*/` only when the compiled file is already under an initialized Git repository.

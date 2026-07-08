@@ -8,6 +8,7 @@ namespace Clever.ViewModel.PanelsVM
         Header,
         FileHeader,
         Metadata,
-        Hunk
+        Hunk,
+        Hidden
     }
 }

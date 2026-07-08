@@ -227,6 +227,7 @@ namespace Clever.Model.Bplus
         public const int DIFF_HEADER_MARKER = 22;
         public const int DIFF_FILE_MARKER = 23;
         public const int DIFF_HUNK_MARKER = 24;
+        public const int DIFF_HIDDEN_MARKER = 19;
 
         private const int DIFF_CONTEXT_STYLE = 24;
         private const int DIFF_ADDED_STYLE = 25;
@@ -234,6 +235,7 @@ namespace Clever.Model.Bplus
         private const int DIFF_METADATA_STYLE = 27;
         private const int DIFF_FILE_STYLE = 28;
         private const int DIFF_HUNK_STYLE = 29;
+        private const int DIFF_HIDDEN_STYLE = 30;
 
         /// <summary>
         /// change this to whatever margin you want the code folding tree (+/-) to show in
@@ -386,12 +388,15 @@ namespace Clever.Model.Bplus
         internal void ApplyDiffPreview(GitDiffDocumentVM document)
         {
             textArea.ReadOnly = false;
+            textArea.MarginClick -= TextArea_DiffMarginClick;
+            textArea.MarginClick += TextArea_DiffMarginClick;
             ClearDiffMarkers();
             ConfigureDiffMarker(DIFF_ADDED_MARKER, "#E8F6EC");
             ConfigureDiffMarker(DIFF_DELETED_MARKER, "#FBEAEA");
             ConfigureDiffMarker(DIFF_HEADER_MARKER, "#F5F7FA");
             ConfigureDiffMarker(DIFF_FILE_MARKER, "#DDEBFF");
             ConfigureDiffMarker(DIFF_HUNK_MARKER, "#EDF4FF");
+            ConfigureDiffMarker(DIFF_HIDDEN_MARKER, "#F4F6FA");
             ConfigureDiffStyles();
 
             textArea.Text = document == null ? "" : document.ToText();
@@ -401,15 +406,20 @@ namespace Clever.Model.Bplus
                 int lineNumber = 0;
                 foreach (var file in document.Files)
                 {
+                    var fileHeaderLine = lineNumber;
                     foreach (var diffLine in file.Lines)
                     {
                         if (lineNumber >= textArea.Lines.Count)
                             break;
 
+                        ConfigureDiffFoldLevel(lineNumber, diffLine.Kind);
                         ApplyDiffLineStyle(lineNumber, diffLine.Kind);
 
                         lineNumber++;
                     }
+
+                    if (file.Lines.Count > 1 && fileHeaderLine < textArea.Lines.Count)
+                        textArea.Lines[fileHeaderLine].FoldLine(FoldAction.Contract);
                 }
             }
 
@@ -420,6 +430,7 @@ namespace Clever.Model.Bplus
         internal void ApplyReadOnlyTextPreview(string text)
         {
             textArea.ReadOnly = false;
+            textArea.MarginClick -= TextArea_DiffMarginClick;
             ClearDiffMarkers();
             textArea.Text = text ?? "";
             textArea.EmptyUndoBuffer();
@@ -433,6 +444,7 @@ namespace Clever.Model.Bplus
             textArea.MarkerDeleteAll(DIFF_HEADER_MARKER);
             textArea.MarkerDeleteAll(DIFF_FILE_MARKER);
             textArea.MarkerDeleteAll(DIFF_HUNK_MARKER);
+            textArea.MarkerDeleteAll(DIFF_HIDDEN_MARKER);
         }
 
         private void ConfigureDiffMarker(int markerNumber, string color)
@@ -450,6 +462,7 @@ namespace Clever.Model.Bplus
             ConfigureDiffStyle(DIFF_METADATA_STYLE, "#6F778A", false, true);
             ConfigureDiffStyle(DIFF_FILE_STYLE, "#1F4D8F", true, false);
             ConfigureDiffStyle(DIFF_HUNK_STYLE, "#4C6393", true, false);
+            ConfigureDiffStyle(DIFF_HIDDEN_STYLE, "#8B93A6", false, true);
         }
 
         private void ConfigureDiffStyle(int styleNumber, string color, bool bold, bool italic)
@@ -485,6 +498,10 @@ namespace Clever.Model.Bplus
                     markerNumber = DIFF_HUNK_MARKER;
                     styleNumber = DIFF_HUNK_STYLE;
                     break;
+                case GitDiffLineKind.Hidden:
+                    markerNumber = DIFF_HIDDEN_MARKER;
+                    styleNumber = DIFF_HIDDEN_STYLE;
+                    break;
                 case GitDiffLineKind.Header:
                 case GitDiffLineKind.Metadata:
                     markerNumber = DIFF_HEADER_MARKER;
@@ -502,6 +519,36 @@ namespace Clever.Model.Bplus
 
             textArea.StartStyling(line.Position);
             textArea.SetStyling(length, styleNumber);
+        }
+
+        private void ConfigureDiffFoldLevel(int lineNumber, GitDiffLineKind kind)
+        {
+            var baseLevel = textArea.Lines[0].FoldLevel;
+            var line = textArea.Lines[lineNumber];
+            if (kind == GitDiffLineKind.FileHeader)
+            {
+                line.FoldLevel = baseLevel;
+                line.FoldLevelFlags = FoldLevelFlags.Header;
+            }
+            else
+            {
+                line.FoldLevel = baseLevel + 1;
+                line.FoldLevelFlags = string.IsNullOrWhiteSpace(line.Text) ? FoldLevelFlags.White : 0;
+            }
+        }
+
+        private void TextArea_DiffMarginClick(object sender, MarginClickEventArgs e)
+        {
+            if (e.Margin != FOLDING_MARGIN)
+                return;
+
+            var lineNumber = textArea.LineFromPosition(e.Position);
+            if (lineNumber < 0 || lineNumber >= textArea.Lines.Count)
+                return;
+
+            var line = textArea.Lines[lineNumber];
+            if (line.FoldLevelFlags == FoldLevelFlags.Header)
+                line.ToggleFold();
         }
 
         public void SetEmptySelection()

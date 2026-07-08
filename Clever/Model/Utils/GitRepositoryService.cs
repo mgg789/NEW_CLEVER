@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Clever.Model.Utils
 {
@@ -491,6 +492,8 @@ namespace Clever.Model.Utils
             var document = new GitDiffDocumentVM(commit.ShortHash, "Diff " + commit.ShortHash + ".diff");
             GitDiffFileVM currentFile = null;
             var firstFile = true;
+            var previousOldEnd = 0;
+            var previousNewEnd = 0;
 
             using (var reader = new StringReader(patch))
             {
@@ -507,6 +510,8 @@ namespace Clever.Model.Utils
 
                         currentFile.Lines.Add(new GitDiffLineVM(line, GitDiffLineKind.FileHeader, "===== " + path + " ====="));
                         firstFile = false;
+                        previousOldEnd = 0;
+                        previousNewEnd = 0;
                         continue;
                     }
 
@@ -516,11 +521,60 @@ namespace Clever.Model.Utils
                         document.Files.Add(currentFile);
                     }
 
+                    if (TryParseHunkRange(line, out var oldStart, out var oldCount, out var newStart, out var newCount))
+                    {
+                        var hiddenCount = GetHiddenUnchangedCount(previousOldEnd, previousNewEnd, oldStart, newStart);
+                        if (hiddenCount > 0)
+                        {
+                            currentFile.Lines.Add(new GitDiffLineVM(
+                                "",
+                                GitDiffLineKind.Hidden,
+                                "... " + hiddenCount + " unchanged lines hidden ..."));
+                        }
+
+                        previousOldEnd = oldStart + Math.Max(oldCount, 1) - 1;
+                        previousNewEnd = newStart + Math.Max(newCount, 1) - 1;
+                    }
+
                     currentFile.Lines.Add(CreateDiffLine(line));
                 }
             }
 
             return document;
+        }
+
+        private static int GetHiddenUnchangedCount(int previousOldEnd, int previousNewEnd, int oldStart, int newStart)
+        {
+            if (oldStart <= 0 && newStart <= 0)
+                return 0;
+
+            if (previousOldEnd == 0 && previousNewEnd == 0)
+                return Math.Max(oldStart, newStart) - 1;
+
+            var oldGap = oldStart <= 0 ? 0 : oldStart - previousOldEnd - 1;
+            var newGap = newStart <= 0 ? 0 : newStart - previousNewEnd - 1;
+            return Math.Max(oldGap, newGap);
+        }
+
+        private static bool TryParseHunkRange(string line, out int oldStart, out int oldCount, out int newStart, out int newCount)
+        {
+            oldStart = 0;
+            oldCount = 0;
+            newStart = 0;
+            newCount = 0;
+
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("@@", StringComparison.Ordinal))
+                return false;
+
+            var match = Regex.Match(line, @"^@@ -(?<oldStart>\d+)(,(?<oldCount>\d+))? \+(?<newStart>\d+)(,(?<newCount>\d+))? @@");
+            if (!match.Success)
+                return false;
+
+            oldStart = int.Parse(match.Groups["oldStart"].Value);
+            oldCount = match.Groups["oldCount"].Success ? int.Parse(match.Groups["oldCount"].Value) : 1;
+            newStart = int.Parse(match.Groups["newStart"].Value);
+            newCount = match.Groups["newCount"].Success ? int.Parse(match.Groups["newCount"].Value) : 1;
+            return true;
         }
 
         private static string ParseDiffPath(string diffGitLine)
