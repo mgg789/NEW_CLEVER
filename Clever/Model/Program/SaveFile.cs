@@ -1,4 +1,5 @@
 ﻿using Clever.Model.Utils;
+using Clever.ViewModel;
 using Microsoft.Win32;
 using System.IO;
 
@@ -10,6 +11,8 @@ namespace Clever.Model.Program
         {
             SaveFileDialog sfd = new SaveFileDialog();
             sfd.AddExtension = true;
+            if (!string.IsNullOrWhiteSpace(MainWindowVM.CurrentProjectRoot) && Directory.Exists(MainWindowVM.CurrentProjectRoot))
+                sfd.InitialDirectory = MainWindowVM.CurrentProjectRoot;
             if (ext == "")
             {
                 string tmpExt = "";
@@ -29,11 +32,18 @@ namespace Clever.Model.Program
                 {
                     sfd.Filter = "Basic plus import files (*.bpi)|*.bpi" + "|Basic plus import files (*.bp)|*.bp" + "|Basic plus import files (*.bpm)|*.bpm";
                 }
+                else
+                {
+                    sfd.Filter = "CLEV3R editor files (*.bp;*.bpm;*.bpi;*.md;*.txt;*.csv;*.ms)|*.bp;*.bpm;*.bpi;*.md;*.txt;*.csv;*.ms";
+                }
                 //sfd.Filter = "Basic plus file (*" + MainWindowVM.ext + ")|*" + MainWindowVM.ext + "|Basic plus import files (*.bpm)|*.bpm";
             }
             else
             {
-                sfd.Filter = "Basic plus file (*" + ext + ")|*" + ext;
+                if (MainWindowVM.IsSupportedEditorExtension(ext))
+                    sfd.Filter = "CLEV3R editor file (*" + ext + ")|*" + ext;
+                else
+                    sfd.Filter = "Basic plus file (*" + ext + ")|*" + ext;
             }
 
             string tmpName = "";

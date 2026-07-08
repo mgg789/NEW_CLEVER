@@ -20,7 +20,7 @@ namespace Clever.ViewModel.PanelsVM
         private enum GitUiState
         {
             GitMissing,
-            FileMissing,
+            ProjectMissing,
             RepoMissing,
             Ready
         }
@@ -45,6 +45,9 @@ namespace Clever.ViewModel.PanelsVM
         private string _remotePassword;
         private string _remoteToken;
         private readonly DispatcherTimer _savedFilesRefreshTimer;
+        private readonly DispatcherTimer _projectRefreshTimer;
+        private FileSystemWatcher _projectWatcher;
+        private string _watchedProjectRoot;
 
         public GitPanelVM()
         {
@@ -57,6 +60,8 @@ namespace Clever.ViewModel.PanelsVM
             BranchName = "";
 
             SetupGitCommand = new RelayCommand(ExecuteSetupAction, true);
+            SetupNewProjectCommand = new RelayCommand(param => MainWindowVM.RequestNewProject(), true);
+            SetupOpenProjectCommand = new RelayCommand(param => MainWindowVM.RequestOpenProject(), true);
             CommitCommand = new RelayCommand(ExecuteCommit, true);
             PullCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."), true);
             PushCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."), true);
@@ -73,17 +78,28 @@ namespace Clever.ViewModel.PanelsVM
             GenerateCommitMessageCommand = new RelayCommand(param => GenerateCommitMessage(), true);
             AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
             SavedWorkspaceFilesChanged += GitPanelVM_SavedWorkspaceFilesChanged;
+            ProjectContextChanged += GitPanelVM_ProjectContextChanged;
             _savedFilesRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
             _savedFilesRefreshTimer.Tick += SavedFilesRefreshTimer_Tick;
+            _projectRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
+            _projectRefreshTimer.Tick += ProjectRefreshTimer_Tick;
 
             RefreshRepositoryState();
         }
 
         internal static event EventHandler SavedWorkspaceFilesChanged;
+        internal static event EventHandler ProjectContextChanged;
 
         internal static void NotifySavedWorkspaceFilesChanged()
         {
             var handler = SavedWorkspaceFilesChanged;
+            if (handler != null)
+                handler(null, EventArgs.Empty);
+        }
+
+        internal static void NotifyProjectContextChanged()
+        {
+            var handler = ProjectContextChanged;
             if (handler != null)
                 handler(null, EventArgs.Empty);
         }
@@ -114,6 +130,8 @@ namespace Clever.ViewModel.PanelsVM
         public ObservableCollection<GitBranchItemVM> Branches { get; private set; }
         public ObservableCollection<GitCommitVM> Commits { get; private set; }
         public ICommand SetupGitCommand { get; private set; }
+        public ICommand SetupNewProjectCommand { get; private set; }
+        public ICommand SetupOpenProjectCommand { get; private set; }
         public ICommand CommitCommand { get; private set; }
         public ICommand PullCommand { get; private set; }
         public ICommand PushCommand { get; private set; }
@@ -164,6 +182,16 @@ namespace Clever.ViewModel.PanelsVM
             get { return _state == GitUiState.Ready ? Visibility.Collapsed : Visibility.Visible; }
         }
 
+        public Visibility SetupMainButtonVisibility
+        {
+            get { return _state == GitUiState.ProjectMissing ? Visibility.Collapsed : Visibility.Visible; }
+        }
+
+        public Visibility SetupProjectButtonsVisibility
+        {
+            get { return _state == GitUiState.ProjectMissing ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
         public Visibility MainGitVisibility
         {
             get { return _state == GitUiState.Ready ? Visibility.Visible : Visibility.Collapsed; }
@@ -183,7 +211,7 @@ namespace Clever.ViewModel.PanelsVM
                 if (_state == GitUiState.RepoMissing)
                     return GetText("GitInitRepoAndAdd", "Init repository");
 
-                return GetText("GitOpenSavedFile", "Open saved .bp file");
+                return GetText("GitOpenProject", "Open project");
             }
         }
 
@@ -414,39 +442,44 @@ namespace Clever.ViewModel.PanelsVM
 
         private void RefreshRepositoryState()
         {
-            if (!_git.IsGitInstalled())
+            var currentProjectRoot = MainWindowVM.CurrentProjectRoot;
+            if (string.IsNullOrWhiteSpace(currentProjectRoot))
             {
                 _repositoryRoot = "";
                 _workingDirectory = "";
                 BranchName = "";
                 ClearGitData();
+                UpdateProjectWatcher("");
+                ApplyState(GitUiState.ProjectMissing);
+                SetLocalizedStatus("GitStatusOpenProject", "Create or open a project to use Git.");
+                return;
+            }
+
+            if (!_git.IsGitInstalled())
+            {
+                _repositoryRoot = "";
+                _workingDirectory = currentProjectRoot;
+                BranchName = "";
+                ClearGitData();
+                UpdateProjectWatcher(currentProjectRoot);
                 ApplyState(GitUiState.GitMissing);
                 SetLocalizedStatus("GitStatusGitMissing", "Git is not installed. Install Git for Windows, then refresh.");
                 return;
             }
 
-            var currentFile = ResolveCurrentFilePath();
-            if (string.IsNullOrWhiteSpace(currentFile))
-            {
-                _repositoryRoot = "";
-                _workingDirectory = "";
-                BranchName = "";
-                ClearGitData();
-                ApplyState(GitUiState.FileMissing);
-                SetLocalizedStatus("GitStatusOpenSavedFile", "Open and save a .bp, .bpi, or .bpm file to use Git.");
-                return;
-            }
-
-            _workingDirectory = Path.GetDirectoryName(currentFile);
+            _workingDirectory = currentProjectRoot;
             _repositoryRoot = GitRepositoryService.FindRepositoryRoot(_workingDirectory);
             if (string.IsNullOrWhiteSpace(_repositoryRoot))
             {
                 BranchName = new DirectoryInfo(_workingDirectory).Name;
                 ClearGitData();
+                UpdateProjectWatcher(_workingDirectory);
                 ApplyState(GitUiState.RepoMissing);
-                SetLocalizedStatus("GitStatusRepoMissing", "Git repository is not initialized for this folder.");
+                SetLocalizedStatus("GitStatusRepoMissing", "Git repository is not initialized for this project.");
                 return;
             }
+
+            UpdateProjectWatcher(_repositoryRoot);
 
             var snapshot = _git.GetSnapshot(_repositoryRoot);
             BranchName = string.IsNullOrWhiteSpace(snapshot.BranchName)
@@ -480,10 +513,7 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             }
 
-            var currentFile = ResolveCurrentFilePath();
-            var currentRoot = GitRepositoryService.FindRepositoryRoot(string.IsNullOrWhiteSpace(currentFile)
-                ? _workingDirectory
-                : Path.GetDirectoryName(currentFile));
+            var currentRoot = GitRepositoryService.FindRepositoryRoot(_workingDirectory);
             if (!string.Equals(currentRoot, _repositoryRoot, StringComparison.OrdinalIgnoreCase))
             {
                 RefreshRepositoryState();
@@ -524,11 +554,11 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             }
 
-            if (_state == GitUiState.FileMissing)
+            if (_state == GitUiState.ProjectMissing)
             {
                 RefreshRepositoryState();
-                if (_state == GitUiState.FileMissing)
-                    SetLocalizedStatus("GitStatusOpenSavedFile", "Open and save a .bp, .bpi, or .bpm file to use Git.");
+                if (_state == GitUiState.ProjectMissing)
+                    SetLocalizedStatus("GitStatusOpenProject", "Create or open a project to use Git.");
                 return;
             }
 
@@ -667,6 +697,8 @@ namespace Clever.ViewModel.PanelsVM
             _state = state;
 
             OnPropertyChanged("SetupVisibility");
+            OnPropertyChanged("SetupMainButtonVisibility");
+            OnPropertyChanged("SetupProjectButtonsVisibility");
             OnPropertyChanged("MainGitVisibility");
             OnPropertyChanged("IsSetupButtonEnabled");
             OnPropertyChanged("SetupButtonText");
@@ -799,10 +831,73 @@ namespace Clever.ViewModel.PanelsVM
             _savedFilesRefreshTimer.Start();
         }
 
+        private void GitPanelVM_ProjectContextChanged(object sender, EventArgs e)
+        {
+            RefreshRepositoryState();
+        }
+
         private void SavedFilesRefreshTimer_Tick(object sender, EventArgs e)
         {
             _savedFilesRefreshTimer.Stop();
             RefreshWorkingTreeState();
+        }
+
+        private void ProjectRefreshTimer_Tick(object sender, EventArgs e)
+        {
+            _projectRefreshTimer.Stop();
+            RefreshWorkingTreeState();
+        }
+
+        private void ProjectWatcher_Changed(object sender, FileSystemEventArgs e)
+        {
+            var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
+            if (dispatcher == null)
+                return;
+
+            dispatcher.BeginInvoke(new Action(() =>
+            {
+                _projectRefreshTimer.Stop();
+                _projectRefreshTimer.Start();
+            }));
+        }
+
+        private void UpdateProjectWatcher(string projectRoot)
+        {
+            if (string.Equals(_watchedProjectRoot, projectRoot, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (_projectWatcher != null)
+            {
+                _projectWatcher.EnableRaisingEvents = false;
+                _projectWatcher.Changed -= ProjectWatcher_Changed;
+                _projectWatcher.Created -= ProjectWatcher_Changed;
+                _projectWatcher.Deleted -= ProjectWatcher_Changed;
+                _projectWatcher.Renamed -= ProjectWatcher_Renamed;
+                _projectWatcher.Dispose();
+                _projectWatcher = null;
+            }
+
+            _watchedProjectRoot = projectRoot;
+            if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot))
+                return;
+
+            _projectWatcher = new FileSystemWatcher(projectRoot);
+            _projectWatcher.IncludeSubdirectories = true;
+            _projectWatcher.NotifyFilter = NotifyFilters.FileName
+                | NotifyFilters.DirectoryName
+                | NotifyFilters.LastWrite
+                | NotifyFilters.Size
+                | NotifyFilters.CreationTime;
+            _projectWatcher.Changed += ProjectWatcher_Changed;
+            _projectWatcher.Created += ProjectWatcher_Changed;
+            _projectWatcher.Deleted += ProjectWatcher_Changed;
+            _projectWatcher.Renamed += ProjectWatcher_Renamed;
+            _projectWatcher.EnableRaisingEvents = true;
+        }
+
+        private void ProjectWatcher_Renamed(object sender, RenamedEventArgs e)
+        {
+            ProjectWatcher_Changed(sender, e);
         }
 
         private void ClearGitData()
@@ -812,22 +907,6 @@ namespace Clever.ViewModel.PanelsVM
             Commits.Clear();
             SelectedCommit = null;
             RebuildGraphRows();
-        }
-
-        private static string ResolveCurrentFilePath()
-        {
-            if (MainWindowVM.Project == null || MainWindowVM.CurrentProgram == null)
-                return "";
-
-            var data = MainWindowVM.Project.GetProgramData(MainWindowVM.CurrentProgram);
-            if (data == null || data.IsPreview || string.IsNullOrWhiteSpace(data.FullPath))
-                return "";
-
-            var extension = Path.GetExtension(data.FullPath).ToLowerInvariant();
-            if (extension != ".bp" && extension != ".bpi" && extension != ".bpm")
-                return "";
-
-            return File.Exists(data.FullPath) ? data.FullPath : "";
         }
 
         private static void OpenGitInstallPage()

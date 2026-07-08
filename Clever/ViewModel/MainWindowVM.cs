@@ -29,6 +29,7 @@ namespace Clever.ViewModel
         public ICommand FileSaveAllCommand { get; set; }
         public ICommand FileSaveAsCommand { get; set; }
         public ICommand FileCloseAllCommand { get; set; }
+        public ICommand OpenProjectCommand { get; set; }
         public ICommand EditCopyCommand { get; set; }
         public ICommand EditPasteCommand { get; set; }
         public ICommand EditCutCommand { get; set; }
@@ -62,7 +63,11 @@ namespace Clever.ViewModel
 
         public static ProjectData Project;
         public static string ext = ".bp";
+        internal static readonly string[] SupportedEditorExtensions = { ".bp", ".bpm", ".bpi", ".md", ".txt", ".csv", ".ms" };
         static string currentPath = "";
+        private static MainWindowVM _instance;
+        private const string BaseWindowTitle = "CLEVƎR v1.8.0-B";
+        private static string _currentProjectRoot = "";
 
         Elements elements;
         BPInterop interop;
@@ -72,6 +77,7 @@ namespace Clever.ViewModel
 
         public MainWindowVM()
         {
+            _instance = this;
             CurrentName = "";
             Project = new ProjectData();
 
@@ -94,6 +100,7 @@ namespace Clever.ViewModel
             FileSaveAllCommand = new RelayCommand(param => FileSaveAll(), true);
             FileSaveAsCommand = new RelayCommand(param => FileSaveAs(), true);
             FileCloseAllCommand = new RelayCommand(param => FileCloseAll(), true);
+            OpenProjectCommand = new RelayCommand(param => OpenProject(), true);
             EditCopyCommand = new RelayCommand(param => EditCopy(), true);
             EditPasteCommand = new RelayCommand(param => EditPaste(), true);
             EditCutCommand = new RelayCommand(param => EditCut(), true);
@@ -205,6 +212,167 @@ namespace Clever.ViewModel
         {
             var server = new CleverServer();
             server.Start();
+        }
+
+        public string CurrentWindowTitle
+        {
+            get { return string.IsNullOrWhiteSpace(CurrentProjectName) ? BaseWindowTitle : BaseWindowTitle + " | " + CurrentProjectName; }
+        }
+
+        public Visibility EmptyProjectStartVisibility
+        {
+            get
+            {
+                return string.IsNullOrWhiteSpace(CurrentProjectRoot) && GetOpenProgramCount() == 0
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+        }
+
+        internal static string CurrentProjectRoot
+        {
+            get { return _currentProjectRoot; }
+        }
+
+        internal static string CurrentProjectName
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_currentProjectRoot))
+                    return "";
+
+                try
+                {
+                    return new DirectoryInfo(_currentProjectRoot).Name;
+                }
+                catch
+                {
+                    return "";
+                }
+            }
+        }
+
+        internal static bool IsSupportedEditorExtension(string extension)
+        {
+            return SupportedEditorExtensions.Any(item => string.Equals(item, extension, StringComparison.OrdinalIgnoreCase));
+        }
+
+        internal static bool IsBasicPlusExtension(string extension)
+        {
+            return string.Equals(extension, ".bp", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".bpm", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".bpi", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static void RequestNewProject()
+        {
+            if (_instance != null)
+                _instance.FileNew();
+        }
+
+        internal static void RequestOpenProject()
+        {
+            if (_instance != null)
+                _instance.OpenProject();
+        }
+
+        private static void SetCurrentProjectRoot(string projectRoot)
+        {
+            if (string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot))
+                return;
+
+            string normalizedRoot;
+            try
+            {
+                normalizedRoot = Path.GetFullPath(projectRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (string.Equals(_currentProjectRoot, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshOpenFileProjectMembership();
+                NotifyProjectContextChanged();
+                return;
+            }
+
+            _currentProjectRoot = normalizedRoot;
+            if (Project != null)
+                Project.ProjectName = CurrentProjectName;
+
+            RefreshOpenFileProjectMembership();
+            NotifyProjectContextChanged();
+        }
+
+        private static void EnsureProjectRootFromFile(string fullPath)
+        {
+            if (!string.IsNullOrWhiteSpace(CurrentProjectRoot) || string.IsNullOrWhiteSpace(fullPath))
+                return;
+
+            try
+            {
+                var directory = Path.GetDirectoryName(Path.GetFullPath(fullPath));
+                if (!string.IsNullOrWhiteSpace(directory))
+                    SetCurrentProjectRoot(directory);
+            }
+            catch
+            {
+            }
+        }
+
+        internal static bool IsPathInsideCurrentProject(string fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(CurrentProjectRoot) || string.IsNullOrWhiteSpace(fullPath))
+                return true;
+
+            try
+            {
+                var root = Path.GetFullPath(CurrentProjectRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+                var path = Path.GetFullPath(fullPath);
+                return path.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private static void ApplyProjectMembership(ProgramData data)
+        {
+            if (data == null || data.IsPreview)
+                return;
+
+            data.IsExternalProjectFile = !string.IsNullOrWhiteSpace(CurrentProjectRoot)
+                && !string.IsNullOrWhiteSpace(data.FullPath)
+                && !IsPathInsideCurrentProject(data.FullPath);
+        }
+
+        private static void RefreshOpenFileProjectMembership()
+        {
+            if (Project == null)
+                return;
+
+            foreach (var data in Project.GetDictionary().Values)
+                ApplyProjectMembership(data);
+
+            Project.UpdateColor();
+        }
+
+        private static void NotifyProjectContextChanged()
+        {
+            OnStaticPropertyChanged("CurrentWindowTitle");
+            OnStaticPropertyChanged("EmptyProjectStartVisibility");
+            GitPanelVM.NotifyProjectContextChanged();
+        }
+
+        private static void NotifyEditorContentChanged()
+        {
+            OnStaticPropertyChanged("EmptyProjectStartVisibility");
         }
 
         private static ObservableCollection<TabItem> _programNameList;
@@ -548,6 +716,10 @@ namespace Clever.ViewModel
                         {
                             CurrentName = "";
                         }
+                        else if (!data.AddToObjects || !IsBasicPlusExtension(Path.GetExtension(data.Name)))
+                        {
+                            CurrentName = "";
+                        }
                         else
                         {
                             CurrentName = name;
@@ -734,6 +906,7 @@ namespace Clever.ViewModel
             target.Insert(0, item);
             NotifyProgramListChanged(target);
             CurrentProgram = item;
+            NotifyEditorContentChanged();
         }
 
         private static ObservableCollection<TabItem> GetActiveProgramList()
@@ -1071,7 +1244,7 @@ namespace Clever.ViewModel
             if (!file.IsDeleted && !string.IsNullOrWhiteSpace(file.FullPath) && File.Exists(file.FullPath))
             {
                 var extension = Path.GetExtension(file.FullPath).ToLowerInvariant();
-                if (extension == ext || extension == ".bpi" || extension == ".bpm")
+                if (IsSupportedEditorExtension(extension))
                 {
                     FileNew(file.FullPath, false);
                     return;
@@ -1182,7 +1355,7 @@ namespace Clever.ViewModel
                     continue;
 
                 var extension = Path.GetExtension(fullPath).ToLowerInvariant();
-                if (extension != ext && extension != ".bpi" && extension != ".bpm")
+                if (!IsSupportedEditorExtension(extension))
                     continue;
                 if (!File.Exists(fullPath))
                     continue;
@@ -1363,22 +1536,111 @@ namespace Clever.ViewModel
             MainWindow.UpdateSize();
             string name = "";
             string path = "";
-            var tmp = new NewTabItem().Create(Project.GetDictionary(), out name, out path);
+            bool createProject = false;
+            string projectName = "";
+            var tmp = new NewTabItem().Create(Project.GetDictionary(), out name, out path, out createProject, out projectName);
+            if (createProject)
+            {
+                CreateNewProject(projectName);
+                ButtonsPanel.GetFilePopup.IsOpen = false;
+                return;
+            }
             if (tmp == null)
             {
                 return;
             }
+            if (!string.IsNullOrWhiteSpace(path))
+                EnsureProjectRootFromFile(Path.Combine(path, name));
             var pd = new ProgramData();
+            pd.AddToObjects = IsBasicPlusExtension(Path.GetExtension(name));
             pd.OldName = name;
             pd.ClosedName = name;
             pd.Name = name;
             pd.Path = path;
             pd.FullPath = Path.Combine(path, name);
             pd.Item = tmp;
+            ApplyProjectMembership(pd);
             pd.TextChange = false;
             if (Project.Add(name, pd))
                 InsertProgramItem(pd.Item);
             ButtonsPanel.GetFilePopup.IsOpen = false;
+        }
+
+        private void OpenProject()
+        {
+            try
+            {
+                using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+                {
+                    dialog.Description = GUILanguage.GetItem("ProjectOpenDialogTitle");
+                    if (string.IsNullOrWhiteSpace(dialog.Description))
+                        dialog.Description = "Open project folder";
+                    dialog.ShowNewFolderButton = true;
+
+                    if (!string.IsNullOrWhiteSpace(CurrentProjectRoot) && Directory.Exists(CurrentProjectRoot))
+                        dialog.SelectedPath = CurrentProjectRoot;
+
+                    if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                        return;
+
+                    SetCurrentProjectRoot(dialog.SelectedPath);
+                    CommonData.Status.Clear();
+                    CommonData.Status.Add(GetProjectStatusText("ProjectOpened", "Project opened:") + " " + CurrentProjectName);
+                }
+            }
+            catch (Exception ex)
+            {
+                CommonData.Status.Clear();
+                CommonData.Status.Add(ex.Message);
+            }
+
+            ButtonsPanel.GetFilePopup.IsOpen = false;
+        }
+
+        private static void CreateNewProject(string projectName)
+        {
+            if (string.IsNullOrWhiteSpace(projectName))
+                return;
+
+            try
+            {
+                using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+                {
+                    dialog.Description = GUILanguage.GetItem("ProjectCreateParentDialogTitle");
+                    if (string.IsNullOrWhiteSpace(dialog.Description))
+                        dialog.Description = "Select parent folder for the new project";
+                    dialog.ShowNewFolderButton = true;
+
+                    if (!string.IsNullOrWhiteSpace(CurrentProjectRoot) && Directory.Exists(CurrentProjectRoot))
+                        dialog.SelectedPath = Directory.GetParent(CurrentProjectRoot)?.FullName ?? CurrentProjectRoot;
+
+                    if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                        return;
+
+                    var root = Path.Combine(dialog.SelectedPath, projectName);
+                    Directory.CreateDirectory(root);
+                    SetCurrentProjectRoot(root);
+
+                    var mainFile = Path.Combine(root, projectName + ext);
+                    if (!File.Exists(mainFile))
+                        File.WriteAllText(mainFile, "");
+
+                    FileNew(mainFile, false);
+                    CommonData.Status.Clear();
+                    CommonData.Status.Add(GetProjectStatusText("ProjectCreated", "Project created:") + " " + CurrentProjectName);
+                }
+            }
+            catch (Exception ex)
+            {
+                CommonData.Status.Clear();
+                CommonData.Status.Add(ex.Message);
+            }
+        }
+
+        private static string GetProjectStatusText(string key, string fallback)
+        {
+            var text = GUILanguage.GetItem(key);
+            return string.IsNullOrWhiteSpace(text) ? fallback : text;
         }
 
         public static void FileNew(string path, bool start)
@@ -1392,6 +1654,7 @@ namespace Clever.ViewModel
             }
 
             FileInfo fi = new FileInfo(path);
+            EnsureProjectRootFromFile(fi.FullName);
             if (Project.ContainsKey(fi.Name))
             {
                 CommonData.Status.Clear();
@@ -1404,7 +1667,7 @@ namespace Clever.ViewModel
                 }
                 return;
             }
-            else if (fi.Extension != ext && fi.Extension != ".bpm" && fi.Extension != ".bpi")
+            else if (!IsSupportedEditorExtension(fi.Extension))
             {
                 CommonData.Status.Clear();
                 CommonData.Status.Add(GetLocalization["prgInvalidExt1"] + " " + fi.Extension + " " + GetLocalization["prgInvalidExt2"]);
@@ -1422,12 +1685,14 @@ namespace Clever.ViewModel
             string text = File.ReadAllText(path);
             var tmp = new NewTabItem().Create(Project.GetDictionary(), text, fi.Name);
             var pd = new ProgramData();
+            pd.AddToObjects = IsBasicPlusExtension(fi.Extension);
             pd.OldName = fi.Name;
             pd.ClosedName = fi.Name;
             pd.Name = fi.Name;
             pd.Path = fi.DirectoryName;
             pd.FullPath = fi.FullName;
             pd.Item = tmp;
+            ApplyProjectMembership(pd);
             pd.TextChange = false;
             currentPath = fi.FullName;
 
@@ -1491,6 +1756,7 @@ namespace Clever.ViewModel
                 var text = new OpenFile().Open(currentPath, out tmpFullPath, out tmpDirectory, out tmpName);
                 if (text != null)
                 {
+                    EnsureProjectRootFromFile(tmpFullPath);
                     if (Project.Count > 0 && Project.ContainsKey(tmpName))
                     {
                         CommonData.Status.Clear();
@@ -1505,13 +1771,16 @@ namespace Clever.ViewModel
 
                     var tmp = new NewTabItem().Create(Project.GetDictionary(), text, tmpName);
                     var pd = new ProgramData();
+                    pd.AddToObjects = IsBasicPlusExtension(Path.GetExtension(tmpName));
                     pd.OldName = tmpName;
                     pd.ClosedName = tmpName;
                     pd.Name = tmpName;
                     pd.Path = tmpDirectory;
                     pd.FullPath = tmpFullPath;
                     pd.Item = tmp;
+                    ApplyProjectMembership(pd);
                     pd.TextChange = false;
+                    currentPath = tmpFullPath;
                     if (Project.Add(pd.Name, pd))
                     {
                         InsertProgramItem(pd.Item);
@@ -1651,13 +1920,17 @@ namespace Clever.ViewModel
                                 FileInfo fi = new FileInfo(name);
                                 string oldName = pd.Name;
                                 Project.Remove(oldName);
-                                var newPd = new ProgramData() { Item = i };
+                                var newPd = new ProgramData();
+                                newPd.AddToObjects = IsBasicPlusExtension(fi.Extension);
+                                newPd.Item = i;
                                 //
                                 //newPd.Name = fi.Name.Replace(ext, "");
                                 newPd.Name = fi.Name;
                                 //
                                 newPd.Path = fi.DirectoryName;
                                 newPd.FullPath = fi.FullName;
+                                EnsureProjectRootFromFile(fi.FullName);
+                                ApplyProjectMembership(newPd);
                                 newPd.TextChange = false;
                                 Project.Add(newPd.Name, newPd);
                                 currentPath = fi.FullName;
@@ -1707,13 +1980,17 @@ namespace Clever.ViewModel
                     FileInfo fi = new FileInfo(name);
                     string oldName = pd.Name;
                     Project.Remove(oldName);
-                    var newPd = new ProgramData() { Item = CurrentProgram };
+                    var newPd = new ProgramData();
+                    newPd.AddToObjects = IsBasicPlusExtension(fi.Extension);
+                    newPd.Item = CurrentProgram;
                     //
                     //newPd.Name = fi.Name.Replace(ext, "");
                     newPd.Name = fi.Name;
                     //
                     newPd.Path = fi.DirectoryName;
                     newPd.FullPath = fi.FullName;
+                    EnsureProjectRootFromFile(fi.FullName);
+                    ApplyProjectMembership(newPd);
                     newPd.TextChange = false;
                     Project.Add(newPd.Name, newPd);
                     currentPath = fi.FullName;
@@ -1761,13 +2038,17 @@ namespace Clever.ViewModel
                     FileInfo fi = new FileInfo(name);
                     string oldName = pd.Name;
                     Project.Remove(oldName);
-                    var newPd = new ProgramData() { Item = CurrentProgram };
+                    var newPd = new ProgramData();
+                    newPd.AddToObjects = IsBasicPlusExtension(fi.Extension);
+                    newPd.Item = CurrentProgram;
                     //
                     //newPd.Name = fi.Name.Replace(ext, "");
                     newPd.Name = fi.Name;
                     //
                     newPd.Path = fi.DirectoryName;
                     newPd.FullPath = fi.FullName;
+                    EnsureProjectRootFromFile(fi.FullName);
+                    ApplyProjectMembership(newPd);
                     newPd.TextChange = false;
                     Project.Add(newPd.Name, newPd);
                     currentPath = fi.FullName;
@@ -2021,6 +2302,7 @@ namespace Clever.ViewModel
                     ProgramNameList.Clear();
                     IntellisenseParser.Data.Clear();
                 }
+                NotifyEditorContentChanged();
             }
             catch (Exception ex)
             {
@@ -2073,6 +2355,7 @@ namespace Clever.ViewModel
                     CurrentProgram = null;
                     IntellisenseParser.Data.Clear();
                 }
+                NotifyEditorContentChanged();
                 EditorPanel.GetPopup.IsOpen = false;
             }
             catch (Exception ex)
@@ -2636,6 +2919,9 @@ namespace Clever.ViewModel
         public static event PropertyChangedEventHandler StaticPropertyChanged;
         private static void OnStaticPropertyChanged(string propertyName)
         {
+            if (_instance != null)
+                _instance.OnPropertyChanged(propertyName);
+
             var handler = StaticPropertyChanged;
             if (handler != null)
             {

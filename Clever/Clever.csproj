@@ -509,6 +509,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="View\Controls\Buttons\HomeButtons\hButtonOpenProject.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="View\Controls\Buttons\HomeButtons\hButtonFileSave.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -949,6 +953,9 @@
     </Compile>
     <Compile Include="View\Controls\Buttons\HomeButtons\hButtonFileOpen.xaml.cs">
       <DependentUpon>hButtonFileOpen.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Controls\Buttons\HomeButtons\hButtonOpenProject.xaml.cs">
+      <DependentUpon>hButtonOpenProject.xaml</DependentUpon>
     </Compile>
     <Compile Include="View\Controls\Buttons\HomeButtons\hButtonFileSave.xaml.cs">
       <DependentUpon>hButtonFileSave.xaml</DependentUpon>

@@ -25,6 +25,7 @@ namespace Clever.Model.Utils
         internal bool AddToObjects = true;
         internal bool IsPreview { get; set; }
         internal bool IsReadOnlyPreview { get; set; }
+        private bool _isExternalProjectFile;
         internal int Number = 0;
         public ProgramData()
         {
@@ -133,6 +134,16 @@ namespace Clever.Model.Utils
         private EditorHeader header { get; set; }
         public Popup Menu { get; set; }
 
+        internal bool IsExternalProjectFile
+        {
+            get { return _isExternalProjectFile; }
+            set
+            {
+                _isExternalProjectFile = value;
+                ApplyHeaderTextStyle();
+            }
+        }
+
         private TabItem _item;
         public TabItem Item
         {
@@ -155,6 +166,8 @@ namespace Clever.Model.Utils
 
                     if (AddToObjects && !IntellisenseParser.Data.ContainsKey(Name))
                         IntellisenseParser.Data.Add(Name, this);
+
+                    ApplyHeaderTextStyle();
                 }
             }
         }
@@ -219,6 +232,27 @@ namespace Clever.Model.Utils
                 {
                     header.HeaderColor = new SolidColorBrush(Color.FromRgb(0x60, 0x69, 0x85));
                 }
+
+                ApplyHeaderTextStyle();
+            }
+        }
+
+        private void ApplyHeaderTextStyle()
+        {
+            if (header == null)
+                return;
+
+            if (_isExternalProjectFile)
+            {
+                header.HeaderTextColor = new SolidColorBrush(Color.FromRgb(0x8F, 0x98, 0xAB));
+                header.HeaderFontStyle = FontStyles.Italic;
+                header.HeaderFontWeight = FontWeights.Light;
+            }
+            else
+            {
+                header.HeaderTextColor = new SolidColorBrush(Color.FromRgb(0x41, 0x46, 0x59));
+                header.HeaderFontStyle = FontStyles.Normal;
+                header.HeaderFontWeight = FontWeights.Normal;
             }
         }
     }

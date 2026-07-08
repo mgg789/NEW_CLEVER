@@ -71,7 +71,7 @@
         <WrapPanel x:Name="filePanel" VerticalAlignment="Center" Margin="5,0,0,0">
             <home_but:hButtonFileNew Margin="0,0,10,0" Visibility="{Binding Path=FileNewV}"/>
             <home_but:hButtonFileOpen Margin="0,0,10,0" Visibility="{Binding Path=FileOpenV}"/>
-            <home_but:hButtonFileCloseAll Margin="0,0,10,0" Visibility="{Binding Path=FileCloseAllV}"/>
+            <home_but:hButtonOpenProject Margin="0,0,10,0" Visibility="{Binding Path=FileOpenV}"/>
             <home_but:hButtonFileSave Margin="0,0,10,0" Visibility="{Binding Path=FileSaveV}"/>
             <home_but:hButtonFileSaveAll Margin="0,0,10,0" Visibility="{Binding Path=FileSaveAllV}"/>
             <home_but:hButtonFileSaveAs Margin="0,0,10,0" Visibility="{Binding Path=FileSaveAsV}"/>

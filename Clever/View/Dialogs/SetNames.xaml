@@ -1,19 +1,23 @@
-﻿<Window x:Class="Clever.View.Dialogs.SetNames"
+<Window x:Class="Clever.View.Dialogs.SetNames"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Clever.View.Dialogs"
         mc:Ignorable="d"
         KeyUp="Window_KeyUp"
-        Title="" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Width="500" Height="auto" MaxHeight="330">
+        Title="" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Width="520" Height="230">
     <Window.Resources>
-        <Style x:Key="close_button" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Style x:Key="dialog_button" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Padding" Value="12,2"/>
+            <Setter Property="FontFamily" Value="{StaticResource ui_fontfamily}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#000000"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border BorderBrush="{StaticResource dialog_but_border}" BorderThickness="1" Name="border" CornerRadius="3">
-                            <ContentPresenter RecognizesAccessKey="True" Margin="{TemplateBinding Padding}"/>
+                            <ContentPresenter RecognizesAccessKey="True" Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -30,59 +34,68 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="dialog_label" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource ui_fontfamily}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#000000"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </Window.Resources>
     <Grid Margin="0" Background="{StaticResource about_bgd}">
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-            <Grid  Margin="10,10,10,10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="24"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="24"/>
-                    <RowDefinition Height="30"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="24"/>
-                    <RowDefinition Height="30"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="24"/>
-                    <RowDefinition Height="30"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="30"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="390"/>
-                    <ColumnDefinition Width="70"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Grid.Row="0" Name="txtToolTip" Text="Choose file type" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" Height="22" Width="300" Padding="4" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
-                <TextBlock Grid.Column="0" Grid.Row="2" Name="txtProgramName" Text="Program name:" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" Height="22" Width="300" Padding="4" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
-                <TextBox Grid.Column="0" Grid.Row="3" Margin="2,0,0,0" Name="programName" Text="Ansver" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" Padding="1" Height="20" Width="360" VerticalAlignment="Center" HorizontalAlignment="Left" KeyUp="programName_KeyUp"/>
-                <Button Grid.Column="1" Grid.Row="3" x:Name="butCreatePrg" Style="{StaticResource close_button}" Click="butCreatePrg_Click" VerticalAlignment="Center" HorizontalAlignment="Right" Width="70" Height="20">
-                    <Button.Content>
-                        <TextBlock x:Name="butTextPrg" Text="Create" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button.Content>
-                </Button>
+        <Grid Margin="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="18"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-                <TextBlock Grid.Column="0" Grid.Row="5" Name="txtIncludeName" Text="Include name:" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" Height="22" Width="300" Padding="4" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
-                <TextBox Grid.Column="0" Grid.Row="6" Margin="2,0,0,0" Name="includeName" Text="Ansver" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" Padding="1" Height="20" Width="360" VerticalAlignment="Center" HorizontalAlignment="Left" KeyUp="includeName_KeyUp"/>
-                <Button Grid.Column="1" Grid.Row="6" x:Name="butCreateInc" Style="{StaticResource close_button}" Click="butCreateInc_Click" VerticalAlignment="Center" HorizontalAlignment="Right" Width="70" Height="20">
-                    <Button.Content>
-                        <TextBlock x:Name="butTextInc" Text="Create" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button.Content>
-                </Button>
+            <StackPanel Grid.Row="0">
+                <TextBlock x:Name="txtProjectTitle" Text="New project" Style="{StaticResource dialog_label}" FontWeight="Bold" Margin="0,0,0,6"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="92"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="86"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="txtProjectName" Text="Project name:" Style="{StaticResource dialog_label}" Grid.Column="0"/>
+                    <TextBox x:Name="projectName" Grid.Column="1" Height="24" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Padding="3" KeyUp="projectName_KeyUp"/>
+                    <Button x:Name="butCreateProject" Grid.Column="2" Style="{StaticResource dialog_button}" Click="butCreateProject_Click">
+                        <TextBlock x:Name="butTextProject" Text="Create"/>
+                    </Button>
+                </Grid>
+            </StackPanel>
 
-                <TextBlock Grid.Column="0" Grid.Row="8" Name="txtModuleName" Text="Module name:" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#000000" Height="22" Width="300" Padding="4" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
-                <TextBox Grid.Column="0" Grid.Row="9" Margin="2,0,0,0" Name="moduleName" Text="Ansver" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" Padding="1" Height="20" Width="360" VerticalAlignment="Center" HorizontalAlignment="Left" KeyUp="moduleName_KeyUp"/>
-                <Button Grid.Column="1" Grid.Row="9" x:Name="butCreateMod" Style="{StaticResource close_button}" Click="butCreateMod_Click" VerticalAlignment="Center" HorizontalAlignment="Right" Width="70" Height="20">
-                    <Button.Content>
-                        <TextBlock x:Name="butTextMod" Text="Create" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button.Content>
-                </Button>
+            <Border Grid.Row="2" Height="1" Background="#D6DAE4"/>
 
-                <Button Grid.Column="1" Grid.Row="11" x:Name="butClose" Style="{StaticResource close_button}" Click="butClose_Click" VerticalAlignment="Bottom" HorizontalAlignment="Right" Width="70" Height="20">
-                    <Button.Content>
-                        <TextBlock x:Name="butTextClose" Text="Close" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#000000" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </Button.Content>
+            <StackPanel Grid.Row="4">
+                <TextBlock x:Name="txtFileTitle" Text="New file" Style="{StaticResource dialog_label}" FontWeight="Bold" Margin="0,0,0,6"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="92"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="132"/>
+                        <ColumnDefinition Width="86"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="txtFileName" Text="Filename:" Style="{StaticResource dialog_label}" Grid.Column="0"/>
+                    <TextBox x:Name="fileName" Grid.Column="1" Height="24" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Padding="3" TextChanged="fileName_TextChanged" KeyUp="fileName_KeyUp"/>
+                    <ComboBox x:Name="fileType" Grid.Column="2" Height="24" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" SelectedIndex="0">
+                        <ComboBoxItem Content="Program (.bp)" Tag=".bp"/>
+                        <ComboBoxItem Content="Module (.bpm)" Tag=".bpm"/>
+                        <ComboBoxItem Content="Include (.bpi)" Tag=".bpi"/>
+                        <ComboBoxItem Content="Markdown (.md)" Tag=".md"/>
+                        <ComboBoxItem Content="Text (.txt)" Tag=".txt"/>
+                        <ComboBoxItem Content="Table (.csv)" Tag=".csv"/>
+                    </ComboBox>
+                    <Button x:Name="butCreateFile" Grid.Column="3" Style="{StaticResource dialog_button}" Click="butCreateFile_Click">
+                        <TextBlock x:Name="butTextFile" Text="Create"/>
+                    </Button>
+                </Grid>
+                <Button x:Name="butClose" Style="{StaticResource dialog_button}" Click="butClose_Click" HorizontalAlignment="Right" Margin="0,16,0,0" Width="86">
+                    <TextBlock x:Name="butTextClose" Text="Cancel"/>
                 </Button>
-            </Grid>
-        </ScrollViewer>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

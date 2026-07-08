@@ -32,9 +32,17 @@ namespace Clever
             InitializeComponent();
             this.DataContext = new MainWindowVM();
             context = (MainWindowVM)this.DataContext;
+            Title = context.CurrentWindowTitle;
+            context.PropertyChanged += MainWindowVM_PropertyChanged;
             _eidtorGrid = docGrid;
             _main = this;
             App.SplashScreen.Close(new TimeSpan(0, 0, 1));
+        }
+
+        private void MainWindowVM_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "CurrentWindowTitle")
+                Title = context.CurrentWindowTitle;
         }
 
         public static MainWindow GetContext

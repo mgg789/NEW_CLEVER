@@ -44,6 +44,24 @@ namespace Clever.View.Controls.Editors
             set { hdrChanges.Foreground = value; }
         }
 
+        public Brush HeaderTextColor
+        {
+            get { return hdrText.Foreground; }
+            set { hdrText.Foreground = value; }
+        }
+
+        public FontStyle HeaderFontStyle
+        {
+            get { return hdrText.FontStyle; }
+            set { hdrText.FontStyle = value; }
+        }
+
+        public FontWeight HeaderFontWeight
+        {
+            get { return hdrText.FontWeight; }
+            set { hdrText.FontWeight = value; }
+        }
+
         public string MyToolTip
         {
             get { return HeaderToolTip.Text; }

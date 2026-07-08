@@ -13,16 +13,27 @@ namespace Clever.Model.Program
 {
     class NewTabItem
     {
-        public TabItem Create(Dictionary<string, ProgramData> items, out string name, out string path)
+        public TabItem Create(Dictionary<string, ProgramData> items, out string name, out string path, out bool createProject, out string projectName)
         {
             var prgName = "Program" + GetProgramNumber(items).ToString() + MainWindowVM.ext;
             var modName = "Module" + GetModuleNumber(items).ToString() + ".bpm";
             var incName = "Include" + GetIncludeNumber(items).ToString() + ".bpi";
             string newName = "";
+            createProject = false;
+            projectName = "";
 
             var win = new SetNames(prgName, modName, incName);
             if (win.ShowDialog() == true)
             {
+                if (win.IsProject)
+                {
+                    createProject = true;
+                    projectName = win.ProjectName;
+                    name = "";
+                    path = "";
+                    return null;
+                }
+
                 newName = win.GetName;
             }
             else
@@ -32,17 +43,7 @@ namespace Clever.Model.Program
                 return null;
             }
 
-            var tmpExt = newName.Substring(newName.Length - 3);
-            var ext = "";
-
-            if (tmpExt == ".bp")
-            {
-                ext = ".bp";
-            }
-            else
-            {
-                ext = "." + tmpExt;
-            }
+            var ext = Path.GetExtension(newName);
 
             var saveName = new SaveFile().Save("", newName, ext);
             

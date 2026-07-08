@@ -10,7 +10,7 @@
         xmlns:panel="clr-namespace:Clever.View.Panels"
         xmlns:config="clr-namespace:Clever.CommonData"
         mc:Ignorable="d"
-        Title="CLEVƎR v1.8.0-B" 
+        Title="CLEVƎR v1.8.0-B"
         Height="{Binding Source={x:Static config:Configurations.Get}, Path=Window_Height, Mode=TwoWay}"
         MinHeight="440"
         Width="{Binding Source={x:Static config:Configurations.Get}, Path=Window_Width, Mode=TwoWay}"
@@ -42,6 +42,16 @@
                     <ColumnDefinition Width="{Binding Source={x:Static config:Configurations.Get}, Path=Grid_Column2, Mode=TwoWay}" MinWidth="330"/>
                 </Grid.ColumnDefinitions>
                 <control:EditorPanel Grid.Column="0" Margin="2,0,0,0" SizeChanged="EditorPanel_SizeChanged"/>
+                <Grid Grid.Column="0" Margin="2,0,0,0" Background="#FFFFFF" Visibility="{Binding EmptyProjectStartVisibility}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
+                        <Button Command="{Binding FileNewCommand}" Width="132" Height="34" Margin="0,0,10,0" Background="#ECEDF1" BorderBrush="#D6DAE4" BorderThickness="1" Padding="10,4" Cursor="Hand">
+                            <TextBlock Text="{Binding Path=GetLocalization[ProjectNew]}" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#414659" HorizontalAlignment="Center"/>
+                        </Button>
+                        <Button Command="{Binding OpenProjectCommand}" Width="132" Height="34" Background="#ECEDF1" BorderBrush="#D6DAE4" BorderThickness="1" Padding="10,4" Cursor="Hand">
+                            <TextBlock Text="{Binding Path=GetLocalization[tOpenProject]}" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#414659" HorizontalAlignment="Center"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
                 <control:HelpPanel Grid.Column="2" Margin="0,0,1,0"/>
                 <GridSplitter Grid.Column="1" Width="4" VerticalAlignment="Stretch" HorizontalAlignment="Center" Margin="0,29,0,0" BorderThickness="0" BorderBrush="White" Background="#7a8193"/>
             </Grid>

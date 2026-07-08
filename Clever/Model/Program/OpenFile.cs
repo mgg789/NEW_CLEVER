@@ -17,7 +17,11 @@ namespace Clever.Model.Program
             string text = "";
             FileInfo info;
             OpenFileDialog open = new OpenFileDialog();
-            open.Filter = "Basic plus file (*" + MainWindowVM.ext + ";*.bpm;*.bpi)|*" + MainWindowVM.ext + ";*.bpm;*.bpi";
+            open.Filter = "CLEV3R editor files (*.bp;*.bpm;*.bpi;*.md;*.txt;*.csv;*.ms)|*.bp;*.bpm;*.bpi;*.md;*.txt;*.csv;*.ms";
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                open.InitialDirectory = Path.GetDirectoryName(path);
+            else if (!string.IsNullOrWhiteSpace(MainWindowVM.CurrentProjectRoot) && Directory.Exists(MainWindowVM.CurrentProjectRoot))
+                open.InitialDirectory = MainWindowVM.CurrentProjectRoot;
             if (open.ShowDialog() == true)
             {
                 text = File.ReadAllText(open.FileName);

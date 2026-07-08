@@ -516,9 +516,17 @@
         </Border>
 
         <Grid Grid.RowSpan="6" Visibility="{Binding SetupVisibility}">
-            <Button Command="{Binding SetupGitCommand}" Style="{StaticResource GitCommitButton}" Width="190" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding IsSetupButtonEnabled}">
+            <Button Command="{Binding SetupGitCommand}" Style="{StaticResource GitCommitButton}" Width="190" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding IsSetupButtonEnabled}" Visibility="{Binding SetupMainButtonVisibility}">
                 <TextBlock Text="{Binding SetupButtonText}"/>
             </Button>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding SetupProjectButtonsVisibility}">
+                <Button Command="{Binding SetupNewProjectCommand}" Style="{StaticResource GitCommitButton}" Width="132" Height="34" Margin="0,0,10,0">
+                    <TextBlock Text="{Binding Path=GetLocalization[ProjectNew]}"/>
+                </Button>
+                <Button Command="{Binding SetupOpenProjectCommand}" Style="{StaticResource GitCommitButton}" Width="132" Height="34">
+                    <TextBlock Text="{Binding Path=GetLocalization[tOpenProject]}"/>
+                </Button>
+            </StackPanel>
         </Grid>
 
         <Popup x:Name="CommitInfoPopup"
