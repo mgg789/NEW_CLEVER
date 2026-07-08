@@ -5,6 +5,9 @@ namespace Clever.ViewModel.PanelsVM
         Context,
         Added,
         Deleted,
-        Header
+        Header,
+        FileHeader,
+        Metadata,
+        Hunk
     }
 }

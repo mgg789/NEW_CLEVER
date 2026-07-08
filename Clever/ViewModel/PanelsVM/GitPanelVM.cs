@@ -2,32 +2,36 @@ using Clever.CommonData;
 using Clever.Model.Utils;
 using Clever.ViewModel;
 using Clever.ViewModel.BaseVM;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Clever.ViewModel.PanelsVM
 {
     internal class GitPanelVM : BaseViewModel
     {
-        private enum GitDesignUiState
+        private enum GitUiState
         {
             GitMissing,
+            FileMissing,
             RepoMissing,
-            DirtyNoRemote,
-            CleanNoRemote,
-            CleanAfterCommitNoRemote,
-            CleanWithRemote
+            Ready
         }
 
-        private readonly IList<GitChangeItemVM> _designChanges;
-        private GitDesignUiState _state;
+        private readonly GitRepositoryService _git;
+        private GitUiState _state;
         private string _commitMessage;
         private string _statusMessage;
         private string _branchName;
+        private string _workingDirectory;
+        private string _repositoryRoot;
         private GitCommitVM _selectedCommit;
         private ObservableCollection<GitGraphRowVM> _graphRows;
         private ObservableCollection<GitChangeItemVM> _changes;
@@ -40,46 +44,48 @@ namespace Clever.ViewModel.PanelsVM
         private string _remoteLogin;
         private string _remotePassword;
         private string _remoteToken;
-        private string _remoteOwner;
-        private string _remoteRepository;
+        private readonly DispatcherTimer _savedFilesRefreshTimer;
 
         public GitPanelVM()
         {
-            BranchName = "develop";
+            _git = new GitRepositoryService();
             _remoteUrl = "https://github.com/student/clev3r-lesson.git";
-            _remoteOwner = "student";
-            _remoteRepository = "clev3r-lesson";
-            _designChanges = GitDesignData.CreateChanges();
-            Branches = new ObservableCollection<GitBranchItemVM>
-            {
-                new GitBranchItemVM("develop", true),
-                new GitBranchItemVM("feature/git-help", false),
-                new GitBranchItemVM("backup/media", false),
-                new GitBranchItemVM("main", false)
-            };
-            Commits = new ObservableCollection<GitCommitVM>(GitDesignData.CreateCommits());
-            RebuildGraphRows();
-            ApplyState(GitDesignUiState.GitMissing);
+            Branches = new ObservableCollection<GitBranchItemVM>();
+            Commits = new ObservableCollection<GitCommitVM>();
+            Changes = new ObservableCollection<GitChangeItemVM>();
+            GraphRows = new ObservableCollection<GitGraphRowVM>();
+            BranchName = "";
 
-            SetupGitCommand = new RelayCommand(AdvanceSetupState, true);
-            CommitCommand = new RelayCommand(ExecutePrimaryGitAction, true);
-            PullCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusPull", "Pull is a UI action in this pass."), true);
-            PushCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusPush", "Push is a UI action in this pass."), true);
-            ReloadCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusReload", "Design data refreshed."), true);
+            SetupGitCommand = new RelayCommand(ExecuteSetupAction, true);
+            CommitCommand = new RelayCommand(ExecuteCommit, true);
+            PullCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."), true);
+            PushCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."), true);
+            ReloadCommand = new RelayCommand(param => RefreshRepositoryState(), true);
             SelectBranchCommand = new RelayCommand(param => IsBranchPopupOpen = !IsBranchPopupOpen, true);
             SelectBranchItemCommand = new RelayCommand(SelectBranch, true);
             OpenRemotePopupCommand = new RelayCommand(param => OpenRemotePopup(), true);
             RemoteCheckCommand = new RelayCommand(param => ShowRemoteCredentials(), true);
             RemoteConnectCommand = new RelayCommand(param => ConnectRemote(), true);
             ToggleCommitCommand = new RelayCommand(ToggleCommit, true);
-            RevertCommitCommand = new RelayCommand(param => SetCommitActionStatus(param, "GitStatusRevert", "Revert commit is a UI action in this pass."), true);
+            RevertCommitCommand = new RelayCommand(RevertCommit, true);
             DiffCommitCommand = new RelayCommand(OpenCommitDiff, true);
             OpenChangeFileCommand = new RelayCommand(OpenChangeFile, true);
             GenerateCommitMessageCommand = new RelayCommand(param => GenerateCommitMessage(), true);
             AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
+            SavedWorkspaceFilesChanged += GitPanelVM_SavedWorkspaceFilesChanged;
+            _savedFilesRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+            _savedFilesRefreshTimer.Tick += SavedFilesRefreshTimer_Tick;
 
-            if (GraphRows.Count > 0)
-                SelectCommit(GraphRows[0].Commit, false);
+            RefreshRepositoryState();
+        }
+
+        internal static event EventHandler SavedWorkspaceFilesChanged;
+
+        internal static void NotifySavedWorkspaceFilesChanged()
+        {
+            var handler = SavedWorkspaceFilesChanged;
+            if (handler != null)
+                handler(null, EventArgs.Empty);
         }
 
         public string BranchName
@@ -99,6 +105,9 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _changes = value;
                 OnPropertyChanged("Changes");
+                OnPropertyChanged("IsGitActionButtonEnabled");
+                OnPropertyChanged("GitActionButtonBackground");
+                OnPropertyChanged("GitActionButtonForeground");
             }
         }
 
@@ -152,70 +161,70 @@ namespace Clever.ViewModel.PanelsVM
 
         public Visibility SetupVisibility
         {
-            get { return _state == GitDesignUiState.GitMissing || _state == GitDesignUiState.RepoMissing ? Visibility.Visible : Visibility.Collapsed; }
+            get { return _state == GitUiState.Ready ? Visibility.Collapsed : Visibility.Visible; }
         }
 
         public Visibility MainGitVisibility
         {
-            get { return SetupVisibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; }
+            get { return _state == GitUiState.Ready ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public bool IsSetupButtonEnabled
+        {
+            get { return _state != GitUiState.Ready; }
         }
 
         public string SetupButtonText
         {
             get
             {
-                return _state == GitDesignUiState.GitMissing
-                    ? GetText("GitInstallGit", "Install Git")
-                    : GetText("GitInitRepoAndAdd", "Init repo and add .");
+                if (_state == GitUiState.GitMissing)
+                    return GetText("GitInstallGit", "Install Git");
+                if (_state == GitUiState.RepoMissing)
+                    return GetText("GitInitRepoAndAdd", "Init repository");
+
+                return GetText("GitOpenSavedFile", "Open saved .bp file");
             }
         }
 
         public string GitActionButtonText
         {
-            get
-            {
-                if (_state == GitDesignUiState.CleanAfterCommitNoRemote)
-                    return GetText("GitConnectRemote", "Connect to remote");
-                if (_state == GitDesignUiState.CleanWithRemote)
-                    return GetText("GitSyncChanges", "Sync changes");
-
-                return GetText("GitCommit", "Commit");
-            }
+            get { return GetText("GitCommit", "Commit"); }
         }
 
         public Visibility GitCommitActionIconVisibility
         {
-            get { return _state == GitDesignUiState.DirtyNoRemote ? Visibility.Visible : Visibility.Collapsed; }
+            get { return _state == GitUiState.Ready ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public Visibility GitRemoteActionIconVisibility
         {
-            get { return _state == GitDesignUiState.CleanAfterCommitNoRemote ? Visibility.Visible : Visibility.Collapsed; }
+            get { return Visibility.Collapsed; }
         }
 
         public Visibility GitSyncActionIconVisibility
         {
-            get { return _state == GitDesignUiState.CleanWithRemote ? Visibility.Visible : Visibility.Collapsed; }
+            get { return Visibility.Collapsed; }
         }
 
         public Visibility GitSyncCountersVisibility
         {
-            get { return _state == GitDesignUiState.CleanWithRemote ? Visibility.Visible : Visibility.Collapsed; }
+            get { return Visibility.Collapsed; }
         }
 
         public int GitOutgoingCommitCount
         {
-            get { return _state == GitDesignUiState.CleanWithRemote ? 2 : 0; }
+            get { return 0; }
         }
 
         public int GitIncomingCommitCount
         {
-            get { return _state == GitDesignUiState.CleanWithRemote ? 1 : 0; }
+            get { return 0; }
         }
 
         public bool IsGitActionButtonEnabled
         {
-            get { return _state == GitDesignUiState.DirtyNoRemote || _state == GitDesignUiState.CleanAfterCommitNoRemote || _state == GitDesignUiState.CleanWithRemote; }
+            get { return _state == GitUiState.Ready && Changes != null && Changes.Count > 0 && !string.IsNullOrWhiteSpace(CommitMessage); }
         }
 
         public Brush GitActionButtonBackground
@@ -230,22 +239,22 @@ namespace Clever.ViewModel.PanelsVM
 
         public bool RemoteToolsEnabled
         {
-            get { return _state == GitDesignUiState.CleanWithRemote; }
+            get { return _state == GitUiState.Ready; }
         }
 
         public Visibility RemoteConnectedVisibility
         {
-            get { return _state == GitDesignUiState.CleanWithRemote ? Visibility.Visible : Visibility.Collapsed; }
+            get { return Visibility.Collapsed; }
         }
 
         public Visibility RemoteConnectVisibility
         {
-            get { return RemoteConnectedVisibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible; }
+            get { return _state == GitUiState.Ready ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public string RemoteStatusText
         {
-            get { return "Remote: " + _remoteOwner + ":" + _remoteRepository; }
+            get { return GetText("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."); }
         }
 
         public bool IsBranchPopupOpen
@@ -377,6 +386,9 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _commitMessage = value;
                 OnPropertyChanged("CommitMessage");
+                OnPropertyChanged("IsGitActionButtonEnabled");
+                OnPropertyChanged("GitActionButtonBackground");
+                OnPropertyChanged("GitActionButtonForeground");
             }
         }
 
@@ -400,40 +412,159 @@ namespace Clever.ViewModel.PanelsVM
             }
         }
 
-        private void AdvanceSetupState(object parameter)
+        private void RefreshRepositoryState()
         {
-            if (_state == GitDesignUiState.GitMissing)
+            if (!_git.IsGitInstalled())
             {
-                ApplyState(GitDesignUiState.RepoMissing);
-                SetLocalizedStatus("GitStatusInstallGit", "Git install step completed in design mode.");
+                _repositoryRoot = "";
+                _workingDirectory = "";
+                BranchName = "";
+                ClearGitData();
+                ApplyState(GitUiState.GitMissing);
+                SetLocalizedStatus("GitStatusGitMissing", "Git is not installed. Install Git for Windows, then refresh.");
                 return;
             }
 
-            if (_state == GitDesignUiState.RepoMissing)
+            var currentFile = ResolveCurrentFilePath();
+            if (string.IsNullOrWhiteSpace(currentFile))
             {
-                ApplyState(GitDesignUiState.DirtyNoRemote);
-                SetLocalizedStatus("GitStatusInitRepo", "Repository initialized in design mode.");
+                _repositoryRoot = "";
+                _workingDirectory = "";
+                BranchName = "";
+                ClearGitData();
+                ApplyState(GitUiState.FileMissing);
+                SetLocalizedStatus("GitStatusOpenSavedFile", "Open and save a .bp, .bpi, or .bpm file to use Git.");
+                return;
+            }
+
+            _workingDirectory = Path.GetDirectoryName(currentFile);
+            _repositoryRoot = GitRepositoryService.FindRepositoryRoot(_workingDirectory);
+            if (string.IsNullOrWhiteSpace(_repositoryRoot))
+            {
+                BranchName = new DirectoryInfo(_workingDirectory).Name;
+                ClearGitData();
+                ApplyState(GitUiState.RepoMissing);
+                SetLocalizedStatus("GitStatusRepoMissing", "Git repository is not initialized for this folder.");
+                return;
+            }
+
+            var snapshot = _git.GetSnapshot(_repositoryRoot);
+            BranchName = string.IsNullOrWhiteSpace(snapshot.BranchName)
+                ? GetText("GitNoCommitsYet", "No commits yet")
+                : snapshot.BranchName;
+
+            Branches.Clear();
+            foreach (var branch in snapshot.Branches)
+                Branches.Add(new GitBranchItemVM(branch.Name, branch.IsActive));
+
+            ApplyChanges(snapshot.Changes);
+
+            Commits.Clear();
+            foreach (var commit in snapshot.Commits)
+                Commits.Add(commit);
+
+            RebuildGraphRows();
+            ApplyState(GitUiState.Ready);
+
+            if (Changes.Count > 0)
+                StatusMessage = string.Format(GetText("GitStatusChangesFound", "{0} local changes."), Changes.Count);
+            else
+                SetLocalizedStatus("GitStatusClean", "Working tree is clean.");
+        }
+
+        private void RefreshWorkingTreeState()
+        {
+            if (_state != GitUiState.Ready || string.IsNullOrWhiteSpace(_repositoryRoot))
+            {
+                RefreshRepositoryState();
+                return;
+            }
+
+            var currentFile = ResolveCurrentFilePath();
+            var currentRoot = GitRepositoryService.FindRepositoryRoot(string.IsNullOrWhiteSpace(currentFile)
+                ? _workingDirectory
+                : Path.GetDirectoryName(currentFile));
+            if (!string.Equals(currentRoot, _repositoryRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshRepositoryState();
+                return;
+            }
+
+            ApplyChanges(_git.GetWorkingTreeChanges(_repositoryRoot));
+            if (Changes.Count > 0)
+                StatusMessage = string.Format(GetText("GitStatusChangesFound", "{0} local changes."), Changes.Count);
+            else
+                SetLocalizedStatus("GitStatusClean", "Working tree is clean.");
+        }
+
+        private void ApplyChanges(IEnumerable<GitChangeInfo> changes)
+        {
+            Changes = new ObservableCollection<GitChangeItemVM>(
+                changes.Select(item => GitRepositoryService.CreateChangeItem(
+                    _repositoryRoot,
+                    item.RelativePath,
+                    item.Status,
+                    item.StatusText,
+                    item.IsDeleted,
+                    item.OldPath)));
+        }
+
+        private void ExecuteSetupAction(object parameter)
+        {
+            if (_state == GitUiState.GitMissing)
+            {
+                if (_git.IsGitInstalled())
+                {
+                    RefreshRepositoryState();
+                    return;
+                }
+
+                OpenGitInstallPage();
+                SetLocalizedStatus("GitStatusInstallGit", "Opened Git for Windows download page.");
+                return;
+            }
+
+            if (_state == GitUiState.FileMissing)
+            {
+                RefreshRepositoryState();
+                if (_state == GitUiState.FileMissing)
+                    SetLocalizedStatus("GitStatusOpenSavedFile", "Open and save a .bp, .bpi, or .bpm file to use Git.");
+                return;
+            }
+
+            if (_state == GitUiState.RepoMissing)
+            {
+                var result = _git.InitRepository(_workingDirectory);
+                RefreshRepositoryState();
+                StatusMessage = result.Success
+                    ? GetText("GitStatusInitRepo", "Repository initialized.")
+                    : result.Message;
             }
         }
 
-        private void ExecutePrimaryGitAction(object parameter)
+        private void ExecuteCommit(object parameter)
         {
-            if (_state == GitDesignUiState.DirtyNoRemote)
+            if (_state != GitUiState.Ready)
+                return;
+
+            if (string.IsNullOrWhiteSpace(CommitMessage))
+            {
+                SetLocalizedStatus("GitStatusCommitMessageRequired", "Commit message is required.");
+                return;
+            }
+
+            var result = _git.CommitAll(_repositoryRoot, CommitMessage.Trim());
+            if (result.Success)
             {
                 CommitMessage = "";
-                ApplyState(GitDesignUiState.CleanAfterCommitNoRemote);
-                SetLocalizedStatus("GitStatusCommitDone", "Commit saved. Remote is not connected yet.");
-                return;
+                RefreshRepositoryState();
+                SetLocalizedStatus("GitStatusCommitDone", "Commit saved.");
             }
-
-            if (_state == GitDesignUiState.CleanAfterCommitNoRemote)
+            else
             {
-                OpenRemotePopup();
-                return;
+                RefreshRepositoryState();
+                StatusMessage = result.Message;
             }
-
-            if (_state == GitDesignUiState.CleanWithRemote)
-                SetLocalizedStatus("GitStatusSync", "Changes synchronized in design mode.");
         }
 
         private void ToggleCommit(object parameter)
@@ -448,6 +579,9 @@ namespace Clever.ViewModel.PanelsVM
 
         private void SelectCommit(GitCommitVM commit, bool expanded)
         {
+            if (commit == null)
+                return;
+
             foreach (var item in Commits)
             {
                 item.IsSelected = item == commit;
@@ -463,11 +597,6 @@ namespace Clever.ViewModel.PanelsVM
         {
             GraphRows = GitGraphLayoutService.BuildRows(Commits);
             GraphWidth = GraphRows.Count == 0 ? 120 : GraphRows.Max(r => r.GraphWidth);
-        }
-
-        private void SetStatus(string message)
-        {
-            StatusMessage = message;
         }
 
         private void SetLocalizedStatus(string key, string fallback)
@@ -486,15 +615,23 @@ namespace Clever.ViewModel.PanelsVM
         private void SelectBranch(object parameter)
         {
             var branch = parameter as GitBranchItemVM;
-            if (branch == null)
+            if (branch == null || _state != GitUiState.Ready)
                 return;
 
-            foreach (var item in Branches)
-                item.IsActive = item == branch;
+            if (branch.IsActive)
+            {
+                IsBranchPopupOpen = false;
+                return;
+            }
 
-            BranchName = branch.Name;
+            var result = _git.SwitchBranch(_repositoryRoot, branch.Name);
             IsBranchPopupOpen = false;
-            SetLocalizedStatus("GitStatusBranchSelected", "Branch selected.");
+            if (result.Success)
+                MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
+            RefreshRepositoryState();
+            StatusMessage = result.Success
+                ? GetText("GitStatusBranchSelected", "Branch selected.")
+                : result.Message;
         }
 
         private void OpenRemotePopup()
@@ -516,32 +653,22 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("RemoteCheckVisibility");
             OnPropertyChanged("RemoteConnectSubmitVisibility");
             OnPropertyChanged("IsRemoteConnectSubmitEnabled");
-            SetLocalizedStatus("GitStatusRemoteChecked", "Remote URL checked in design mode.");
+            SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet.");
         }
 
         private void ConnectRemote()
         {
-            if (!IsRemoteConnectSubmitEnabled)
-                return;
-
-            var repoName = ParseRemoteName(RemoteUrl);
-            if (!string.IsNullOrEmpty(repoName))
-                _remoteRepository = repoName;
-
             IsRemotePopupOpen = false;
-            ApplyState(GitDesignUiState.CleanWithRemote);
-            SetLocalizedStatus("GitStatusRemoteConnected", "Remote connected in design mode.");
+            SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet.");
         }
 
-        private void ApplyState(GitDesignUiState state)
+        private void ApplyState(GitUiState state)
         {
             _state = state;
-            Changes = state == GitDesignUiState.DirtyNoRemote
-                ? new ObservableCollection<GitChangeItemVM>(_designChanges)
-                : new ObservableCollection<GitChangeItemVM>();
 
             OnPropertyChanged("SetupVisibility");
             OnPropertyChanged("MainGitVisibility");
+            OnPropertyChanged("IsSetupButtonEnabled");
             OnPropertyChanged("SetupButtonText");
             OnPropertyChanged("GitActionButtonText");
             OnPropertyChanged("GitCommitActionIconVisibility");
@@ -558,19 +685,6 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("RemoteConnectVisibility");
             OnPropertyChanged("RemoteStatusText");
             OnPropertyChanged("IsRemoteConnectSubmitEnabled");
-        }
-
-        private static string ParseRemoteName(string remoteUrl)
-        {
-            if (string.IsNullOrWhiteSpace(remoteUrl))
-                return "";
-
-            var trimmed = remoteUrl.Trim().TrimEnd('/');
-            var lastSlash = trimmed.LastIndexOf('/');
-            if (lastSlash >= 0 && lastSlash < trimmed.Length - 1)
-                trimmed = trimmed.Substring(lastSlash + 1);
-
-            return trimmed.EndsWith(".git") ? trimmed.Substring(0, trimmed.Length - 4) : trimmed;
         }
 
         private static string GetText(string key, string fallback)
@@ -595,8 +709,52 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             }
 
+            if (commit.DiffDocument == null)
+                commit.DiffDocument = _git.GetCommitDiff(_repositoryRoot, commit);
+
+            if (commit.DiffDocument == null || commit.DiffDocument.Files.Count == 0)
+            {
+                SetLocalizedStatus("GitDiffNoData", "No diff data for this commit.");
+                return;
+            }
+
             MainWindowVM.OpenGitDiffPreview(commit);
             SetCommitActionStatus(commit, "GitStatusDiffOpened", "Opened read-only diff:");
+        }
+
+        private void RevertCommit(object parameter)
+        {
+            var commit = parameter as GitCommitVM;
+            if (commit == null || _state != GitUiState.Ready)
+                return;
+
+            if (!ConfirmRestoreToCommit(commit))
+                return;
+
+            var result = _git.RestoreToCommitSnapshot(_repositoryRoot, commit.Hash);
+            if (result.Success)
+                MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
+            RefreshRepositoryState();
+            if (result.Success)
+            {
+                if (string.IsNullOrWhiteSpace(CommitMessage))
+                    CommitMessage = "Restore project to " + commit.ShortHash;
+                SetLocalizedStatus("GitStatusRollbackPrepared", "Files restored to the selected version. Review and commit the rollback.");
+            }
+            else
+            {
+                StatusMessage = result.Message;
+            }
+        }
+
+        private bool ConfirmRestoreToCommit(GitCommitVM commit)
+        {
+            var title = GetText("GitConfirmRestoreTitle", "Restore project version");
+            var message = string.Format(
+                GetText("GitConfirmRestoreMessage", "Restore all project files to commit {0}? Open files will reload from disk. Review and commit the rollback after this."),
+                commit.ShortHash);
+
+            return MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
         }
 
         private void OpenChangeFile(object parameter)
@@ -604,6 +762,13 @@ namespace Clever.ViewModel.PanelsVM
             var file = parameter as GitChangeItemVM;
             if (file == null)
                 return;
+
+            if (file.IsDeleted && string.IsNullOrEmpty(file.PreviewText))
+            {
+                string text;
+                if (GitRepositoryService.TryGetFileText(file.RepositoryRoot, file.RelativePath, out text))
+                    file.PreviewText = text;
+            }
 
             MainWindowVM.OpenGitChangeFile(file);
             var message = GUILanguage.GetItem("GitStatusFileOpened");
@@ -615,15 +780,69 @@ namespace Clever.ViewModel.PanelsVM
             if (!AiAppSettingsStore.Settings.AiEnabled)
                 return;
 
+            RefreshWorkingTreeState();
+
             CommitMessage = Changes != null && Changes.Count > 0
-                ? "Save current project changes"
-                : "Update project backup";
-            SetLocalizedStatus("GitStatusGenerateCommitMessage", "Commit message generated in design mode.");
+                ? "Save " + Changes.Count + " local Git changes"
+                : "Update project";
+            SetLocalizedStatus("GitStatusGenerateCommitMessage", "Commit message generated.");
         }
 
-        private void AiAppSettingsStore_SettingsChanged(object sender, System.EventArgs e)
+        private void AiAppSettingsStore_SettingsChanged(object sender, EventArgs e)
         {
             OnPropertyChanged("AiGenerateVisibility");
+        }
+
+        private void GitPanelVM_SavedWorkspaceFilesChanged(object sender, EventArgs e)
+        {
+            _savedFilesRefreshTimer.Stop();
+            _savedFilesRefreshTimer.Start();
+        }
+
+        private void SavedFilesRefreshTimer_Tick(object sender, EventArgs e)
+        {
+            _savedFilesRefreshTimer.Stop();
+            RefreshWorkingTreeState();
+        }
+
+        private void ClearGitData()
+        {
+            Changes = new ObservableCollection<GitChangeItemVM>();
+            Branches.Clear();
+            Commits.Clear();
+            SelectedCommit = null;
+            RebuildGraphRows();
+        }
+
+        private static string ResolveCurrentFilePath()
+        {
+            if (MainWindowVM.Project == null || MainWindowVM.CurrentProgram == null)
+                return "";
+
+            var data = MainWindowVM.Project.GetProgramData(MainWindowVM.CurrentProgram);
+            if (data == null || data.IsPreview || string.IsNullOrWhiteSpace(data.FullPath))
+                return "";
+
+            var extension = Path.GetExtension(data.FullPath).ToLowerInvariant();
+            if (extension != ".bp" && extension != ".bpi" && extension != ".bpm")
+                return "";
+
+            return File.Exists(data.FullPath) ? data.FullPath : "";
+        }
+
+        private static void OpenGitInstallPage()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://git-scm.com/download/win",
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+            }
         }
     }
 

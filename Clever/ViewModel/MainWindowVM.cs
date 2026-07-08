@@ -1068,7 +1068,17 @@ namespace Clever.ViewModel
             if (file == null)
                 return;
 
-            var name = file.FileName;
+            if (!file.IsDeleted && !string.IsNullOrWhiteSpace(file.FullPath) && File.Exists(file.FullPath))
+            {
+                var extension = Path.GetExtension(file.FullPath).ToLowerInvariant();
+                if (extension == ext || extension == ".bpi" || extension == ".bpm")
+                {
+                    FileNew(file.FullPath, false);
+                    return;
+                }
+            }
+
+            var name = CreateGitPreviewName(file);
             if (Project.ContainsKey(name))
             {
                 CurrentProgram = Project.GetDictionary()[name].Item;
@@ -1076,7 +1086,7 @@ namespace Clever.ViewModel
                 return;
             }
 
-            var text = CreateGitChangePreviewText(file);
+            var text = ReadGitChangePreviewText(file);
             var tmp = new NewTabItem().CreateReadOnlyTextPreview(Project.GetDictionary(), name, text);
             var pd = new ProgramData();
             pd.AddToObjects = false;
@@ -1086,7 +1096,9 @@ namespace Clever.ViewModel
             pd.ClosedName = name;
             pd.Name = name;
             pd.Path = file.Folder;
-            pd.FullPath = string.IsNullOrEmpty(file.Folder) ? file.FileName : file.Folder + "\\" + file.FileName;
+            pd.FullPath = !string.IsNullOrWhiteSpace(file.FullPath)
+                ? file.FullPath
+                : "Git preview: " + file.RelativePath;
             pd.Item = tmp;
             pd.TextChange = false;
 
@@ -1099,19 +1111,29 @@ namespace Clever.ViewModel
             Topmost();
         }
 
-        private static string CreateGitChangePreviewText(GitChangeItemVM file)
+        private static string CreateGitPreviewName(GitChangeItemVM file)
         {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (extension == ".csv")
-                return "name,status\n" + file.FileName + "," + file.StatusText + "\n";
+            var relative = string.IsNullOrWhiteSpace(file.RelativePath)
+                ? file.FileName
+                : file.RelativePath.Replace('/', '_').Replace('\\', '_');
 
-            if (extension == ".txt")
-                return file.FileName + "\n\nGit change preview: " + file.StatusText + "\n";
+            return file.IsDeleted ? relative + " (HEAD)" : relative + " (Git)";
+        }
 
-            if (extension == ".bp" || extension == ".bpi" || extension == ".bpm")
-                return "start\n  display = \"" + file.FileName + "\"\n  wait 1000\nend\n";
+        private static string ReadGitChangePreviewText(GitChangeItemVM file)
+        {
+            if (!file.IsDeleted && !string.IsNullOrWhiteSpace(file.FullPath) && File.Exists(file.FullPath))
+                return File.ReadAllText(file.FullPath);
 
-            return file.FileName + "\nGit change preview: " + file.StatusText + "\n";
+            if (!string.IsNullOrEmpty(file.PreviewText))
+                return file.PreviewText;
+
+            string text;
+            if (GitRepositoryService.TryGetFileText(file.RepositoryRoot, file.RelativePath, out text))
+                return text;
+
+            var message = GUILanguage.GetItem("GitDiffNoData");
+            return string.IsNullOrEmpty(message) ? "No Git file data available." : message;
         }
 
         private static void SetGitDiffStatus(GitCommitVM commit)
@@ -1122,6 +1144,65 @@ namespace Clever.ViewModel
 
             CommonData.Status.Clear();
             CommonData.Status.Add(message + " " + commit.ShortHash);
+        }
+
+        internal static void ReloadOpenProjectFilesFromDisk(string repositoryRoot)
+        {
+            if (Project == null || string.IsNullOrWhiteSpace(repositoryRoot))
+                return;
+
+            string root;
+            try
+            {
+                root = Path.GetFullPath(repositoryRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+            }
+            catch
+            {
+                return;
+            }
+
+            foreach (var data in Project.GetDictionary().Values.ToList())
+            {
+                if (data == null || data.IsPreview || data.Editor == null || string.IsNullOrWhiteSpace(data.FullPath))
+                    continue;
+
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(data.FullPath);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var extension = Path.GetExtension(fullPath).ToLowerInvariant();
+                if (extension != ext && extension != ".bpi" && extension != ".bpm")
+                    continue;
+                if (!File.Exists(fullPath))
+                    continue;
+
+                var diskText = File.ReadAllText(fullPath);
+                if (data.Editor.TextArea.Text == diskText)
+                {
+                    data.TextChange = false;
+                    continue;
+                }
+
+                var oldPosition = data.Editor.TextArea.CurrentPosition;
+                var wasReadOnly = data.Editor.TextArea.ReadOnly;
+                data.Editor.TextArea.ReadOnly = false;
+                data.Editor.TextArea.Text = diskText;
+                data.Editor.TextArea.EmptyUndoBuffer();
+                data.Editor.TextArea.ReadOnly = wasReadOnly;
+                data.Editor.TextArea.GotoPosition(Math.Min(oldPosition, data.Editor.TextArea.TextLength));
+                data.TextChange = false;
+            }
         }
 
         internal static string CurrentName { get; private set; }
@@ -1473,6 +1554,7 @@ namespace Clever.ViewModel
                     {
                         new SaveFile().Save(pd);
                         pd.TextChange = false;
+                        GitPanelVM.NotifySavedWorkspaceFilesChanged();
                     }
                     else
                     {
@@ -1509,6 +1591,7 @@ namespace Clever.ViewModel
                         if (pd.FullPath != "")
                         {
                             new SaveFile().Save(pd);
+                            GitPanelVM.NotifySavedWorkspaceFilesChanged();
                         }
                         else
                         {
@@ -1553,6 +1636,7 @@ namespace Clever.ViewModel
                         {
                             new SaveFile().Save(pd);
                             pd.TextChange = false;
+                            GitPanelVM.NotifySavedWorkspaceFilesChanged();
                         }
                         else
                         {
@@ -1577,6 +1661,7 @@ namespace Clever.ViewModel
                                 newPd.TextChange = false;
                                 Project.Add(newPd.Name, newPd);
                                 currentPath = fi.FullName;
+                                GitPanelVM.NotifySavedWorkspaceFilesChanged();
                             }
                         }
                     }
@@ -1632,6 +1717,7 @@ namespace Clever.ViewModel
                     newPd.TextChange = false;
                     Project.Add(newPd.Name, newPd);
                     currentPath = fi.FullName;
+                    GitPanelVM.NotifySavedWorkspaceFilesChanged();
                     //projectData = Project.GetProgramData(CurrentProgram);
                 }
             }
@@ -1685,6 +1771,7 @@ namespace Clever.ViewModel
                     newPd.TextChange = false;
                     Project.Add(newPd.Name, newPd);
                     currentPath = fi.FullName;
+                    GitPanelVM.NotifySavedWorkspaceFilesChanged();
                     //projectData = Project.GetProgramData(CurrentProgram);
                 }
             }

@@ -22,7 +22,7 @@ namespace Clever.ViewModel.PanelsVM
             foreach (var file in Files)
             {
                 foreach (var line in file.Lines)
-                    text.AppendLine(line.Text);
+                    text.AppendLine(line.DisplayText);
             }
 
             return text.ToString();

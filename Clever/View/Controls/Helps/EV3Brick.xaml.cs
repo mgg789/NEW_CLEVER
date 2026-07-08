@@ -7,6 +7,7 @@ using Clever.View.Controls.Buttons.BrickButtons;
 using Clever.View.Controls.Buttons.CompileButtons;
 using Clever.View.Controls.Buttons.HomeButtons;
 using Clever.ViewModel;
+using Clever.ViewModel.PanelsVM;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -1040,6 +1041,7 @@ namespace Clever.View.Controls.Helps
             var listPrograms = new List<string>();
             var current = MainWindowVM.Project.GetProgramData(MainWindowVM.CurrentProgram);
             //Status.Add("===> " + programs.Count.ToString());
+            var savedFilesForGit = false;
 
             foreach (var cur in programs)
             {
@@ -1070,16 +1072,20 @@ namespace Clever.View.Controls.Helps
                         return;
                     }
                     curPrg.TextChange = false;
+                    savedFilesForGit = true;
                 }
                 else
                 {
                     new Model.Program.SaveFile().Save(curPrg);
                     curPrg.TextChange = false;
+                    savedFilesForGit = true;
                 }
 
-                
             }
-            
+
+            if (savedFilesForGit)
+                GitPanelVM.NotifySavedWorkspaceFilesChanged();
+
             if (listCur.Count == 0)
             {
                 Status.Add(MainWindowVM.GetLocalization["bpCompileNotFound"]);
@@ -1208,6 +1214,7 @@ namespace Clever.View.Controls.Helps
                         if (errors.Count == 0)
                         {
                             content = streamA.ToArray();
+                            Clev3rGitIgnoreService.EnsureForCompiledFile(pcfile.FullName);
                             Status.Items[Status.Count - 1] = MainWindowVM.GetLocalization["brkAssembStart"] + MainWindowVM.GetLocalization["brkDone"];
                             Status.Update();
                         }

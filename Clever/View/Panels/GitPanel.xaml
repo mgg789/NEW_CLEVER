@@ -136,8 +136,8 @@
         </Style>
 
         <Style x:Key="GitPopupIconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Width" Value="24"/>
-            <Setter Property="Height" Value="24"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
             <Setter Property="Padding" Value="5"/>
             <Setter Property="Margin" Value="4,0,0,0"/>
             <Setter Property="Background" Value="#00FFFFFF"/>
@@ -151,7 +151,7 @@
                         <Border x:Name="border"
                                 Width="{TemplateBinding Width}"
                                 Height="{TemplateBinding Height}"
-                                CornerRadius="12"
+                                CornerRadius="17"
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
@@ -173,10 +173,10 @@
         </Style>
 
         <Style x:Key="GitInlineIconButton" TargetType="Button" BasedOn="{StaticResource GitPopupIconButton}">
-            <Setter Property="Width" Value="20"/>
-            <Setter Property="Height" Value="20"/>
-            <Setter Property="Padding" Value="3"/>
-            <Setter Property="Margin" Value="2,0,0,0"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
         </Style>
 
         <Style x:Key="GitFileRowButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -458,14 +458,14 @@
                                                         CommandParameter="{Binding Commit}"
                                                         Click="CommitRowActionButton_Click"
                                                         ToolTip="{Binding Path=DataContext.GetLocalization[tGitRevertCommit], RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                                    <Image Source="{StaticResource git_icon_revert}" Width="10" Height="10"/>
+                                                    <Image Source="{StaticResource git_icon_revert}" Width="20" Height="20"/>
                                                 </Button>
                                                 <Button Style="{StaticResource GitInlineIconButton}"
                                                         Command="{Binding DataContext.DiffCommitCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding Commit}"
                                                         Click="CommitRowActionButton_Click"
                                                         ToolTip="{Binding Path=DataContext.GetLocalization[tGitDiffCommit], RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                                    <Image Source="{StaticResource git_icon_diff}" Width="10" Height="10"/>
+                                                    <Image Source="{StaticResource git_icon_diff}" Width="20" Height="20"/>
                                                 </Button>
                                             </StackPanel>
                                         </Grid>
@@ -516,7 +516,7 @@
         </Border>
 
         <Grid Grid.RowSpan="6" Visibility="{Binding SetupVisibility}">
-            <Button Command="{Binding SetupGitCommand}" Style="{StaticResource GitCommitButton}" Width="190" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Button Command="{Binding SetupGitCommand}" Style="{StaticResource GitCommitButton}" Width="190" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding IsSetupButtonEnabled}">
                 <TextBlock Text="{Binding SetupButtonText}"/>
             </Button>
         </Grid>
@@ -548,10 +548,10 @@
                         <TextBlock Text="{Binding Commit.ShortHash}" Foreground="#0A86FF" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Style="{StaticResource GitPopupIconButton}" Click="RevertCommitButton_Click">
-                                <Image Source="{StaticResource git_icon_revert}" Width="13" Height="13"/>
+                                <Image Source="{StaticResource git_icon_revert}" Width="24" Height="24"/>
                             </Button>
                             <Button Style="{StaticResource GitPopupIconButton}" Click="DiffCommitButton_Click">
-                                <Image Source="{StaticResource git_icon_diff}" Width="13" Height="13"/>
+                                <Image Source="{StaticResource git_icon_diff}" Width="24" Height="24"/>
                             </Button>
                         </StackPanel>
                     </Grid>

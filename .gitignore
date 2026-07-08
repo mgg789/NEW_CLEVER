@@ -1,5 +1,7 @@
 # Build results
 obj/
+Clever/bin/CodexRelease/
+Clever/Clever.LocalBuild*.csproj
 
 # Visual Studio 2015 cache/options directory
 .vs/

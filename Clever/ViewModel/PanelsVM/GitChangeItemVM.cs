@@ -15,6 +15,12 @@ namespace Clever.ViewModel.PanelsVM
         public Brush StatusBrush { get; set; }
         public Brush IconBrush { get; set; }
         public bool HasFixedFileType { get; private set; }
+        public string RepositoryRoot { get; set; }
+        public string RelativePath { get; set; }
+        public string FullPath { get; set; }
+        public string OldPath { get; set; }
+        public string PreviewText { get; set; }
+        public bool IsDeleted { get; set; }
 
         public Visibility FileTypeVisibility
         {

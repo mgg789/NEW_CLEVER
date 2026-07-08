@@ -225,6 +225,15 @@ namespace Clever.Model.Bplus
         public const int DIFF_ADDED_MARKER = 20;
         public const int DIFF_DELETED_MARKER = 21;
         public const int DIFF_HEADER_MARKER = 22;
+        public const int DIFF_FILE_MARKER = 23;
+        public const int DIFF_HUNK_MARKER = 24;
+
+        private const int DIFF_CONTEXT_STYLE = 24;
+        private const int DIFF_ADDED_STYLE = 25;
+        private const int DIFF_DELETED_STYLE = 26;
+        private const int DIFF_METADATA_STYLE = 27;
+        private const int DIFF_FILE_STYLE = 28;
+        private const int DIFF_HUNK_STYLE = 29;
 
         /// <summary>
         /// change this to whatever margin you want the code folding tree (+/-) to show in
@@ -377,12 +386,13 @@ namespace Clever.Model.Bplus
         internal void ApplyDiffPreview(GitDiffDocumentVM document)
         {
             textArea.ReadOnly = false;
-            textArea.MarkerDeleteAll(DIFF_ADDED_MARKER);
-            textArea.MarkerDeleteAll(DIFF_DELETED_MARKER);
-            textArea.MarkerDeleteAll(DIFF_HEADER_MARKER);
+            ClearDiffMarkers();
             ConfigureDiffMarker(DIFF_ADDED_MARKER, "#E8F6EC");
             ConfigureDiffMarker(DIFF_DELETED_MARKER, "#FBEAEA");
-            ConfigureDiffMarker(DIFF_HEADER_MARKER, "#F1F3F7");
+            ConfigureDiffMarker(DIFF_HEADER_MARKER, "#F5F7FA");
+            ConfigureDiffMarker(DIFF_FILE_MARKER, "#DDEBFF");
+            ConfigureDiffMarker(DIFF_HUNK_MARKER, "#EDF4FF");
+            ConfigureDiffStyles();
 
             textArea.Text = document == null ? "" : document.ToText();
 
@@ -396,12 +406,7 @@ namespace Clever.Model.Bplus
                         if (lineNumber >= textArea.Lines.Count)
                             break;
 
-                        if (diffLine.Kind == GitDiffLineKind.Added)
-                            textArea.Lines[lineNumber].MarkerAdd(DIFF_ADDED_MARKER);
-                        else if (diffLine.Kind == GitDiffLineKind.Deleted)
-                            textArea.Lines[lineNumber].MarkerAdd(DIFF_DELETED_MARKER);
-                        else if (diffLine.Kind == GitDiffLineKind.Header)
-                            textArea.Lines[lineNumber].MarkerAdd(DIFF_HEADER_MARKER);
+                        ApplyDiffLineStyle(lineNumber, diffLine.Kind);
 
                         lineNumber++;
                     }
@@ -415,12 +420,19 @@ namespace Clever.Model.Bplus
         internal void ApplyReadOnlyTextPreview(string text)
         {
             textArea.ReadOnly = false;
-            textArea.MarkerDeleteAll(DIFF_ADDED_MARKER);
-            textArea.MarkerDeleteAll(DIFF_DELETED_MARKER);
-            textArea.MarkerDeleteAll(DIFF_HEADER_MARKER);
+            ClearDiffMarkers();
             textArea.Text = text ?? "";
             textArea.EmptyUndoBuffer();
             textArea.ReadOnly = true;
+        }
+
+        private void ClearDiffMarkers()
+        {
+            textArea.MarkerDeleteAll(DIFF_ADDED_MARKER);
+            textArea.MarkerDeleteAll(DIFF_DELETED_MARKER);
+            textArea.MarkerDeleteAll(DIFF_HEADER_MARKER);
+            textArea.MarkerDeleteAll(DIFF_FILE_MARKER);
+            textArea.MarkerDeleteAll(DIFF_HUNK_MARKER);
         }
 
         private void ConfigureDiffMarker(int markerNumber, string color)
@@ -428,6 +440,68 @@ namespace Clever.Model.Bplus
             var marker = textArea.Markers[markerNumber];
             marker.Symbol = MarkerSymbol.Background;
             marker.SetBackColor(ColorTranslator.FromHtml(color));
+        }
+
+        private void ConfigureDiffStyles()
+        {
+            ConfigureDiffStyle(DIFF_CONTEXT_STYLE, "#1F2430", false, false);
+            ConfigureDiffStyle(DIFF_ADDED_STYLE, "#146C2E", false, false);
+            ConfigureDiffStyle(DIFF_DELETED_STYLE, "#9B1C1C", false, false);
+            ConfigureDiffStyle(DIFF_METADATA_STYLE, "#6F778A", false, true);
+            ConfigureDiffStyle(DIFF_FILE_STYLE, "#1F4D8F", true, false);
+            ConfigureDiffStyle(DIFF_HUNK_STYLE, "#4C6393", true, false);
+        }
+
+        private void ConfigureDiffStyle(int styleNumber, string color, bool bold, bool italic)
+        {
+            var style = textArea.Styles[styleNumber];
+            style.Font = textArea.Styles[Style.Default].Font;
+            style.Size = textArea.Styles[Style.Default].Size;
+            style.ForeColor = ColorTranslator.FromHtml(color);
+            style.Bold = bold;
+            style.Italic = italic;
+        }
+
+        private void ApplyDiffLineStyle(int lineNumber, GitDiffLineKind kind)
+        {
+            var markerNumber = -1;
+            var styleNumber = DIFF_CONTEXT_STYLE;
+
+            switch (kind)
+            {
+                case GitDiffLineKind.Added:
+                    markerNumber = DIFF_ADDED_MARKER;
+                    styleNumber = DIFF_ADDED_STYLE;
+                    break;
+                case GitDiffLineKind.Deleted:
+                    markerNumber = DIFF_DELETED_MARKER;
+                    styleNumber = DIFF_DELETED_STYLE;
+                    break;
+                case GitDiffLineKind.FileHeader:
+                    markerNumber = DIFF_FILE_MARKER;
+                    styleNumber = DIFF_FILE_STYLE;
+                    break;
+                case GitDiffLineKind.Hunk:
+                    markerNumber = DIFF_HUNK_MARKER;
+                    styleNumber = DIFF_HUNK_STYLE;
+                    break;
+                case GitDiffLineKind.Header:
+                case GitDiffLineKind.Metadata:
+                    markerNumber = DIFF_HEADER_MARKER;
+                    styleNumber = DIFF_METADATA_STYLE;
+                    break;
+            }
+
+            if (markerNumber >= 0)
+                textArea.Lines[lineNumber].MarkerAdd(markerNumber);
+
+            var line = textArea.Lines[lineNumber];
+            var length = Math.Max(0, line.EndPosition - line.Position);
+            if (length == 0)
+                return;
+
+            textArea.StartStyling(line.Position);
+            textArea.SetStyling(length, styleNumber);
         }
 
         public void SetEmptySelection()
