@@ -146,6 +146,22 @@ namespace Clever.Model.Utils
                 : GitActionResult.Fail(result.Message);
         }
 
+        internal GitActionResult CreateBranch(string repositoryRoot, string branchName)
+        {
+            if (string.IsNullOrWhiteSpace(branchName))
+                return GitActionResult.Fail("Branch name is required.");
+
+            var normalizedName = branchName.Trim();
+            var check = _runner.Run(repositoryRoot, "check-ref-format", "--branch", normalizedName);
+            if (!check.Success)
+                return GitActionResult.Fail(check.Message);
+
+            var result = _runner.Run(repositoryRoot, "switch", "-c", normalizedName);
+            return result.Success
+                ? GitActionResult.Ok("Branch created.")
+                : GitActionResult.Fail(result.Message);
+        }
+
         internal GitActionResult RestoreToCommitSnapshot(string repositoryRoot, string hash)
         {
             var abortRevert = AbortInProgressRevert(repositoryRoot);

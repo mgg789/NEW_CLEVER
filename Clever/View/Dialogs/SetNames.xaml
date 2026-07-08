@@ -5,10 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         KeyUp="Window_KeyUp"
-        Title="" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Width="520" Height="230">
+        Title="" ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Width="540" Height="255">
     <Window.Resources>
         <Style x:Key="dialog_button" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Height" Value="24"/>
+            <Setter Property="Height" Value="26"/>
             <Setter Property="Padding" Value="12,2"/>
             <Setter Property="FontFamily" Value="{StaticResource ui_fontfamily}"/>
             <Setter Property="FontSize" Value="12"/>
@@ -45,42 +45,24 @@
         <Grid Margin="14">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="10"/>
+                <RowDefinition Height="14"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="18"/>
+                <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0">
-                <TextBlock x:Name="txtProjectTitle" Text="New project" Style="{StaticResource dialog_label}" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="txtFileTitle" Text="New file" Style="{StaticResource dialog_label}" FontWeight="Bold" Margin="0,0,0,8"/>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="92"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="86"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="txtProjectName" Text="Project name:" Style="{StaticResource dialog_label}" Grid.Column="0"/>
-                    <TextBox x:Name="projectName" Grid.Column="1" Height="24" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Padding="3" KeyUp="projectName_KeyUp"/>
-                    <Button x:Name="butCreateProject" Grid.Column="2" Style="{StaticResource dialog_button}" Click="butCreateProject_Click">
-                        <TextBlock x:Name="butTextProject" Text="Create"/>
-                    </Button>
-                </Grid>
-            </StackPanel>
-
-            <Border Grid.Row="2" Height="1" Background="#D6DAE4"/>
-
-            <StackPanel Grid.Row="4">
-                <TextBlock x:Name="txtFileTitle" Text="New file" Style="{StaticResource dialog_label}" FontWeight="Bold" Margin="0,0,0,6"/>
-                <Grid>
-                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="136"/>
                         <ColumnDefinition Width="92"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="132"/>
-                        <ColumnDefinition Width="86"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="txtFileName" Text="Filename:" Style="{StaticResource dialog_label}" Grid.Column="0"/>
-                    <TextBox x:Name="fileName" Grid.Column="1" Height="24" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Padding="3" TextChanged="fileName_TextChanged" KeyUp="fileName_KeyUp"/>
-                    <ComboBox x:Name="fileType" Grid.Column="2" Height="24" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" SelectedIndex="0">
+                    <TextBox x:Name="fileName" Grid.Column="1" Height="26" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Padding="4,3" TextChanged="fileName_TextChanged" KeyUp="fileName_KeyUp"/>
+                    <ComboBox x:Name="fileType" Grid.Column="2" Height="26" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" SelectedIndex="0">
                         <ComboBoxItem Content="Program (.bp)" Tag=".bp"/>
                         <ComboBoxItem Content="Module (.bpm)" Tag=".bpm"/>
                         <ComboBoxItem Content="Include (.bpi)" Tag=".bpi"/>
@@ -92,10 +74,29 @@
                         <TextBlock x:Name="butTextFile" Text="Create"/>
                     </Button>
                 </Grid>
-                <Button x:Name="butClose" Style="{StaticResource dialog_button}" Click="butClose_Click" HorizontalAlignment="Right" Margin="0,16,0,0" Width="86">
-                    <TextBlock x:Name="butTextClose" Text="Cancel"/>
-                </Button>
             </StackPanel>
+
+            <Border Grid.Row="1" Height="1" Background="#D6DAE4" VerticalAlignment="Center"/>
+
+            <StackPanel Grid.Row="2">
+                <TextBlock x:Name="txtProjectTitle" Text="New project" Style="{StaticResource dialog_label}" FontWeight="Bold" Margin="0,0,0,8"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="92"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="92"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="txtProjectName" Text="Project name:" Style="{StaticResource dialog_label}" Grid.Column="0"/>
+                    <TextBox x:Name="projectName" Grid.Column="1" Height="26" Margin="0,0,8,0" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Padding="4,3" KeyUp="projectName_KeyUp"/>
+                    <Button x:Name="butCreateProject" Grid.Column="2" Style="{StaticResource dialog_button}" Click="butCreateProject_Click">
+                        <TextBlock x:Name="butTextProject" Text="Create"/>
+                    </Button>
+                </Grid>
+            </StackPanel>
+
+            <Button x:Name="butClose" Grid.Row="4" Style="{StaticResource dialog_button}" Click="butClose_Click" HorizontalAlignment="Right" Width="100" Margin="0,12,0,0">
+                <TextBlock x:Name="butTextClose" Text="Cancel"/>
+            </Button>
         </Grid>
     </Grid>
 </Window>

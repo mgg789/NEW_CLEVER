@@ -139,6 +139,7 @@
     <Compile Include="Model\Utils\Converter.cs" />
     <Compile Include="Model\Utils\AiAppSettingsStore.cs" />
     <Compile Include="Model\Utils\Clev3rGitIgnoreService.cs" />
+    <Compile Include="Model\Utils\FolderPickerDialog.cs" />
     <Compile Include="Model\Utils\GitCommandRunner.cs" />
     <Compile Include="Model\Utils\GitRepositoryService.cs" />
     <Compile Include="Model\Utils\HelpToolTipModel.cs" />

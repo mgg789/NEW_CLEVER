@@ -37,9 +37,11 @@ namespace Clever.ViewModel.PanelsVM
         private ObservableCollection<GitChangeItemVM> _changes;
         private double _graphWidth;
         private bool _isBranchPopupOpen;
+        private bool _isCreateBranchPopupOpen;
         private bool _isRemotePopupOpen;
         private bool _isRemoteCredentialsVisible;
         private bool _useTokenAuth;
+        private string _newBranchName;
         private string _remoteUrl;
         private string _remoteLogin;
         private string _remotePassword;
@@ -68,6 +70,9 @@ namespace Clever.ViewModel.PanelsVM
             ReloadCommand = new RelayCommand(param => RefreshRepositoryState(), true);
             SelectBranchCommand = new RelayCommand(param => IsBranchPopupOpen = !IsBranchPopupOpen, true);
             SelectBranchItemCommand = new RelayCommand(SelectBranch, true);
+            OpenCreateBranchPopupCommand = new RelayCommand(param => OpenCreateBranchPopup(), true);
+            CreateBranchCommand = new RelayCommand(param => CreateBranch(), true);
+            CancelCreateBranchCommand = new RelayCommand(param => CancelCreateBranch(), true);
             OpenRemotePopupCommand = new RelayCommand(param => OpenRemotePopup(), true);
             RemoteCheckCommand = new RelayCommand(param => ShowRemoteCredentials(), true);
             RemoteConnectCommand = new RelayCommand(param => ConnectRemote(), true);
@@ -138,6 +143,9 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand ReloadCommand { get; private set; }
         public ICommand SelectBranchCommand { get; private set; }
         public ICommand SelectBranchItemCommand { get; private set; }
+        public ICommand OpenCreateBranchPopupCommand { get; private set; }
+        public ICommand CreateBranchCommand { get; private set; }
+        public ICommand CancelCreateBranchCommand { get; private set; }
         public ICommand OpenRemotePopupCommand { get; private set; }
         public ICommand RemoteCheckCommand { get; private set; }
         public ICommand RemoteConnectCommand { get; private set; }
@@ -293,6 +301,32 @@ namespace Clever.ViewModel.PanelsVM
                 _isBranchPopupOpen = value;
                 OnPropertyChanged("IsBranchPopupOpen");
             }
+        }
+
+        public bool IsCreateBranchPopupOpen
+        {
+            get { return _isCreateBranchPopupOpen; }
+            set
+            {
+                _isCreateBranchPopupOpen = value;
+                OnPropertyChanged("IsCreateBranchPopupOpen");
+            }
+        }
+
+        public string NewBranchName
+        {
+            get { return _newBranchName; }
+            set
+            {
+                _newBranchName = value;
+                OnPropertyChanged("NewBranchName");
+                OnPropertyChanged("IsCreateBranchEnabled");
+            }
+        }
+
+        public bool IsCreateBranchEnabled
+        {
+            get { return _state == GitUiState.Ready && !string.IsNullOrWhiteSpace(NewBranchName); }
         }
 
         public bool IsRemotePopupOpen
@@ -654,6 +688,13 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             }
 
+            if (MainWindowVM.HasUnsavedProjectEditorChanges(_repositoryRoot))
+            {
+                IsBranchPopupOpen = false;
+                SetLocalizedStatus("GitStatusUnsavedOpenFiles", "Save open project files before this Git action.");
+                return;
+            }
+
             var result = _git.SwitchBranch(_repositoryRoot, branch.Name);
             IsBranchPopupOpen = false;
             if (result.Success)
@@ -662,6 +703,47 @@ namespace Clever.ViewModel.PanelsVM
             StatusMessage = result.Success
                 ? GetText("GitStatusBranchSelected", "Branch selected.")
                 : result.Message;
+        }
+
+        private void OpenCreateBranchPopup()
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            NewBranchName = "";
+            IsBranchPopupOpen = false;
+            IsCreateBranchPopupOpen = true;
+        }
+
+        private void CancelCreateBranch()
+        {
+            NewBranchName = "";
+            IsCreateBranchPopupOpen = false;
+        }
+
+        private void CreateBranch()
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            if (string.IsNullOrWhiteSpace(NewBranchName))
+            {
+                SetLocalizedStatus("GitStatusBranchNameRequired", "Branch name is required.");
+                return;
+            }
+
+            var result = _git.CreateBranch(_repositoryRoot, NewBranchName.Trim());
+            IsCreateBranchPopupOpen = false;
+            if (result.Success)
+            {
+                RefreshRepositoryState();
+                StatusMessage = GetText("GitStatusBranchCreated", "Branch created.");
+            }
+            else
+            {
+                RefreshRepositoryState();
+                StatusMessage = result.Message;
+            }
         }
 
         private void OpenRemotePopup()
@@ -702,6 +784,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("MainGitVisibility");
             OnPropertyChanged("IsSetupButtonEnabled");
             OnPropertyChanged("SetupButtonText");
+            OnPropertyChanged("IsCreateBranchEnabled");
             OnPropertyChanged("GitActionButtonText");
             OnPropertyChanged("GitCommitActionIconVisibility");
             OnPropertyChanged("GitRemoteActionIconVisibility");
@@ -759,6 +842,12 @@ namespace Clever.ViewModel.PanelsVM
             var commit = parameter as GitCommitVM;
             if (commit == null || _state != GitUiState.Ready)
                 return;
+
+            if (MainWindowVM.HasUnsavedProjectEditorChanges(_repositoryRoot))
+            {
+                SetLocalizedStatus("GitStatusUnsavedOpenFiles", "Save open project files before this Git action.");
+                return;
+            }
 
             if (!ConfirmRestoreToCommit(commit))
                 return;

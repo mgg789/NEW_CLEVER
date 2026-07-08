@@ -244,9 +244,9 @@ namespace Clever.Model.Utils
 
             if (_isExternalProjectFile)
             {
-                header.HeaderTextColor = new SolidColorBrush(Color.FromRgb(0x8F, 0x98, 0xAB));
+                header.HeaderTextColor = new SolidColorBrush(Color.FromRgb(0x7A, 0x81, 0x93));
                 header.HeaderFontStyle = FontStyles.Italic;
-                header.HeaderFontWeight = FontWeights.Light;
+                header.HeaderFontWeight = FontWeights.Normal;
             }
             else
             {

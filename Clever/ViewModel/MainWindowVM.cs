@@ -1378,6 +1378,48 @@ namespace Clever.ViewModel
             }
         }
 
+        internal static bool HasUnsavedProjectEditorChanges(string repositoryRoot)
+        {
+            if (Project == null || string.IsNullOrWhiteSpace(repositoryRoot))
+                return false;
+
+            string root;
+            try
+            {
+                root = Path.GetFullPath(repositoryRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+            }
+            catch
+            {
+                return false;
+            }
+
+            foreach (var data in Project.GetDictionary().Values)
+            {
+                if (data == null || data.IsPreview || data.Editor == null || string.IsNullOrWhiteSpace(data.FullPath))
+                    continue;
+
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(data.FullPath);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (data.TextChange || !string.IsNullOrEmpty(data.GetHeaderChangeText))
+                    return true;
+            }
+
+            return false;
+        }
+
         internal static string CurrentName { get; private set; }
 
         private static ContentControl _currentInfo;
@@ -1570,23 +1612,21 @@ namespace Clever.ViewModel
         {
             try
             {
-                using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+                var dialog = new FolderPickerDialog
                 {
-                    dialog.Description = GUILanguage.GetItem("ProjectOpenDialogTitle");
-                    if (string.IsNullOrWhiteSpace(dialog.Description))
-                        dialog.Description = "Open project folder";
-                    dialog.ShowNewFolderButton = true;
+                    Title = GetProjectStatusText("ProjectOpenDialogTitle", "Open project folder"),
+                    InitialDirectory = !string.IsNullOrWhiteSpace(CurrentProjectRoot) && Directory.Exists(CurrentProjectRoot)
+                        ? CurrentProjectRoot
+                        : ""
+                };
 
-                    if (!string.IsNullOrWhiteSpace(CurrentProjectRoot) && Directory.Exists(CurrentProjectRoot))
-                        dialog.SelectedPath = CurrentProjectRoot;
+                string selectedPath;
+                if (!dialog.Show(out selectedPath))
+                    return;
 
-                    if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
-                        return;
-
-                    SetCurrentProjectRoot(dialog.SelectedPath);
-                    CommonData.Status.Clear();
-                    CommonData.Status.Add(GetProjectStatusText("ProjectOpened", "Project opened:") + " " + CurrentProjectName);
-                }
+                SetCurrentProjectRoot(selectedPath);
+                CommonData.Status.Clear();
+                CommonData.Status.Add(GetProjectStatusText("ProjectOpened", "Project opened:") + " " + CurrentProjectName);
             }
             catch (Exception ex)
             {
@@ -1604,31 +1644,31 @@ namespace Clever.ViewModel
 
             try
             {
-                using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+                var initialDirectory = "";
+                if (!string.IsNullOrWhiteSpace(CurrentProjectRoot) && Directory.Exists(CurrentProjectRoot))
+                    initialDirectory = Directory.GetParent(CurrentProjectRoot)?.FullName ?? CurrentProjectRoot;
+
+                var dialog = new FolderPickerDialog
                 {
-                    dialog.Description = GUILanguage.GetItem("ProjectCreateParentDialogTitle");
-                    if (string.IsNullOrWhiteSpace(dialog.Description))
-                        dialog.Description = "Select parent folder for the new project";
-                    dialog.ShowNewFolderButton = true;
+                    Title = GetProjectStatusText("ProjectCreateParentDialogTitle", "Select parent folder for the new project"),
+                    InitialDirectory = initialDirectory
+                };
 
-                    if (!string.IsNullOrWhiteSpace(CurrentProjectRoot) && Directory.Exists(CurrentProjectRoot))
-                        dialog.SelectedPath = Directory.GetParent(CurrentProjectRoot)?.FullName ?? CurrentProjectRoot;
+                string selectedPath;
+                if (!dialog.Show(out selectedPath))
+                    return;
 
-                    if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
-                        return;
+                var root = Path.Combine(selectedPath, projectName);
+                Directory.CreateDirectory(root);
+                SetCurrentProjectRoot(root);
 
-                    var root = Path.Combine(dialog.SelectedPath, projectName);
-                    Directory.CreateDirectory(root);
-                    SetCurrentProjectRoot(root);
+                var mainFile = Path.Combine(root, projectName + ext);
+                if (!File.Exists(mainFile))
+                    File.WriteAllText(mainFile, "");
 
-                    var mainFile = Path.Combine(root, projectName + ext);
-                    if (!File.Exists(mainFile))
-                        File.WriteAllText(mainFile, "");
-
-                    FileNew(mainFile, false);
-                    CommonData.Status.Clear();
-                    CommonData.Status.Add(GetProjectStatusText("ProjectCreated", "Project created:") + " " + CurrentProjectName);
-                }
+                FileNew(mainFile, false);
+                CommonData.Status.Clear();
+                CommonData.Status.Add(GetProjectStatusText("ProjectCreated", "Project created:") + " " + CurrentProjectName);
             }
             catch (Exception ex)
             {

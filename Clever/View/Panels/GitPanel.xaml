@@ -580,7 +580,23 @@
                     Padding="8"
                     Width="230">
                 <StackPanel>
-                    <TextBlock Text="{Binding Path=GetLocalization[GitBranches]}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" FontWeight="Bold" Margin="2,0,2,6"/>
+                    <Grid Margin="2,0,2,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="26"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Path=GetLocalization[GitBranches]}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                Command="{Binding OpenCreateBranchPopupCommand}"
+                                Width="24"
+                                Height="24"
+                                Padding="0"
+                                Background="#00FFFFFF"
+                                BorderThickness="0"
+                                ToolTip="{Binding Path=GetLocalization[tGitCreateBranch]}">
+                            <TextBlock Text="+" Foreground="{StaticResource pnl_clc}" FontFamily="{StaticResource ui_fontfamily}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-3,0,0"/>
+                        </Button>
+                    </Grid>
                     <ItemsControl ItemsSource="{Binding Branches}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -608,6 +624,33 @@
                     <Button Command="{Binding OpenRemotePopupCommand}" Visibility="{Binding RemoteConnectVisibility}" Style="{StaticResource GitPopupPanelButton}" HorizontalAlignment="Left">
                         <TextBlock Text="{Binding Path=GetLocalization[GitConnectRemote]}"/>
                     </Button>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <Popup x:Name="CreateBranchPopup"
+               PlacementTarget="{Binding ElementName=GitRoot}"
+               Placement="Center"
+               AllowsTransparency="True"
+               StaysOpen="False"
+               IsOpen="{Binding IsCreateBranchPopupOpen, Mode=TwoWay}">
+            <Border Background="#F6F7FA"
+                    BorderBrush="#BCC3D4"
+                    BorderThickness="1"
+                    Padding="12"
+                    Width="300">
+                <StackPanel>
+                    <TextBlock Text="{Binding Path=GetLocalization[GitNewBranch]}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[GitBranchName]}" Foreground="#777777" FontFamily="{StaticResource ui_fontfamily}" FontSize="12"/>
+                    <TextBox Text="{Binding NewBranchName, UpdateSourceTrigger=PropertyChanged}" Height="28" Margin="0,3,0,10" Padding="6,3" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" FontFamily="{StaticResource ui_fontfamily}" FontSize="13" Foreground="#414659" Background="#FFFFFF"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{Binding CancelCreateBranchCommand}" Style="{StaticResource GitPopupPanelButton}" Margin="0,0,8,0">
+                            <TextBlock Text="{Binding Path=GetLocalization[winCancel]}"/>
+                        </Button>
+                        <Button Command="{Binding CreateBranchCommand}" IsEnabled="{Binding IsCreateBranchEnabled}" Style="{StaticResource GitPopupPanelButton}">
+                            <TextBlock Text="{Binding Path=GetLocalization[winCreate]}"/>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </Popup>
