@@ -313,6 +313,12 @@ namespace Clever.Model.Bplus
 
         private void OnCharAdded(object sender, CharAddedEventArgs e)
         {
+            if (IsPlainDocument())
+            {
+                CancelDocumentHints();
+                return;
+            }
+
             // Auto Indent
             if (AutoCMode == 0)
                 HelperPanelVM.Get.OpenHelp();
@@ -457,7 +463,11 @@ namespace Clever.Model.Bplus
         {
             //HelpPanelVM.Get.OpenHelp();
             TextEditorEvents.Editor_Change(sender, new System.Windows.RoutedEventArgs());
-            if (textArea.Lines.Count != LastLineCount)
+            if (IsPlainDocument())
+            {
+                LastLineCount = textArea.Lines.Count;
+            }
+            else if (textArea.Lines.Count != LastLineCount)
             {
                 SetFolding();
             }
@@ -638,6 +648,12 @@ namespace Clever.Model.Bplus
             
             if (currentPos < 0) return;
 
+            if (IsPlainDocument())
+            {
+                CancelDocumentHints();
+                return;
+            }
+
             if (AutoCMode == 0)
                 HelperPanelVM.Get.OpenHelp();
 
@@ -715,6 +731,12 @@ namespace Clever.Model.Bplus
 
         private void TextArea_MouseDoubleClick(object sender, MouseEventArgs e)
         {
+            if (IsPlainDocument())
+            {
+                CancelDocumentHints();
+                return;
+            }
+
             HelperPanelVM.Get.OpenHelp();
             int currentPos = textArea.SelectionStart;
             if (currentPos < 0) return;
@@ -953,6 +975,12 @@ namespace Clever.Model.Bplus
         {
             try
             {
+                if (IsPlainDocument())
+                {
+                    CancelDocumentHints();
+                    return;
+                }
+
                 if (AutoCMode == 0)
                 {
                     HelperPanelVM.Get.OpenHelp();
@@ -985,7 +1013,12 @@ namespace Clever.Model.Bplus
 
         private void OnAutoCSelection(object sender, AutoCSelectionEventArgs e)
         {
-            
+            if (IsPlainDocument())
+            {
+                CancelDocumentHints();
+                return;
+            }
+
             AutoCTimer.Enabled = false;
             AutoCMode = 0;
             HelperPanelVM.Get.OpenHelp();
@@ -993,9 +1026,36 @@ namespace Clever.Model.Bplus
 
         private void OnAutoCCompleted(object sender, AutoCSelectionEventArgs e)
         {
+            if (IsPlainDocument())
+            {
+                CancelDocumentHints();
+                return;
+            }
+
             AutoCTimer.Enabled = false;
             AutoCMode = 0;
             HelperPanelVM.Get.OpenHelp();
+        }
+
+        private bool IsPlainDocument()
+        {
+            var extension = System.IO.Path.GetExtension(sbDocument == null ? "" : sbDocument.ProgramName ?? "").ToLowerInvariant();
+            return extension == ".md" || extension == ".txt" || extension == ".csv";
+        }
+
+        private void CancelDocumentHints()
+        {
+            AutoCMode = 0;
+            AutoCData = "";
+            lastObject = "";
+            if (AutoCTimer != null)
+                AutoCTimer.Enabled = false;
+
+            if (textArea == null)
+                return;
+
+            textArea.AutoCCancel();
+            textArea.CallTipCancel();
         }
 
         private static Color IntToColor(int rgb)
