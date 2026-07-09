@@ -11,15 +11,100 @@
              d:DesignWidth="600"
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded">
+    <UserControl.Resources>
+        <Style x:Key="CsvGridHeaderStyle" TargetType="{x:Type DataGridColumnHeader}">
+            <Setter Property="Background" Value="#F2F5FA"/>
+            <Setter Property="BorderBrush" Value="#D7DCE8"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontFamily" Value="{StaticResource ui_fontfamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#414659"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style x:Key="CsvGridCellStyle" TargetType="{x:Type DataGridCell}">
+            <Setter Property="BorderBrush" Value="#D7DCE8"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="Foreground" Value="#414659"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type DataGridCell}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter Margin="9,4"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#DCEBFF"/>
+                    <Setter Property="Foreground" Value="#1F2A3D"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CsvGridRowHeaderStyle" TargetType="{x:Type DataGridRowHeader}">
+            <Setter Property="Background" Value="#F7F8FB"/>
+            <Setter Property="BorderBrush" Value="#D7DCE8"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Foreground" Value="#8F98AB"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+        </Style>
+    </UserControl.Resources>
     <Grid Background="#ECEDF1"
           Margin="0"
           x:Name="edit"
-          PreviewMouseRightButtonUp="edit_PreviewMouseRightButtonUp">
+          PreviewMouseRightButtonUp="edit_PreviewMouseRightButtonUp"
+          PreviewMouseDown="edit_PreviewMouseDown">
         <WindowsFormsHost Margin="3"
                           x:Name="wfh"
                           Panel.ZIndex="0"
                           Background="White">
         </WindowsFormsHost>
+
+        <Grid x:Name="markdownPreviewHost"
+              Margin="3"
+              Background="#FFFFFF"
+              Visibility="Collapsed"
+              Panel.ZIndex="1">
+            <WebBrowser x:Name="markdownBrowser"/>
+        </Grid>
+
+        <DataGrid x:Name="csvDataGrid"
+                  Margin="3"
+                  Visibility="Collapsed"
+                  Panel.ZIndex="1"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="True"
+                  CanUserDeleteRows="True"
+                  CanUserResizeRows="False"
+                  GridLinesVisibility="All"
+                  HeadersVisibility="All"
+                  SelectionUnit="Cell"
+                  SelectionMode="Extended"
+                  RowHeaderWidth="48"
+                  BorderBrush="#D7DCE8"
+                  BorderThickness="1"
+                  Background="#FFFFFF"
+                  RowBackground="#FFFFFF"
+                  AlternatingRowBackground="#FAFBFE"
+                  HorizontalGridLinesBrush="#D7DCE8"
+                  VerticalGridLinesBrush="#D7DCE8"
+                  ColumnHeaderStyle="{StaticResource CsvGridHeaderStyle}"
+                  CellStyle="{StaticResource CsvGridCellStyle}"
+                  RowHeaderStyle="{StaticResource CsvGridRowHeaderStyle}"
+                  LoadingRow="CsvDataGrid_LoadingRow"
+                  CellEditEnding="CsvDataGrid_CellEditEnding"
+                  CurrentCellChanged="CsvDataGrid_CurrentCellChanged"
+                  RowEditEnding="CsvDataGrid_RowEditEnding"/>
 
         <Popup PlacementTarget="{Binding ElementName=edit}" x:Name="editorPopup" StaysOpen="False" Placement="MousePoint" Width="{StaticResource te_menu_width}" Height="{StaticResource te_menu_height_all}">
             <menu:TextEditorMenu/>

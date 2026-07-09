@@ -38,6 +38,33 @@
             </Setter>
         </Style>
 
+        <Style x:Key="DocumentViewSwitchButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.84"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.68"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="EditorTabControlStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
             <Setter Property="BorderBrush" Value="#ECEDF1"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -193,6 +220,92 @@
                 Background="#332080FF"
                 BorderBrush="#5A8DFF"
                 BorderThickness="2"/>
+        <Border Panel.ZIndex="30"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,1,8,0"
+                Padding="2"
+                Background="#F7F8FB"
+                BorderBrush="#D7DCE8"
+                BorderThickness="1"
+                CornerRadius="15"
+                Visibility="{Binding EditorDocumentViewSwitchVisibility}">
+            <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource DocumentViewSwitchButton}"
+                        Command="{Binding EditorRawViewCommand}"
+                        Background="{Binding EditorRawViewBackground}"
+                        ToolTip="{Binding EditorRawViewToolTip}">
+                    <Viewbox Width="18" Height="18" Stretch="Uniform">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M3 5h18 M3 12h18 M3 19h18"
+                                  Stroke="{Binding EditorRawViewForeground}"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+                <Button Style="{StaticResource DocumentViewSwitchButton}"
+                        Command="{Binding EditorRenderedViewCommand}"
+                        Background="{Binding EditorRenderedViewBackground}"
+                        ToolTip="{Binding EditorRenderedViewToolTip}"
+                        Margin="2,0,0,0">
+                    <Grid Width="18" Height="18">
+                        <Viewbox Stretch="Uniform" Visibility="{Binding EditorMarkdownRenderedIconVisibility}">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M4 14h6"
+                                      Stroke="{Binding EditorRenderedViewForeground}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                                <Path Data="M4 2h10"
+                                      Stroke="{Binding EditorRenderedViewForeground}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                                <Rectangle Canvas.Left="4"
+                                           Canvas.Top="18"
+                                           Width="16"
+                                           Height="4"
+                                           RadiusX="1"
+                                           RadiusY="1"
+                                           Stroke="{Binding EditorRenderedViewForeground}"
+                                           StrokeThickness="2"/>
+                                <Rectangle Canvas.Left="4"
+                                           Canvas.Top="6"
+                                           Width="16"
+                                           Height="4"
+                                           RadiusX="1"
+                                           RadiusY="1"
+                                           Stroke="{Binding EditorRenderedViewForeground}"
+                                           StrokeThickness="2"/>
+                            </Canvas>
+                        </Viewbox>
+                        <Viewbox Stretch="Uniform" Visibility="{Binding EditorCsvRenderedIconVisibility}">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M12 3v18 M3 9h18 M3 15h18"
+                                      Stroke="{Binding EditorRenderedViewForeground}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                                <Rectangle Canvas.Left="3"
+                                           Canvas.Top="3"
+                                           Width="18"
+                                           Height="18"
+                                           RadiusX="2"
+                                           RadiusY="2"
+                                           Stroke="{Binding EditorRenderedViewForeground}"
+                                           StrokeThickness="2"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                </Button>
+            </StackPanel>
+        </Border>
         <Popup x:Name="PopUp"
                PlacementTarget="{Binding ElementName=EditorTabControl}"
                StaysOpen="False" Placement="Right"

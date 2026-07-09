@@ -35,6 +35,10 @@ namespace Clever.Model.Utils
 
         public string RepositoryRoot { get; set; }
         public string BranchName { get; set; }
+        public string HeadHash { get; set; }
+        public GitRemoteInfo Remote { get; set; }
+        public int OutgoingCommitCount { get; set; }
+        public int IncomingCommitCount { get; set; }
         public List<GitChangeInfo> Changes { get; private set; }
         public List<GitBranchInfo> Branches { get; private set; }
         public List<GitCommitVM> Commits { get; private set; }
@@ -54,6 +58,87 @@ namespace Clever.Model.Utils
     {
         public string Name { get; set; }
         public bool IsActive { get; set; }
+    }
+
+    internal enum GitRemoteAuthMode
+    {
+        LoginPassword,
+        LoginToken
+    }
+
+    internal class GitRemoteInfo
+    {
+        public string Name { get; set; }
+        public string Url { get; set; }
+        public string DisplayUrl { get; set; }
+
+        public bool IsConnected
+        {
+            get { return !string.IsNullOrWhiteSpace(Url); }
+        }
+    }
+
+    internal class GitBranchRef
+    {
+        public string Name { get; set; }
+        public string Hash { get; set; }
+    }
+
+    internal class GitMergeConflictInfo
+    {
+        public GitMergeConflictInfo()
+        {
+            Lines = new List<int>();
+        }
+
+        public string RelativePath { get; set; }
+        public List<int> Lines { get; private set; }
+
+        public string DisplayText
+        {
+            get
+            {
+                return Lines.Count == 0
+                    ? RelativePath
+                    : RelativePath + ": " + string.Join(", ", Lines.Select(line => line.ToString()).ToArray());
+            }
+        }
+    }
+
+    internal class GitMergeResult : GitActionResult
+    {
+        public GitMergeResult()
+        {
+            Conflicts = new List<GitMergeConflictInfo>();
+        }
+
+        public bool HasConflicts { get; set; }
+        public List<GitMergeConflictInfo> Conflicts { get; private set; }
+
+        internal static GitMergeResult MergeOk(string message)
+        {
+            return new GitMergeResult { Success = true, Message = message };
+        }
+
+        internal static GitMergeResult MergeFail(string message)
+        {
+            return new GitMergeResult { Success = false, Message = message };
+        }
+
+        internal static GitMergeResult Conflict(string message, IEnumerable<GitMergeConflictInfo> conflicts)
+        {
+            var result = new GitMergeResult
+            {
+                Success = false,
+                HasConflicts = true,
+                Message = message
+            };
+
+            if (conflicts != null)
+                result.Conflicts.AddRange(conflicts);
+
+            return result;
+        }
     }
 
     internal class GitRepositoryService
@@ -104,9 +189,16 @@ namespace Clever.Model.Utils
                 return snapshot;
 
             snapshot.BranchName = GetCurrentBranch(repositoryRoot);
+            snapshot.HeadHash = GetHeadHash(repositoryRoot);
+            snapshot.Remote = GetRemoteInfo(repositoryRoot);
+            if (snapshot.Remote.IsConnected)
+            {
+                snapshot.OutgoingCommitCount = GetUniqueCommitCount(repositoryRoot, "--branches", "--remotes=origin");
+                snapshot.IncomingCommitCount = GetUniqueCommitCount(repositoryRoot, "--remotes=origin", "--branches");
+            }
             snapshot.Changes.AddRange(GetChanges(repositoryRoot));
             snapshot.Branches.AddRange(GetBranches(repositoryRoot, snapshot.BranchName));
-            snapshot.Commits.AddRange(GetCommits(repositoryRoot, snapshot.BranchName));
+            snapshot.Commits.AddRange(GetCommits(repositoryRoot, snapshot.BranchName, snapshot.HeadHash));
 
             return snapshot;
         }
@@ -162,6 +254,237 @@ namespace Clever.Model.Utils
                 : GitActionResult.Fail(result.Message);
         }
 
+        internal GitActionResult ConnectRemote(string repositoryRoot, string remoteUrl, string login, string secret, GitRemoteAuthMode authMode)
+        {
+            if (string.IsNullOrWhiteSpace(repositoryRoot) || !Directory.Exists(repositoryRoot))
+                return GitActionResult.Fail("Git repository folder was not found.");
+
+            Uri remoteUri;
+            var urlValidation = ValidateHttpsRemoteUrl(remoteUrl, out remoteUri);
+            if (!urlValidation.Success)
+                return urlValidation;
+
+            if (string.IsNullOrWhiteSpace(login))
+                return GitActionResult.Fail("Remote login is required.");
+            if (string.IsNullOrWhiteSpace(secret))
+                return GitActionResult.Fail(authMode == GitRemoteAuthMode.LoginToken ? "Remote token is required." : "Remote password is required.");
+
+            var sanitizedUrl = SanitizeRemoteUrl(remoteUri);
+            var existingRemote = GetRemoteInfo(repositoryRoot);
+            var hadOrigin = existingRemote.IsConnected;
+            if (hadOrigin && !RemoteUrlsEqual(existingRemote.Url, sanitizedUrl))
+                return GitActionResult.Fail("Remote origin already points to another URL. Disconnect it first.");
+
+            var usePath = _runner.Run(repositoryRoot, "config", "credential.useHttpPath", "true");
+            if (!usePath.Success)
+                return GitActionResult.Fail(usePath.Message);
+
+            var credentials = ApproveCredentials(repositoryRoot, remoteUri, login.Trim(), secret);
+            if (!credentials.Success)
+                return GitActionResult.Fail(credentials.Message);
+
+            GitCommandResult remoteResult;
+            if (hadOrigin)
+                remoteResult = _runner.Run(repositoryRoot, "remote", "set-url", "origin", sanitizedUrl);
+            else
+                remoteResult = _runner.Run(repositoryRoot, "remote", "add", "origin", sanitizedUrl);
+
+            if (!remoteResult.Success)
+                return GitActionResult.Fail(remoteResult.Message);
+
+            var fetch = FetchOrigin(repositoryRoot);
+            if (!fetch.Success)
+            {
+                if (!hadOrigin)
+                {
+                    RejectCredentials(repositoryRoot, remoteUri, login.Trim(), secret);
+                    RemoveOrigin(repositoryRoot);
+                }
+                return GitActionResult.Fail(fetch.Message);
+            }
+
+            var history = ValidateConnectedHistory(repositoryRoot);
+            if (!history.Success)
+            {
+                if (!hadOrigin)
+                {
+                    RejectCredentials(repositoryRoot, remoteUri, login.Trim(), secret);
+                    RemoveOrigin(repositoryRoot);
+                }
+                return history;
+            }
+
+            return GitActionResult.Ok("Remote connected.");
+        }
+
+        internal GitActionResult DisconnectRemote(string repositoryRoot)
+        {
+            var remote = GetRemoteInfo(repositoryRoot);
+            if (!remote.IsConnected)
+                return GitActionResult.Ok("Remote disconnected.");
+
+            var result = RemoveOrigin(repositoryRoot);
+            return result.Success
+                ? GitActionResult.Ok("Remote disconnected.")
+                : GitActionResult.Fail(result.Message);
+        }
+
+        internal GitActionResult RefreshRemote(string repositoryRoot)
+        {
+            var remote = GetRemoteInfo(repositoryRoot);
+            return remote.IsConnected
+                ? FetchOrigin(repositoryRoot)
+                : GitActionResult.Ok("No remote connected.");
+        }
+
+        internal GitActionResult PushAllBranches(string repositoryRoot)
+        {
+            if (!GetRemoteInfo(repositoryRoot).IsConnected)
+                return GitActionResult.Fail("Connect a remote repository first.");
+
+            var fetch = FetchOrigin(repositoryRoot);
+            if (!fetch.Success)
+                return fetch;
+
+            var localBranches = GetLocalBranchRefs(repositoryRoot);
+            if (localBranches.Count == 0)
+                return GitActionResult.Fail("There are no local branches to push.");
+
+            var divergence = FindNonFastForwardPush(repositoryRoot, localBranches, GetRemoteBranchRefs(repositoryRoot));
+            if (!divergence.Success)
+                return divergence;
+
+            var push = _runner.Run(repositoryRoot, NonInteractiveGitEnvironment(), "push", "-u", "origin", "--all");
+            return push.Success
+                ? GitActionResult.Ok("Remote push completed.")
+                : GitActionResult.Fail(push.Message);
+        }
+
+        internal GitActionResult PullAllBranches(string repositoryRoot)
+        {
+            if (!GetRemoteInfo(repositoryRoot).IsConnected)
+                return GitActionResult.Fail("Connect a remote repository first.");
+
+            var clean = EnsureWorkingTreeClean(repositoryRoot, "Pull is available only when the working tree is clean.");
+            if (!clean.Success)
+                return clean;
+
+            var fetch = FetchOrigin(repositoryRoot);
+            if (!fetch.Success)
+                return fetch;
+
+            var localBranches = GetLocalBranchRefs(repositoryRoot);
+            var remoteBranches = GetRemoteBranchRefs(repositoryRoot);
+            var currentBranch = GetCurrentBranch(repositoryRoot);
+
+            foreach (var remote in remoteBranches)
+            {
+                var local = localBranches.FirstOrDefault(item => string.Equals(item.Name, remote.Name, StringComparison.Ordinal));
+                if (local == null)
+                {
+                    var track = _runner.Run(repositoryRoot, "branch", "--track", remote.Name, "origin/" + remote.Name);
+                    if (!track.Success)
+                        return GitActionResult.Fail(track.Message);
+
+                    localBranches.Add(new GitBranchRef { Name = remote.Name, Hash = remote.Hash });
+                    continue;
+                }
+
+                if (string.Equals(local.Hash, remote.Hash, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (IsAncestor(repositoryRoot, remote.Hash, local.Hash))
+                    continue;
+
+                if (!IsAncestor(repositoryRoot, local.Hash, remote.Hash))
+                    return GitActionResult.Fail("Remote branch '" + remote.Name + "' has diverged. Resolve it manually before pulling.");
+
+                GitCommandResult update;
+                if (string.Equals(currentBranch, local.Name, StringComparison.Ordinal))
+                    update = _runner.Run(repositoryRoot, "merge", "--ff-only", "origin/" + local.Name);
+                else
+                    update = _runner.Run(repositoryRoot, "branch", "-f", local.Name, "origin/" + local.Name);
+
+                if (!update.Success)
+                    return GitActionResult.Fail(update.Message);
+            }
+
+            return GitActionResult.Ok("Remote pull completed.");
+        }
+
+        internal GitMergeResult SoftMerge(string repositoryRoot, string sourceBranch, string targetBranch)
+        {
+            var validation = ValidateMergeRequest(repositoryRoot, sourceBranch, targetBranch);
+            if (!validation.Success)
+                return GitMergeResult.MergeFail(validation.Message);
+
+            var clean = EnsureWorkingTreeClean(repositoryRoot, "Merge is available only when the working tree is clean.");
+            if (!clean.Success)
+                return GitMergeResult.MergeFail(clean.Message);
+
+            var currentBranch = GetCurrentBranch(repositoryRoot);
+            if (!string.Equals(currentBranch, targetBranch, StringComparison.Ordinal))
+            {
+                var branchSwitch = _runner.Run(repositoryRoot, "switch", targetBranch);
+                if (!branchSwitch.Success)
+                    return GitMergeResult.MergeFail(branchSwitch.Message);
+            }
+
+            var merge = _runner.Run(repositoryRoot, "merge", "--no-ff", "--no-commit", sourceBranch);
+            if (merge.Success)
+                return GitMergeResult.MergeOk("Merge prepared. Review and commit.");
+
+            var conflicts = GetMergeConflicts(repositoryRoot);
+            if (conflicts.Count > 0)
+                return GitMergeResult.Conflict(merge.Message, conflicts);
+
+            return GitMergeResult.MergeFail(merge.Message);
+        }
+
+        internal GitActionResult AbortMerge(string repositoryRoot)
+        {
+            if (!IsMergeInProgress(repositoryRoot))
+                return GitActionResult.Ok("Merge cancelled.");
+
+            var result = _runner.Run(repositoryRoot, "merge", "--abort");
+            return result.Success
+                ? GitActionResult.Ok("Merge cancelled.")
+                : GitActionResult.Fail(result.Message);
+        }
+
+        internal GitMergeResult ResolveMergeConflicts(string repositoryRoot, bool takeSourceBranch)
+        {
+            if (!IsMergeInProgress(repositoryRoot))
+                return GitMergeResult.MergeFail("There is no merge in progress.");
+
+            var conflicts = GetMergeConflicts(repositoryRoot);
+            if (conflicts.Count == 0)
+                return GitMergeResult.MergeOk("There are no merge conflicts.");
+
+            var stage = takeSourceBranch ? 3 : 2;
+            var side = takeSourceBranch ? "--theirs" : "--ours";
+            foreach (var conflict in conflicts)
+            {
+                var path = NormalizeGitPath(conflict.RelativePath);
+                var sideExists = ConflictStageExists(repositoryRoot, path, stage);
+                GitCommandResult checkout;
+
+                if (sideExists)
+                    checkout = _runner.Run(repositoryRoot, "checkout", side, "--", path);
+                else
+                    checkout = _runner.Run(repositoryRoot, "rm", "-f", "--", path);
+
+                if (!checkout.Success)
+                    return GitMergeResult.MergeFail(checkout.Message);
+
+                var add = _runner.Run(repositoryRoot, "add", "-A", "--", path);
+                if (!add.Success)
+                    return GitMergeResult.MergeFail(add.Message);
+            }
+
+            return GitMergeResult.MergeOk("Merge conflicts resolved. Review and commit.");
+        }
+
         internal GitActionResult RestoreToCommitSnapshot(string repositoryRoot, string hash)
         {
             var abortRevert = AbortInProgressRevert(repositoryRoot);
@@ -204,6 +527,294 @@ namespace Clever.Model.Utils
             return true;
         }
 
+        private GitRemoteInfo GetRemoteInfo(string repositoryRoot)
+        {
+            var info = new GitRemoteInfo { Name = "origin", Url = "", DisplayUrl = "" };
+            if (string.IsNullOrWhiteSpace(repositoryRoot) || !Directory.Exists(repositoryRoot))
+                return info;
+
+            var result = _runner.Run(repositoryRoot, "remote", "get-url", "origin");
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+                return info;
+
+            info.Url = StripRemoteUrlCredentials(result.Output.Trim());
+            info.DisplayUrl = FormatRemoteDisplayUrl(info.Url);
+            return info;
+        }
+
+        private GitActionResult ValidateHttpsRemoteUrl(string remoteUrl, out Uri remoteUri)
+        {
+            remoteUri = null;
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+                return GitActionResult.Fail("Remote URL is required.");
+
+            if (!Uri.TryCreate(remoteUrl.Trim(), UriKind.Absolute, out remoteUri)
+                || !string.Equals(remoteUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(remoteUri.Host))
+                return GitActionResult.Fail("Only HTTPS GitHub/GitLab remote URLs are supported.");
+
+            return GitActionResult.Ok("");
+        }
+
+        private GitActionResult ApproveCredentials(string repositoryRoot, Uri remoteUri, string login, string secret)
+        {
+            var input = BuildCredentialInput(remoteUri, login, secret);
+            var result = _runner.RunWithInput(repositoryRoot, input, NonInteractiveGitEnvironment(), "credential", "approve");
+            return result.Success
+                ? GitActionResult.Ok("")
+                : GitActionResult.Fail(result.Message);
+        }
+
+        private GitActionResult RejectCredentials(string repositoryRoot, Uri remoteUri, string login, string secret)
+        {
+            var input = BuildCredentialInput(remoteUri, login, secret);
+            var result = _runner.RunWithInput(repositoryRoot, input, NonInteractiveGitEnvironment(), "credential", "reject");
+            return result.Success
+                ? GitActionResult.Ok("")
+                : GitActionResult.Fail(result.Message);
+        }
+
+        private GitActionResult FetchOrigin(string repositoryRoot)
+        {
+            var result = _runner.Run(repositoryRoot, NonInteractiveGitEnvironment(), "fetch", "--prune", "origin");
+            return result.Success
+                ? GitActionResult.Ok("Remote data refreshed.")
+                : GitActionResult.Fail(result.Message);
+        }
+
+        private GitCommandResult RemoveOrigin(string repositoryRoot)
+        {
+            return _runner.Run(repositoryRoot, "remote", "remove", "origin");
+        }
+
+        private GitActionResult ValidateConnectedHistory(string repositoryRoot)
+        {
+            var localBranches = GetLocalBranchRefs(repositoryRoot);
+            var remoteBranches = GetRemoteBranchRefs(repositoryRoot);
+            if (localBranches.Count == 0 || remoteBranches.Count == 0)
+                return GitActionResult.Ok("");
+
+            foreach (var local in localBranches)
+            {
+                foreach (var remote in remoteBranches)
+                {
+                    if (string.Equals(local.Hash, remote.Hash, StringComparison.OrdinalIgnoreCase)
+                        || MergeBaseExists(repositoryRoot, local.Hash, remote.Hash))
+                        return GitActionResult.Ok("");
+                }
+            }
+
+            return GitActionResult.Fail("Remote repository contains unrelated history. Connect an empty or related repository.");
+        }
+
+        private int GetUniqueCommitCount(string repositoryRoot, string includeRefs, string excludeRefs)
+        {
+            var result = _runner.Run(repositoryRoot, "rev-list", "--count", includeRefs, "--not", excludeRefs);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+                return 0;
+
+            int count;
+            return int.TryParse(result.Output.Trim(), out count) ? count : 0;
+        }
+
+        private GitActionResult FindNonFastForwardPush(string repositoryRoot, IList<GitBranchRef> localBranches, IList<GitBranchRef> remoteBranches)
+        {
+            foreach (var local in localBranches)
+            {
+                var remote = remoteBranches.FirstOrDefault(item => string.Equals(item.Name, local.Name, StringComparison.Ordinal));
+                if (remote == null || string.Equals(local.Hash, remote.Hash, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!IsAncestor(repositoryRoot, remote.Hash, local.Hash))
+                    return GitActionResult.Fail("Remote branch '" + local.Name + "' is ahead or diverged. Pull/resolve it before pushing.");
+            }
+
+            return GitActionResult.Ok("");
+        }
+
+        private List<GitBranchRef> GetLocalBranchRefs(string repositoryRoot)
+        {
+            var branches = new List<GitBranchRef>();
+            var result = _runner.Run(repositoryRoot, "branch", "--format=%(refname:short)%09%(objectname)");
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+                return branches;
+
+            using (var reader = new StringReader(result.Output))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    var branch = ParseBranchRefLine(line);
+                    if (branch != null)
+                        branches.Add(branch);
+                }
+            }
+
+            return branches;
+        }
+
+        private List<GitBranchRef> GetRemoteBranchRefs(string repositoryRoot)
+        {
+            var branches = new List<GitBranchRef>();
+            var result = _runner.Run(repositoryRoot, "for-each-ref", "refs/remotes/origin", "--format=%(refname:short)%09%(objectname)");
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+                return branches;
+
+            using (var reader = new StringReader(result.Output))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    var branch = ParseBranchRefLine(line);
+                    if (branch == null || string.Equals(branch.Name, "origin/HEAD", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (branch.Name.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
+                        branch.Name = branch.Name.Substring("origin/".Length);
+
+                    if (!string.IsNullOrWhiteSpace(branch.Name))
+                        branches.Add(branch);
+                }
+            }
+
+            return branches;
+        }
+
+        private static GitBranchRef ParseBranchRefLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                return null;
+
+            var parts = line.Split(new[] { '\t' }, 2);
+            if (parts.Length < 2 || string.IsNullOrWhiteSpace(parts[0]) || string.IsNullOrWhiteSpace(parts[1]))
+                return null;
+
+            return new GitBranchRef { Name = parts[0].Trim(), Hash = parts[1].Trim() };
+        }
+
+        private bool IsAncestor(string repositoryRoot, string ancestor, string descendant)
+        {
+            if (string.IsNullOrWhiteSpace(ancestor) || string.IsNullOrWhiteSpace(descendant))
+                return false;
+
+            var result = _runner.Run(repositoryRoot, "merge-base", "--is-ancestor", ancestor, descendant);
+            return result.ExitCode == 0;
+        }
+
+        private bool MergeBaseExists(string repositoryRoot, string leftHash, string rightHash)
+        {
+            var result = _runner.Run(repositoryRoot, "merge-base", leftHash, rightHash);
+            return result.Success && !string.IsNullOrWhiteSpace(result.Output);
+        }
+
+        private static Dictionary<string, string> NonInteractiveGitEnvironment()
+        {
+            var environment = new Dictionary<string, string>
+            {
+                { "GIT_TERMINAL_PROMPT", "0" },
+                { "GCM_INTERACTIVE", "never" }
+            };
+
+            var askPass = EnsureAskPassScript();
+            if (!string.IsNullOrWhiteSpace(askPass))
+                environment["GIT_ASKPASS"] = askPass;
+
+            return environment;
+        }
+
+        private static string EnsureAskPassScript()
+        {
+            try
+            {
+                var path = Path.Combine(Path.GetTempPath(), "clev3r-git-askpass.cmd");
+                if (!File.Exists(path))
+                    File.WriteAllText(path, "@echo off\r\nexit /b 1\r\n", Encoding.ASCII);
+                return path;
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private static string BuildCredentialInput(Uri remoteUri, string login, string secret)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("protocol=" + remoteUri.Scheme);
+            builder.AppendLine("host=" + GetCredentialHost(remoteUri));
+            var path = remoteUri.AbsolutePath.Trim('/');
+            if (!string.IsNullOrWhiteSpace(path))
+                builder.AppendLine("path=" + path);
+            builder.AppendLine("username=" + login);
+            builder.AppendLine("password=" + secret);
+            builder.AppendLine();
+            return builder.ToString();
+        }
+
+        private static string GetCredentialHost(Uri remoteUri)
+        {
+            return remoteUri.IsDefaultPort
+                ? remoteUri.Host
+                : remoteUri.Host + ":" + remoteUri.Port;
+        }
+
+        private static string SanitizeRemoteUrl(Uri remoteUri)
+        {
+            var builder = new UriBuilder(remoteUri)
+            {
+                UserName = "",
+                Password = ""
+            };
+            return builder.Uri.AbsoluteUri;
+        }
+
+        private static string StripRemoteUrlCredentials(string remoteUrl)
+        {
+            Uri uri;
+            return Uri.TryCreate(remoteUrl, UriKind.Absolute, out uri) && !string.IsNullOrEmpty(uri.UserInfo)
+                ? SanitizeRemoteUrl(uri)
+                : remoteUrl;
+        }
+
+        private static bool RemoteUrlsEqual(string left, string right)
+        {
+            Uri leftUri;
+            Uri rightUri;
+            if (Uri.TryCreate(left, UriKind.Absolute, out leftUri) && Uri.TryCreate(right, UriKind.Absolute, out rightUri))
+                return string.Equals(SanitizeRemoteUrl(leftUri).TrimEnd('/'), SanitizeRemoteUrl(rightUri).TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+
+            return string.Equals((left ?? "").TrimEnd('/'), (right ?? "").TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string FormatRemoteDisplayUrl(string remoteUrl)
+        {
+            Uri uri;
+            if (!Uri.TryCreate(remoteUrl, UriKind.Absolute, out uri))
+                return remoteUrl ?? "";
+
+            var path = uri.AbsolutePath.Trim('/');
+            return string.IsNullOrWhiteSpace(path)
+                ? uri.Host
+                : uri.Host + "/" + path;
+        }
+
+        private GitActionResult ValidateMergeRequest(string repositoryRoot, string sourceBranch, string targetBranch)
+        {
+            if (string.IsNullOrWhiteSpace(repositoryRoot) || !Directory.Exists(repositoryRoot))
+                return GitActionResult.Fail("Git repository folder was not found.");
+
+            if (string.IsNullOrWhiteSpace(sourceBranch) || string.IsNullOrWhiteSpace(targetBranch))
+                return GitActionResult.Fail("Select two branches to merge.");
+
+            if (string.Equals(sourceBranch.Trim(), targetBranch.Trim(), StringComparison.Ordinal))
+                return GitActionResult.Fail("Select two different branches to merge.");
+
+            if (IsMergeInProgress(repositoryRoot))
+                return GitActionResult.Fail("Finish or cancel the current merge before starting a new one.");
+
+            return GitActionResult.Ok("");
+        }
+
         private GitActionResult EnsureWorkingTreeClean(string repositoryRoot, string dirtyMessage)
         {
             var status = GetStatusPorcelain(repositoryRoot);
@@ -213,6 +824,90 @@ namespace Clever.Model.Utils
             return string.IsNullOrWhiteSpace(status.Output)
                 ? GitActionResult.Ok("")
                 : GitActionResult.Fail(dirtyMessage);
+        }
+
+        private bool IsMergeInProgress(string repositoryRoot)
+        {
+            var gitPath = _runner.Run(repositoryRoot, "rev-parse", "--git-path", "MERGE_HEAD");
+            if (!gitPath.Success || string.IsNullOrWhiteSpace(gitPath.Output))
+                return false;
+
+            var mergeHead = gitPath.Output.Trim();
+            if (!Path.IsPathRooted(mergeHead))
+                mergeHead = Path.Combine(repositoryRoot, mergeHead);
+
+            return File.Exists(mergeHead);
+        }
+
+        private List<GitMergeConflictInfo> GetMergeConflicts(string repositoryRoot)
+        {
+            var conflicts = new List<GitMergeConflictInfo>();
+            var result = _runner.Run(repositoryRoot, "-c", "core.quotepath=false", "diff", "--name-only", "--diff-filter=U");
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+                return conflicts;
+
+            using (var reader = new StringReader(result.Output))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    var relativePath = UnquoteGitPath(line.Trim());
+                    var conflict = new GitMergeConflictInfo { RelativePath = relativePath };
+                    AddConflictMarkerLines(repositoryRoot, conflict);
+                    conflicts.Add(conflict);
+                }
+            }
+
+            return conflicts;
+        }
+
+        private static void AddConflictMarkerLines(string repositoryRoot, GitMergeConflictInfo conflict)
+        {
+            if (conflict == null || string.IsNullOrWhiteSpace(conflict.RelativePath))
+                return;
+
+            var fullPath = Path.Combine(repositoryRoot, conflict.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(fullPath))
+                return;
+
+            try
+            {
+                var lineNumber = 0;
+                foreach (var line in File.ReadLines(fullPath, Encoding.UTF8))
+                {
+                    lineNumber++;
+                    if (line.StartsWith("<<<<<<<", StringComparison.Ordinal)
+                        || line.StartsWith("=======", StringComparison.Ordinal)
+                        || line.StartsWith(">>>>>>>", StringComparison.Ordinal))
+                        conflict.Lines.Add(lineNumber);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private bool ConflictStageExists(string repositoryRoot, string relativePath, int stage)
+        {
+            var result = _runner.Run(repositoryRoot, "ls-files", "-u", "--", relativePath);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
+                return false;
+
+            var marker = " " + stage + "\t";
+            using (var reader = new StringReader(result.Output))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (line.IndexOf(marker, StringComparison.Ordinal) >= 0)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private GitActionResult AbortInProgressRevert(string repositoryRoot)
@@ -247,6 +942,14 @@ namespace Clever.Model.Utils
             var detached = _runner.Run(repositoryRoot, "rev-parse", "--short", "HEAD");
             return detached.Success && !string.IsNullOrWhiteSpace(detached.Output)
                 ? "HEAD " + detached.Output.Trim()
+                : "";
+        }
+
+        private string GetHeadHash(string repositoryRoot)
+        {
+            var result = _runner.Run(repositoryRoot, "rev-parse", "HEAD");
+            return result.Success && !string.IsNullOrWhiteSpace(result.Output)
+                ? result.Output.Trim()
                 : "";
         }
 
@@ -324,7 +1027,7 @@ namespace Clever.Model.Utils
             return branches;
         }
 
-        private List<GitCommitVM> GetCommits(string repositoryRoot, string currentBranch)
+        private List<GitCommitVM> GetCommits(string repositoryRoot, string currentBranch, string headHash)
         {
             var commits = new List<GitCommitVM>();
             var format = "%x1e%H%x1f%P%x1f%an%x1f%ar%x1f%D%x1f%s";
@@ -335,6 +1038,8 @@ namespace Clever.Model.Utils
                 "log",
                 "--max-count=" + MaxCommitCount,
                 "--date=relative",
+                "--all",
+                "--date-order",
                 "--decorate=short",
                 "--find-renames",
                 "--name-status",
@@ -363,7 +1068,8 @@ namespace Clever.Model.Utils
                         Author = parts[2],
                         TimeText = parts[3],
                         Message = parts[5],
-                        Summary = parts[5]
+                        Summary = parts[5],
+                        IsHead = !string.IsNullOrWhiteSpace(headHash) && string.Equals(parts[0], headHash, StringComparison.OrdinalIgnoreCase)
                     };
 
                     foreach (var parent in parts[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
@@ -429,9 +1135,15 @@ namespace Clever.Model.Utils
             foreach (var item in decorations.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var decoration = item.Trim();
-                if (decoration.StartsWith("HEAD -> ", StringComparison.Ordinal))
-                    decoration = decoration.Substring("HEAD -> ".Length);
+                var arrowIndex = decoration.IndexOf(" -> ", StringComparison.Ordinal);
+                if (arrowIndex >= 0)
+                    decoration = decoration.Substring(arrowIndex + 4).Trim();
                 if (decoration == "HEAD")
+                    continue;
+                if (decoration.Equals("origin/HEAD", StringComparison.OrdinalIgnoreCase)
+                    || decoration.Equals("upstream/HEAD", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (decoration.StartsWith("tag: ", StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 if (decoration.StartsWith("origin/", StringComparison.OrdinalIgnoreCase)

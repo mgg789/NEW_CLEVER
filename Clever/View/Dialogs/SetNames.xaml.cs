@@ -40,6 +40,7 @@ namespace Clever.View.Dialogs
             txtProjectName.Text = Text("ProjectName", "Project name") + ":";
             txtFileTitle.Text = Text("FileNew", "New file");
             txtFileName.Text = Text("FileName", "Filename") + ":";
+            ApplyFileTypeLocalization();
 
             fileName.Focus();
         }
@@ -140,6 +141,39 @@ namespace Clever.View.Dialogs
                 return MainWindowVM.ext;
 
             return selected.Tag.ToString();
+        }
+
+        private void ApplyFileTypeLocalization()
+        {
+            foreach (var item in fileType.Items)
+            {
+                var comboBoxItem = item as ComboBoxItem;
+                if (comboBoxItem == null || comboBoxItem.Tag == null)
+                    continue;
+
+                var extension = comboBoxItem.Tag.ToString();
+                switch (extension)
+                {
+                    case ".bp":
+                        comboBoxItem.Content = Text("FileTypeProgram", "Program (.bp)");
+                        break;
+                    case ".bpm":
+                        comboBoxItem.Content = Text("FileTypeModule", "Module (.bpm)");
+                        break;
+                    case ".bpi":
+                        comboBoxItem.Content = Text("FileTypeInclude", "Include (.bpi)");
+                        break;
+                    case ".md":
+                        comboBoxItem.Content = Text("FileTypeMarkdown", "Markdown (.md)");
+                        break;
+                    case ".txt":
+                        comboBoxItem.Content = Text("FileTypeText", "Text (.txt)");
+                        break;
+                    case ".csv":
+                        comboBoxItem.Content = Text("FileTypeTable", "Table (.csv)");
+                        break;
+                }
+            }
         }
 
         private bool IsValidSimpleName(string name)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -25,21 +26,44 @@ namespace Clever.ViewModel.PanelsVM
             CreateBrush("#D47A00")
         };
 
-        internal static ObservableCollection<GitGraphRowVM> BuildRows(IList<GitCommitVM> commits)
+        internal static ObservableCollection<GitGraphRowVM> BuildRows(IList<GitCommitVM> commits, string currentBranch)
         {
             var rows = new ObservableCollection<GitGraphRowVM>();
             var activeLanes = new List<string>();
+            var branchLanes = BuildBranchLanes(commits, currentBranch);
+            var activeBranchLane = GetBranchLane(branchLanes, NormalizeBranchName(currentBranch), -1);
+
+            foreach (var commit in commits)
+                commit.Markers.Clear();
 
             foreach (var commit in commits)
             {
-                var laneIndex = activeLanes.IndexOf(commit.Hash);
-                if (laneIndex < 0)
+                var previousLanes = new List<string>(activeLanes);
+                var preferredLane = GetPreferredLane(commit, branchLanes);
+                var incomingLane = activeLanes.IndexOf(commit.Hash);
+                var redirectedLane = -1;
+                int laneIndex;
+
+                if (incomingLane >= 0 && preferredLane >= 0 && preferredLane != incomingLane && IsLaneAvailableFor(activeLanes, preferredLane, commit.Hash))
                 {
-                    activeLanes.Add(commit.Hash);
-                    laneIndex = activeLanes.Count - 1;
+                    laneIndex = preferredLane;
+                    EnsureLane(activeLanes, laneIndex);
+                    activeLanes[laneIndex] = commit.Hash;
+                    redirectedLane = incomingLane;
+                }
+                else if (incomingLane >= 0)
+                {
+                    laneIndex = incomingLane;
+                }
+                else
+                {
+                    laneIndex = AssignLane(activeLanes, preferredLane, commit.Hash);
                 }
 
                 var nextLanes = new List<string>(activeLanes);
+                if (redirectedLane >= 0)
+                    ClearLane(nextLanes, redirectedLane);
+
                 var rowHeight = GetRowHeight(commit);
                 var row = new GitGraphRowVM
                 {
@@ -49,13 +73,14 @@ namespace Clever.ViewModel.PanelsVM
                     CommitHeight = CommitHeight,
                     RowHeight = rowHeight,
                     NodeBrush = GetLaneBrush(laneIndex),
-                    GraphWidth = GetGraphWidth(activeLanes.Count)
+                    GraphWidth = GetGraphWidth(Math.Max(activeLanes.Count, branchLanes.Count))
                 };
 
-                AddIncomingLines(row, activeLanes, laneIndex, rows.Count == 0);
+                BuildCommitMarkers(commit, branchLanes, laneIndex, activeBranchLane);
+                AddIncomingLines(row, previousLanes, laneIndex, rows.Count == 0, redirectedLane);
                 UpdateLanesAndConnectParents(row, nextLanes, laneIndex, commit);
 
-                row.GraphWidth = GetGraphWidth(activeLanes.Count > nextLanes.Count ? activeLanes.Count : nextLanes.Count);
+                row.GraphWidth = GetGraphWidth(Math.Max(Math.Max(activeLanes.Count, nextLanes.Count), branchLanes.Count));
                 rows.Add(row);
                 activeLanes = NormalizeLanes(nextLanes);
             }
@@ -63,7 +88,75 @@ namespace Clever.ViewModel.PanelsVM
             return rows;
         }
 
-        private static void AddIncomingLines(GitGraphRowVM row, IList<string> activeLanes, int commitLane, bool isFirstRow)
+        private static Dictionary<string, int> BuildBranchLanes(IList<GitCommitVM> commits, string currentBranch)
+        {
+            var branchNames = new List<string>();
+            var current = NormalizeBranchName(currentBranch);
+            AddBranchName(branchNames, current);
+
+            foreach (var commit in commits)
+            {
+                foreach (var branch in GetLocalBranchNames(commit).Concat(GetRemoteBranchNames(commit)))
+                    AddBranchName(branchNames, branch);
+            }
+
+            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var mainBranch = branchNames.FirstOrDefault(n => string.Equals(n, "main", StringComparison.OrdinalIgnoreCase))
+                ?? branchNames.FirstOrDefault(n => string.Equals(n, "master", StringComparison.OrdinalIgnoreCase))
+                ?? branchNames.FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(mainBranch))
+                map[mainBranch] = 0;
+
+            if (!string.IsNullOrWhiteSpace(current) && !map.ContainsKey(current))
+            {
+                map[current] = map.Count == 0 ? 0 : 1;
+            }
+
+            return map;
+        }
+
+        private static void BuildCommitMarkers(GitCommitVM commit, IDictionary<string, int> branchLanes, int fallbackLane, int activeBranchLane)
+        {
+            if (commit.IsHead)
+            {
+                commit.Markers.Add(new GitCommitMarkerVM
+                {
+                    Kind = GitCommitMarkerKind.Head,
+                    Text = "Current files",
+                    Brush = GetLaneBrush(activeBranchLane >= 0 ? activeBranchLane : fallbackLane)
+                });
+            }
+
+            var displayedRemoteBranches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var remote in commit.RemoteRefs)
+            {
+                var branch = NormalizeBranchName(remote);
+                if (string.IsNullOrWhiteSpace(branch) || !displayedRemoteBranches.Add(branch))
+                    continue;
+
+                var lane = GetBranchLane(branchLanes, branch, fallbackLane);
+                commit.Markers.Add(new GitCommitMarkerVM
+                {
+                    Kind = GitCommitMarkerKind.Remote,
+                    Text = remote,
+                    Brush = GetLaneBrush(lane)
+                });
+            }
+
+            foreach (var branch in GetLocalBranchNames(commit).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var lane = GetBranchLane(branchLanes, branch, fallbackLane);
+                commit.Markers.Add(new GitCommitMarkerVM
+                {
+                    Kind = GitCommitMarkerKind.Branch,
+                    Text = branch,
+                    Brush = GetLaneBrush(lane)
+                });
+            }
+        }
+
+        private static void AddIncomingLines(GitGraphRowVM row, IList<string> activeLanes, int commitLane, bool isFirstRow, int redirectedLane)
         {
             for (var i = 0; i < activeLanes.Count; i++)
             {
@@ -71,6 +164,13 @@ namespace Clever.ViewModel.PanelsVM
                     continue;
 
                 var x = GetLaneX(i);
+                if (i == redirectedLane)
+                {
+                    row.Segments.Add(CreateSegment(x, 0, x, NodeY, GetLaneBrush(i), 2));
+                    AddSideConnector(row, i, GetLaneBrush(i), false);
+                    continue;
+                }
+
                 if (i == commitLane)
                 {
                     if (isFirstRow)
@@ -102,6 +202,7 @@ namespace Clever.ViewModel.PanelsVM
             }
             else
             {
+                EnsureLane(nextLanes, commitLane);
                 nextLanes[commitLane] = firstParent;
                 row.Segments.Add(CreateSegment(row.NodeX, NodeY + NodeRadius, row.NodeX, row.RowHeight, GetLaneBrush(commitLane), 2));
             }
@@ -139,6 +240,128 @@ namespace Clever.ViewModel.PanelsVM
                 row.Segments.Add(CreateSegment(targetX, NodeY, targetX, row.RowHeight, stroke, 2));
 
             row.Segments.Add(CreateSegment(targetX, NodeY, nodeSideX, NodeY, stroke, 2));
+        }
+
+        private static int AssignLane(List<string> activeLanes, int preferredLane, string hash)
+        {
+            if (preferredLane >= 0)
+            {
+                EnsureLane(activeLanes, preferredLane);
+                if (string.IsNullOrEmpty(activeLanes[preferredLane]))
+                {
+                    activeLanes[preferredLane] = hash;
+                    return preferredLane;
+                }
+
+                if (activeLanes[preferredLane] == hash)
+                    return preferredLane;
+
+                var reusable = FindReusableLane(activeLanes, preferredLane + 1);
+                if (reusable >= 0)
+                {
+                    activeLanes[reusable] = hash;
+                    return reusable;
+                }
+            }
+
+            activeLanes.Add(hash);
+            return activeLanes.Count - 1;
+        }
+
+        private static int GetPreferredLane(GitCommitVM commit, IDictionary<string, int> branchLanes)
+        {
+            var branches = GetLocalBranchNames(commit)
+                .Concat(GetRemoteBranchNames(commit))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var lanes = branches
+                .Select(branch => GetBranchLane(branchLanes, branch, -1))
+                .Where(lane => lane >= 0)
+                .ToList();
+
+            if (lanes.Count == 0 && branches.Count > 0)
+                return branchLanes.Count > 0 ? 1 : 0;
+
+            return lanes.Count == 0 ? -1 : lanes.Min();
+        }
+
+        private static int GetBranchLane(IDictionary<string, int> branchLanes, string branch, int fallbackLane)
+        {
+            int lane;
+            return !string.IsNullOrWhiteSpace(branch) && branchLanes.TryGetValue(branch, out lane)
+                ? lane
+                : fallbackLane;
+        }
+
+        private static bool IsLaneAvailableFor(IList<string> activeLanes, int lane, string hash)
+        {
+            return lane >= activeLanes.Count
+                || string.IsNullOrEmpty(activeLanes[lane])
+                || activeLanes[lane] == hash;
+        }
+
+        private static IEnumerable<string> GetLocalBranchNames(GitCommitVM commit)
+        {
+            if (commit == null)
+                yield break;
+
+            foreach (var branch in commit.LocalRefs)
+            {
+                var normalized = NormalizeBranchName(branch);
+                if (!string.IsNullOrWhiteSpace(normalized))
+                    yield return normalized;
+            }
+        }
+
+        private static IEnumerable<string> GetRemoteBranchNames(GitCommitVM commit)
+        {
+            if (commit == null)
+                yield break;
+
+            foreach (var remote in commit.RemoteRefs)
+            {
+                var normalized = NormalizeBranchName(remote);
+                if (!string.IsNullOrWhiteSpace(normalized))
+                    yield return normalized;
+            }
+        }
+
+        private static string NormalizeBranchName(string refName)
+        {
+            if (string.IsNullOrWhiteSpace(refName))
+                return null;
+
+            var name = refName.Trim();
+            if (name.StartsWith("HEAD ", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "HEAD", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("tag: ", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var slash = name.IndexOf('/');
+            if (slash > 0 && IsKnownRemoteName(name.Substring(0, slash)))
+                name = name.Substring(slash + 1);
+
+            if (string.Equals(name, "HEAD", StringComparison.OrdinalIgnoreCase)
+                || name.IndexOf(" -> ", StringComparison.Ordinal) >= 0)
+                return null;
+
+            return name.Length == 0 ? null : name;
+        }
+
+        private static bool IsKnownRemoteName(string name)
+        {
+            return string.Equals(name, "origin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "upstream", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void AddBranchName(ICollection<string> branchNames, string branch)
+        {
+            if (string.IsNullOrWhiteSpace(branch))
+                return;
+
+            if (!branchNames.Any(item => string.Equals(item, branch, StringComparison.OrdinalIgnoreCase)))
+                branchNames.Add(branch);
         }
 
         private static double GetRowHeight(GitCommitVM commit)
@@ -179,6 +402,12 @@ namespace Clever.ViewModel.PanelsVM
                 lanes.RemoveAt(lane);
             else
                 lanes[lane] = null;
+        }
+
+        private static void EnsureLane(IList<string> lanes, int lane)
+        {
+            while (lanes.Count <= lane)
+                lanes.Add(null);
         }
 
         private static int FindReusableLane(IList<string> lanes, int startLane)
@@ -228,12 +457,12 @@ namespace Clever.ViewModel.PanelsVM
 
         private static double GetGraphWidth(int laneCount)
         {
-            return 24 + laneCount * LaneWidth;
+            return 24 + Math.Max(1, laneCount) * LaneWidth;
         }
 
         private static Brush GetLaneBrush(int lane)
         {
-            return LaneBrushes[lane % LaneBrushes.Length];
+            return LaneBrushes[Math.Max(0, lane) % LaneBrushes.Length];
         }
 
         private static Brush CreateBrush(string color)

@@ -1065,6 +1065,7 @@ namespace Clever.View.Controls.Helps
 
                 if (curPrg.FullPath.Length == 0)
                 {
+                    curPrg.CommitRenderedDocumentViewChanges();
                     curPrg.FullPath = new Model.Program.SaveFile().Save(curPrg.Editor.TextArea.Text, curPrg.Name, tmpExt);
                     if (curPrg.FullPath == "")
                     {

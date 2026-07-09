@@ -72,6 +72,7 @@ namespace Clever.Model.Program
 
         public void Save(ProgramData data)
         {
+            data.CommitRenderedDocumentViewChanges();
             File.WriteAllText(data.FullPath, data.Editor.TextArea.Text);
         }
 

@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.IO;
 using Clever.ViewModel;
 using Label = Clever.Model.Bplus.BPInterpreter.Label;
 using Clever.Model.Intellisense;
@@ -106,6 +107,7 @@ namespace Clever.Model.Utils
         }
         internal string OldName { get; set; }
         public string Path { get; set; }
+        internal bool IsRenderedDocumentView { get; set; }
 
 
         private string _fullPath;
@@ -131,8 +133,50 @@ namespace Clever.Model.Utils
 
         internal string ToolTip { get; set; }
         public TextEditor Editor { get; set; }
+        internal Editor EditorControl { get; private set; }
         private EditorHeader header { get; set; }
         public Popup Menu { get; set; }
+
+        internal bool SupportsRenderedDocumentView
+        {
+            get
+            {
+                if (IsPreview)
+                    return false;
+
+                var extension = GetDocumentExtension();
+                return extension == ".md" || extension == ".csv";
+            }
+        }
+
+        internal void ApplyDocumentViewMode()
+        {
+            if (EditorControl == null)
+                return;
+
+            if (!SupportsRenderedDocumentView)
+                IsRenderedDocumentView = false;
+
+            EditorControl.SetDocumentViewMode(GetDocumentExtension(), IsRenderedDocumentView);
+        }
+
+        internal void RefreshRenderedDocumentView()
+        {
+            if (EditorControl != null)
+                EditorControl.RefreshRenderedView();
+        }
+
+        internal void CommitRenderedDocumentViewChanges()
+        {
+            if (EditorControl != null)
+                EditorControl.CommitRenderedViewChanges();
+        }
+
+        private string GetDocumentExtension()
+        {
+            var source = !string.IsNullOrWhiteSpace(FullPath) ? FullPath : Name;
+            return System.IO.Path.GetExtension(source).ToLowerInvariant();
+        }
 
         internal bool IsExternalProjectFile
         {
@@ -158,6 +202,7 @@ namespace Clever.Model.Utils
                 {                    
                     header = _item.Header as EditorHeader;
                     Editor editor = _item.Content as Editor;
+                    EditorControl = editor;
                     Editor = editor.GetTextEditor;
                     Name = elements.GetTabItemHeaderName(_item);
                     Editor.ProgramName = Name;
@@ -168,6 +213,7 @@ namespace Clever.Model.Utils
                         IntellisenseParser.Data.Add(Name, this);
 
                     ApplyHeaderTextStyle();
+                    ApplyDocumentViewMode();
                 }
             }
         }

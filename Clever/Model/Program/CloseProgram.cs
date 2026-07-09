@@ -41,6 +41,7 @@ namespace Clever.Model.Program
                                 {
                                     tmpExt += name[a];
                                 }
+                                pData.CommitRenderedDocumentViewChanges();
                                 new SaveFile().Save(pData.Editor.TextArea.Text, name, tmpExt);
                             }
                         }
@@ -104,6 +105,7 @@ namespace Clever.Model.Program
                                 {
                                     tmpExt += name[a];
                                 }
+                                pData.CommitRenderedDocumentViewChanges();
                                 new SaveFile().Save(pData.Editor.TextArea.Text, name, tmpExt);
                             }
                         }

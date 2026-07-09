@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -53,6 +54,21 @@ namespace Clever.Model.Utils
 
         internal GitCommandResult Run(string workingDirectory, int timeoutMs, params string[] args)
         {
+            return Run(workingDirectory, timeoutMs, null, null, args);
+        }
+
+        internal GitCommandResult Run(string workingDirectory, IDictionary<string, string> environmentVariables, params string[] args)
+        {
+            return Run(workingDirectory, DefaultTimeoutMs, null, environmentVariables, args);
+        }
+
+        internal GitCommandResult RunWithInput(string workingDirectory, string standardInput, IDictionary<string, string> environmentVariables, params string[] args)
+        {
+            return Run(workingDirectory, DefaultTimeoutMs, standardInput, environmentVariables, args);
+        }
+
+        internal GitCommandResult Run(string workingDirectory, int timeoutMs, string standardInput, IDictionary<string, string> environmentVariables, params string[] args)
+        {
             var result = new GitCommandResult
             {
                 ExitCode = -1,
@@ -73,6 +89,7 @@ namespace Clever.Model.Utils
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
+                        RedirectStandardInput = standardInput != null,
                         CreateNoWindow = true,
                         StandardOutputEncoding = Encoding.UTF8,
                         StandardErrorEncoding = Encoding.UTF8
@@ -80,6 +97,15 @@ namespace Clever.Model.Utils
 
                     if (!string.IsNullOrWhiteSpace(workingDirectory) && Directory.Exists(workingDirectory))
                         process.StartInfo.WorkingDirectory = workingDirectory;
+
+                    if (environmentVariables != null)
+                    {
+                        foreach (var item in environmentVariables)
+                        {
+                            if (!string.IsNullOrEmpty(item.Key))
+                                process.StartInfo.EnvironmentVariables[item.Key] = item.Value ?? "";
+                        }
+                    }
 
                     process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e)
                     {
@@ -93,6 +119,12 @@ namespace Clever.Model.Utils
                     };
 
                     process.Start();
+                    if (standardInput != null)
+                    {
+                        process.StandardInput.Write(standardInput);
+                        process.StandardInput.Close();
+                    }
+
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 

@@ -13,6 +13,7 @@ namespace Clever.ViewModel.PanelsVM
             ParentHashes = new ObservableCollection<string>();
             LocalRefs = new ObservableCollection<string>();
             RemoteRefs = new ObservableCollection<string>();
+            Markers = new ObservableCollection<GitCommitMarkerVM>();
             Files = new ObservableCollection<GitChangeItemVM>();
         }
 
@@ -24,10 +25,12 @@ namespace Clever.ViewModel.PanelsVM
         public string Summary { get; set; }
         public string StatsText { get; set; }
         public GitDiffDocumentVM DiffDocument { get; set; }
+        public bool IsHead { get; set; }
 
         public ObservableCollection<string> ParentHashes { get; private set; }
         public ObservableCollection<string> LocalRefs { get; private set; }
         public ObservableCollection<string> RemoteRefs { get; private set; }
+        public ObservableCollection<GitCommitMarkerVM> Markers { get; private set; }
         public ObservableCollection<GitChangeItemVM> Files { get; private set; }
 
         public bool IsMerge

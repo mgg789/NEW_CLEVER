@@ -15,6 +15,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Clever.ViewModel.BaseVM;
 using Clever.ViewModel.PanelsVM;
 using Clever.Model.Intellisense;
@@ -59,6 +60,8 @@ namespace Clever.ViewModel
         public ICommand SplitTopBottomCommand { get; set; }
         public ICommand ToggleRightSidebarCommand { get; set; }
         public ICommand OpenAiChatCommand { get; set; }
+        public ICommand EditorRawViewCommand { get; set; }
+        public ICommand EditorRenderedViewCommand { get; set; }
         public ICommand AboutCommand { get; set; }
 
         public static ProjectData Project;
@@ -132,6 +135,8 @@ namespace Clever.ViewModel
             SplitTopBottomCommand = new RelayCommand(param => ToggleEditorSplit(false), true);
             ToggleRightSidebarCommand = new RelayCommand(param => ToggleRightSidebar(), true);
             OpenAiChatCommand = new RelayCommand(param => OpenAiChatSidebar(), true);
+            EditorRawViewCommand = new RelayCommand(param => SwitchCurrentDocumentView(false), true);
+            EditorRenderedViewCommand = new RelayCommand(param => SwitchCurrentDocumentView(true), true);
             AboutCommand = new RelayCommand(param => About(), true);
             AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
 
@@ -685,6 +690,11 @@ namespace Clever.ViewModel
         private const double RightSidebarSplitterWidth = 4;
 
         private static TabItem _currentProgram;
+        private static readonly Brush DocumentViewActiveBackground = new SolidColorBrush(Color.FromRgb(0x00, 0x7A, 0xD9));
+        private static readonly Brush DocumentViewInactiveBackground = new SolidColorBrush(Color.FromRgb(0xEA, 0xED, 0xF4));
+        private static readonly Brush DocumentViewActiveForeground = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
+        private static readonly Brush DocumentViewInactiveForeground = new SolidColorBrush(Color.FromRgb(0x60, 0x69, 0x85));
+
         public static TabItem CurrentProgram
         {
             get { return _currentProgram; }
@@ -736,7 +746,134 @@ namespace Clever.ViewModel
                 {
                     CurrentName = "";
                 }
+
+                var currentData = GetCurrentProgramData();
+                if (currentData != null)
+                    currentData.ApplyDocumentViewMode();
+                NotifyDocumentViewSwitchChanged();
             }
+        }
+
+        public static Visibility EditorDocumentViewSwitchVisibility
+        {
+            get
+            {
+                var data = GetCurrentProgramData();
+                return data != null && data.SupportsRenderedDocumentView ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        public static Visibility EditorMarkdownRenderedIconVisibility
+        {
+            get { return IsCurrentDocumentExtension(".md") ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public static Visibility EditorCsvRenderedIconVisibility
+        {
+            get { return IsCurrentDocumentExtension(".csv") ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public static Brush EditorRawViewBackground
+        {
+            get
+            {
+                var data = GetCurrentProgramData();
+                return data == null || !data.IsRenderedDocumentView ? DocumentViewActiveBackground : DocumentViewInactiveBackground;
+            }
+        }
+
+        public static Brush EditorRenderedViewBackground
+        {
+            get
+            {
+                var data = GetCurrentProgramData();
+                return data != null && data.IsRenderedDocumentView ? DocumentViewActiveBackground : DocumentViewInactiveBackground;
+            }
+        }
+
+        public static Brush EditorRawViewForeground
+        {
+            get
+            {
+                var data = GetCurrentProgramData();
+                return data == null || !data.IsRenderedDocumentView ? DocumentViewActiveForeground : DocumentViewInactiveForeground;
+            }
+        }
+
+        public static Brush EditorRenderedViewForeground
+        {
+            get
+            {
+                var data = GetCurrentProgramData();
+                return data != null && data.IsRenderedDocumentView ? DocumentViewActiveForeground : DocumentViewInactiveForeground;
+            }
+        }
+
+        public static string EditorRawViewToolTip
+        {
+            get { return GetLocalizedOrDefault("tRawTextView", "Text view"); }
+        }
+
+        public static string EditorRenderedViewToolTip
+        {
+            get
+            {
+                return IsCurrentDocumentExtension(".csv")
+                    ? GetLocalizedOrDefault("tCsvTableView", "Table view")
+                    : GetLocalizedOrDefault("tMarkdownPreview", "Markdown preview");
+            }
+        }
+
+        internal static void MarkProgramTextChanged(string name)
+        {
+            if (Project == null || string.IsNullOrEmpty(name) || !Project.ContainsKey(name))
+                return;
+
+            var data = Project.GetDictionary()[name];
+            if (data != null && !data.IsReadOnlyPreview)
+                data.TextChange = true;
+        }
+
+        private void SwitchCurrentDocumentView(bool rendered)
+        {
+            var data = GetCurrentProgramData();
+            if (data == null || !data.SupportsRenderedDocumentView)
+                return;
+
+            data.IsRenderedDocumentView = rendered;
+            data.ApplyDocumentViewMode();
+            NotifyDocumentViewSwitchChanged();
+        }
+
+        private static ProgramData GetCurrentProgramData()
+        {
+            if (Project == null || CurrentProgram == null)
+                return null;
+
+            return Project.GetProgramData(CurrentProgram);
+        }
+
+        private static bool IsCurrentDocumentExtension(string extension)
+        {
+            var data = GetCurrentProgramData();
+            if (data == null)
+                return false;
+
+            var source = !string.IsNullOrWhiteSpace(data.FullPath) ? data.FullPath : data.Name;
+            return string.Equals(Path.GetExtension(source), extension, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void NotifyDocumentViewSwitchChanged()
+        {
+            OnStaticPropertyChanged("EditorDocumentViewSwitchVisibility");
+            OnStaticPropertyChanged("EditorMarkdownRenderedIconVisibility");
+            OnStaticPropertyChanged("EditorCsvRenderedIconVisibility");
+            OnStaticPropertyChanged("EditorRawViewBackground");
+            OnStaticPropertyChanged("EditorRenderedViewBackground");
+            OnStaticPropertyChanged("EditorRawViewForeground");
+            OnStaticPropertyChanged("EditorRenderedViewForeground");
+            OnStaticPropertyChanged("EditorRawViewToolTip");
+            OnStaticPropertyChanged("EditorRenderedViewToolTip");
         }
 
         internal static IEnumerable<TabItem> GetOpenProgramItems()
@@ -1374,6 +1511,7 @@ namespace Clever.ViewModel
                 data.Editor.TextArea.EmptyUndoBuffer();
                 data.Editor.TextArea.ReadOnly = wasReadOnly;
                 data.Editor.TextArea.GotoPosition(Math.Min(oldPosition, data.Editor.TextArea.TextLength));
+                data.RefreshRenderedDocumentView();
                 data.TextChange = false;
             }
         }
@@ -1909,6 +2047,7 @@ namespace Clever.ViewModel
                             {
                                 tmpExt += pd.Name[a];
                             }
+                            pd.CommitRenderedDocumentViewChanges();
                             new SaveFile().Save(pd.Editor.TextArea.Text, pd.Name, tmpExt);
                         }
                         pd.TextChange = false;
@@ -1954,14 +2093,17 @@ namespace Clever.ViewModel
                             {
                                 tmpExt += pd.Name[a];
                             }
+                            pd.CommitRenderedDocumentViewChanges();
                             string name = new SaveFile().Save(pd.Editor.TextArea.Text, pd.Name, tmpExt);
                             if (name != "")
                             {
                                 FileInfo fi = new FileInfo(name);
                                 string oldName = pd.Name;
+                                var wasRendered = pd.IsRenderedDocumentView;
                                 Project.Remove(oldName);
                                 var newPd = new ProgramData();
                                 newPd.AddToObjects = IsBasicPlusExtension(fi.Extension);
+                                newPd.IsRenderedDocumentView = wasRendered;
                                 newPd.Item = i;
                                 //
                                 //newPd.Name = fi.Name.Replace(ext, "");
@@ -1973,6 +2115,8 @@ namespace Clever.ViewModel
                                 ApplyProjectMembership(newPd);
                                 newPd.TextChange = false;
                                 Project.Add(newPd.Name, newPd);
+                                newPd.ApplyDocumentViewMode();
+                                NotifyDocumentViewSwitchChanged();
                                 currentPath = fi.FullName;
                                 GitPanelVM.NotifySavedWorkspaceFilesChanged();
                             }
@@ -2014,14 +2158,17 @@ namespace Clever.ViewModel
                 {
                     tmpExt += pd.Name[a];
                 }
+                pd.CommitRenderedDocumentViewChanges();
                 string name = new SaveFile().Save(pd.Editor.TextArea.Text, pd.Name, "");
                 if (name != "")
                 {
                     FileInfo fi = new FileInfo(name);
                     string oldName = pd.Name;
+                    var wasRendered = pd.IsRenderedDocumentView;
                     Project.Remove(oldName);
                     var newPd = new ProgramData();
                     newPd.AddToObjects = IsBasicPlusExtension(fi.Extension);
+                    newPd.IsRenderedDocumentView = wasRendered;
                     newPd.Item = CurrentProgram;
                     //
                     //newPd.Name = fi.Name.Replace(ext, "");
@@ -2033,6 +2180,8 @@ namespace Clever.ViewModel
                     ApplyProjectMembership(newPd);
                     newPd.TextChange = false;
                     Project.Add(newPd.Name, newPd);
+                    newPd.ApplyDocumentViewMode();
+                    NotifyDocumentViewSwitchChanged();
                     currentPath = fi.FullName;
                     GitPanelVM.NotifySavedWorkspaceFilesChanged();
                     //projectData = Project.GetProgramData(CurrentProgram);
@@ -2072,14 +2221,17 @@ namespace Clever.ViewModel
                 {
                     tmpExt += pd.Name[a];
                 }
+                pd.CommitRenderedDocumentViewChanges();
                 string name = new SaveFile().Save(pd.Editor.TextArea.Text, pd.Name, tmpExt);
                 if (name != "")
                 {
                     FileInfo fi = new FileInfo(name);
                     string oldName = pd.Name;
+                    var wasRendered = pd.IsRenderedDocumentView;
                     Project.Remove(oldName);
                     var newPd = new ProgramData();
                     newPd.AddToObjects = IsBasicPlusExtension(fi.Extension);
+                    newPd.IsRenderedDocumentView = wasRendered;
                     newPd.Item = CurrentProgram;
                     //
                     //newPd.Name = fi.Name.Replace(ext, "");
@@ -2091,6 +2243,8 @@ namespace Clever.ViewModel
                     ApplyProjectMembership(newPd);
                     newPd.TextChange = false;
                     Project.Add(newPd.Name, newPd);
+                    newPd.ApplyDocumentViewMode();
+                    NotifyDocumentViewSwitchChanged();
                     currentPath = fi.FullName;
                     GitPanelVM.NotifySavedWorkspaceFilesChanged();
                     //projectData = Project.GetProgramData(CurrentProgram);
@@ -2413,6 +2567,14 @@ namespace Clever.ViewModel
             {
                 return GUILanguage.Items;
             }
+        }
+
+        private static string GetLocalizedOrDefault(string key, string fallback)
+        {
+            string value;
+            return GetLocalization != null && GetLocalization.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value)
+                ? value
+                : fallback;
         }
 
         public static Dictionary<string, string> GetErrors

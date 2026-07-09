@@ -15,6 +15,9 @@ namespace Clever.View.Panels
         private readonly DispatcherTimer _popupCloseTimer;
         private bool _isGraphRowMouseOver;
         private bool _isPopupMouseOver;
+        private bool _restoreRemotePopupAfterMinimize;
+        private bool _isRestoringRemotePopup;
+        private Window _ownerWindow;
 
         public GitPanel()
         {
@@ -23,6 +26,8 @@ namespace Clever.View.Panels
 
             _popupCloseTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
             _popupCloseTimer.Tick += PopupCloseTimer_Tick;
+            Loaded += GitPanel_Loaded;
+            Unloaded += GitPanel_Unloaded;
         }
 
         private void GraphCommitButton_MouseEnter(object sender, MouseEventArgs e)
@@ -68,6 +73,44 @@ namespace Clever.View.Panels
             ExecuteCommitAction(vm => vm.DiffCommitCommand);
         }
 
+        private void RemotePopup_Opened(object sender, EventArgs e)
+        {
+            if (_isRestoringRemotePopup)
+            {
+                var viewModel = DataContext as GitPanelVM;
+                RemotePasswordBox.Password = viewModel == null ? "" : viewModel.RemotePassword;
+                RemoteTokenBox.Password = viewModel == null ? "" : viewModel.RemoteToken;
+                _isRestoringRemotePopup = false;
+                return;
+            }
+
+            RemotePasswordBox.Password = "";
+            RemoteTokenBox.Password = "";
+        }
+
+        private void RemotePopup_Closed(object sender, EventArgs e)
+        {
+            var owner = Window.GetWindow(this);
+            if (owner != null && owner.WindowState == WindowState.Minimized)
+                _restoreRemotePopupAfterMinimize = true;
+        }
+
+        private void RemotePasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            var viewModel = DataContext as GitPanelVM;
+            var box = sender as PasswordBox;
+            if (viewModel != null && box != null)
+                viewModel.RemotePassword = box.Password;
+        }
+
+        private void RemoteTokenBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            var viewModel = DataContext as GitPanelVM;
+            var box = sender as PasswordBox;
+            if (viewModel != null && box != null)
+                viewModel.RemoteToken = box.Password;
+        }
+
         private void CommitRowActionButton_Click(object sender, RoutedEventArgs e)
         {
             e.Handled = true;
@@ -97,6 +140,65 @@ namespace Clever.View.Panels
             _popupCloseTimer.Stop();
             if (!_isGraphRowMouseOver && !_isPopupMouseOver)
                 CommitInfoPopup.IsOpen = false;
+        }
+
+        private void GitPanel_Loaded(object sender, RoutedEventArgs e)
+        {
+            var owner = Window.GetWindow(this);
+            if (ReferenceEquals(owner, _ownerWindow))
+                return;
+
+            if (_ownerWindow != null)
+                _ownerWindow.StateChanged -= OwnerWindow_StateChanged;
+
+            _ownerWindow = owner;
+            if (_ownerWindow != null)
+                _ownerWindow.StateChanged += OwnerWindow_StateChanged;
+        }
+
+        private void GitPanel_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (_ownerWindow != null)
+                _ownerWindow.StateChanged -= OwnerWindow_StateChanged;
+
+            _ownerWindow = null;
+        }
+
+        private void OwnerWindow_StateChanged(object sender, EventArgs e)
+        {
+            var owner = sender as Window;
+            if (owner == null)
+                return;
+
+            if (owner.WindowState == WindowState.Minimized)
+            {
+                var viewModel = DataContext as GitPanelVM;
+                _restoreRemotePopupAfterMinimize = RemotePopup.IsOpen || (viewModel != null && viewModel.IsRemotePopupOpen);
+                return;
+            }
+
+            if (!_restoreRemotePopupAfterMinimize)
+                return;
+
+            _restoreRemotePopupAfterMinimize = false;
+            Dispatcher.BeginInvoke(new Action(RestoreRemotePopup), DispatcherPriority.Loaded);
+        }
+
+        private void RestoreRemotePopup()
+        {
+            if (RemotePopup.IsOpen)
+            {
+                _isRestoringRemotePopup = false;
+                return;
+            }
+
+            var viewModel = DataContext as GitPanelVM;
+            _isRestoringRemotePopup = true;
+
+            if (viewModel != null)
+                viewModel.IsRemotePopupOpen = true;
+
+            RemotePopup.IsOpen = true;
         }
     }
 }

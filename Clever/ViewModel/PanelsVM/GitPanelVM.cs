@@ -25,6 +25,14 @@ namespace Clever.ViewModel.PanelsVM
             Ready
         }
 
+        private enum GitPrimaryAction
+        {
+            Commit,
+            Sync,
+            Pull,
+            ConnectRemote
+        }
+
         private readonly GitRepositoryService _git;
         private GitUiState _state;
         private string _commitMessage;
@@ -46,6 +54,16 @@ namespace Clever.ViewModel.PanelsVM
         private string _remoteLogin;
         private string _remotePassword;
         private string _remoteToken;
+        private bool _isRemoteConnected;
+        private string _remoteDisplayUrl;
+        private string _remotePopupStatusMessage;
+        private int _remoteOutgoingCommitCount;
+        private int _remoteIncomingCommitCount;
+        private bool _isMergePopupOpen;
+        private bool _isMergeConflictPopupOpen;
+        private string _mergeSourceBranch;
+        private string _mergeTargetBranch;
+        private string _mergeConflictMessage;
         private readonly DispatcherTimer _savedFilesRefreshTimer;
         private readonly DispatcherTimer _projectRefreshTimer;
         private FileSystemWatcher _projectWatcher;
@@ -54,7 +72,7 @@ namespace Clever.ViewModel.PanelsVM
         public GitPanelVM()
         {
             _git = new GitRepositoryService();
-            _remoteUrl = "https://github.com/student/clev3r-lesson.git";
+            _remoteUrl = "";
             Branches = new ObservableCollection<GitBranchItemVM>();
             Commits = new ObservableCollection<GitCommitVM>();
             Changes = new ObservableCollection<GitChangeItemVM>();
@@ -65,17 +83,26 @@ namespace Clever.ViewModel.PanelsVM
             SetupNewProjectCommand = new RelayCommand(param => MainWindowVM.RequestNewProject(), true);
             SetupOpenProjectCommand = new RelayCommand(param => MainWindowVM.RequestOpenProject(), true);
             CommitCommand = new RelayCommand(ExecuteCommit, true);
-            PullCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."), true);
-            PushCommand = new RelayCommand(param => SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."), true);
-            ReloadCommand = new RelayCommand(param => RefreshRepositoryState(), true);
+            GitActionCommand = new RelayCommand(param => ExecutePrimaryAction(), true);
+            PullCommand = new RelayCommand(param => ExecutePull(), true);
+            PushCommand = new RelayCommand(param => ExecutePush(), true);
+            ReloadCommand = new RelayCommand(param => ExecuteReload(), true);
             SelectBranchCommand = new RelayCommand(param => IsBranchPopupOpen = !IsBranchPopupOpen, true);
             SelectBranchItemCommand = new RelayCommand(SelectBranch, true);
             OpenCreateBranchPopupCommand = new RelayCommand(param => OpenCreateBranchPopup(), true);
             CreateBranchCommand = new RelayCommand(param => CreateBranch(), true);
             CancelCreateBranchCommand = new RelayCommand(param => CancelCreateBranch(), true);
+            OpenMergePopupCommand = new RelayCommand(param => OpenMergePopup(), true);
+            CancelMergeCommand = new RelayCommand(param => CancelMerge(), true);
+            SoftMergeCommand = new RelayCommand(param => ExecuteSoftMerge(), true);
+            MergeUseSourceCommand = new RelayCommand(param => ExecuteMergeTakingSource(), true);
+            MergeUseTargetCommand = new RelayCommand(param => ExecuteMergeTakingTarget(), true);
+            CancelConflictMergeCommand = new RelayCommand(param => CancelConflictMerge(), true);
             OpenRemotePopupCommand = new RelayCommand(param => OpenRemotePopup(), true);
             RemoteCheckCommand = new RelayCommand(param => ShowRemoteCredentials(), true);
             RemoteConnectCommand = new RelayCommand(param => ConnectRemote(), true);
+            RemoteDisconnectCommand = new RelayCommand(param => DisconnectRemote(), true);
+            RemoteCancelCommand = new RelayCommand(param => CancelRemote(), true);
             ToggleCommitCommand = new RelayCommand(ToggleCommit, true);
             RevertCommitCommand = new RelayCommand(RevertCommit, true);
             DiffCommitCommand = new RelayCommand(OpenCommitDiff, true);
@@ -126,9 +153,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _changes = value;
                 OnPropertyChanged("Changes");
-                OnPropertyChanged("IsGitActionButtonEnabled");
-                OnPropertyChanged("GitActionButtonBackground");
-                OnPropertyChanged("GitActionButtonForeground");
+                OnGitActionStateChanged();
             }
         }
 
@@ -138,6 +163,7 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand SetupNewProjectCommand { get; private set; }
         public ICommand SetupOpenProjectCommand { get; private set; }
         public ICommand CommitCommand { get; private set; }
+        public ICommand GitActionCommand { get; private set; }
         public ICommand PullCommand { get; private set; }
         public ICommand PushCommand { get; private set; }
         public ICommand ReloadCommand { get; private set; }
@@ -146,9 +172,17 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand OpenCreateBranchPopupCommand { get; private set; }
         public ICommand CreateBranchCommand { get; private set; }
         public ICommand CancelCreateBranchCommand { get; private set; }
+        public ICommand OpenMergePopupCommand { get; private set; }
+        public ICommand CancelMergeCommand { get; private set; }
+        public ICommand SoftMergeCommand { get; private set; }
+        public ICommand MergeUseSourceCommand { get; private set; }
+        public ICommand MergeUseTargetCommand { get; private set; }
+        public ICommand CancelConflictMergeCommand { get; private set; }
         public ICommand OpenRemotePopupCommand { get; private set; }
         public ICommand RemoteCheckCommand { get; private set; }
         public ICommand RemoteConnectCommand { get; private set; }
+        public ICommand RemoteDisconnectCommand { get; private set; }
+        public ICommand RemoteCancelCommand { get; private set; }
         public ICommand ToggleCommitCommand { get; private set; }
         public ICommand RevertCommitCommand { get; private set; }
         public ICommand DiffCommitCommand { get; private set; }
@@ -225,22 +259,58 @@ namespace Clever.ViewModel.PanelsVM
 
         public string GitActionButtonText
         {
-            get { return GetText("GitCommit", "Commit"); }
+            get
+            {
+                switch (GetPrimaryAction())
+                {
+                    case GitPrimaryAction.Sync:
+                        return GetText("GitSyncChanges", "Sync changes");
+                    case GitPrimaryAction.Pull:
+                        return GetText("GitPullChanges", "Pull changes");
+                    case GitPrimaryAction.ConnectRemote:
+                        return GetText("GitConnectRemote", "Connect remote");
+                    default:
+                        return GetText("GitCommit", "Commit");
+                }
+            }
+        }
+
+        public string GitActionButtonToolTip
+        {
+            get
+            {
+                switch (GetPrimaryAction())
+                {
+                    case GitPrimaryAction.Sync:
+                        return GetText("tGitPush", "Upload history to cloud");
+                    case GitPrimaryAction.Pull:
+                        return GetText("tGitPull", "Download history from cloud");
+                    case GitPrimaryAction.ConnectRemote:
+                        return GetText("GitConnectRemote", "Connect remote");
+                    default:
+                        return GetText("tGitCommit", "Create backup");
+                }
+            }
         }
 
         public Visibility GitCommitActionIconVisibility
         {
-            get { return _state == GitUiState.Ready ? Visibility.Visible : Visibility.Collapsed; }
+            get { return GetPrimaryAction() == GitPrimaryAction.Commit ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public Visibility GitRemoteActionIconVisibility
         {
-            get { return Visibility.Collapsed; }
+            get { return GetPrimaryAction() == GitPrimaryAction.ConnectRemote ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public Visibility GitSyncActionIconVisibility
         {
-            get { return Visibility.Collapsed; }
+            get { return GetPrimaryAction() == GitPrimaryAction.Sync ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public Visibility GitPullActionIconVisibility
+        {
+            get { return GetPrimaryAction() == GitPrimaryAction.Pull ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public Visibility GitSyncCountersVisibility
@@ -250,17 +320,33 @@ namespace Clever.ViewModel.PanelsVM
 
         public int GitOutgoingCommitCount
         {
-            get { return 0; }
+            get { return _remoteOutgoingCommitCount; }
         }
 
         public int GitIncomingCommitCount
         {
-            get { return 0; }
+            get { return _remoteIncomingCommitCount; }
         }
 
         public bool IsGitActionButtonEnabled
         {
-            get { return _state == GitUiState.Ready && Changes != null && Changes.Count > 0 && !string.IsNullOrWhiteSpace(CommitMessage); }
+            get
+            {
+                if (_state != GitUiState.Ready)
+                    return false;
+
+                switch (GetPrimaryAction())
+                {
+                    case GitPrimaryAction.ConnectRemote:
+                        return Changes == null || Changes.Count == 0;
+                    case GitPrimaryAction.Pull:
+                        return _isRemoteConnected && _remoteIncomingCommitCount > 0 && (Changes == null || Changes.Count == 0);
+                    case GitPrimaryAction.Sync:
+                        return _isRemoteConnected && _remoteOutgoingCommitCount > 0 && (Changes == null || Changes.Count == 0);
+                    default:
+                        return Changes != null && Changes.Count > 0 && !string.IsNullOrWhiteSpace(CommitMessage);
+                }
+            }
         }
 
         public Brush GitActionButtonBackground
@@ -273,24 +359,54 @@ namespace Clever.ViewModel.PanelsVM
             get { return IsGitActionButtonEnabled ? Brushes.White : CreateBrush("#8F98AB"); }
         }
 
-        public bool RemoteToolsEnabled
+        public bool LocalToolsEnabled
         {
             get { return _state == GitUiState.Ready; }
         }
 
+        public bool RemoteSyncToolsEnabled
+        {
+            get { return _state == GitUiState.Ready && _isRemoteConnected; }
+        }
+
+        public bool RemoteToolsEnabled
+        {
+            get { return LocalToolsEnabled; }
+        }
+
         public Visibility RemoteConnectedVisibility
         {
-            get { return Visibility.Collapsed; }
+            get { return _state == GitUiState.Ready && _isRemoteConnected ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public Visibility RemoteConnectVisibility
         {
-            get { return _state == GitUiState.Ready ? Visibility.Visible : Visibility.Collapsed; }
+            get { return _state == GitUiState.Ready && !_isRemoteConnected ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public Visibility RemoteDisconnectVisibility
+        {
+            get { return _state == GitUiState.Ready && _isRemoteConnected ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public string RemoteStatusText
         {
-            get { return GetText("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet."); }
+            get
+            {
+                return _isRemoteConnected
+                    ? "origin: " + _remoteDisplayUrl
+                    : GetText("GitStatusRemoteMissing", "Remote is not connected.");
+            }
+        }
+
+        public string RemotePopupStatusMessage
+        {
+            get { return _remotePopupStatusMessage; }
+            set
+            {
+                _remotePopupStatusMessage = value;
+                OnPropertyChanged("RemotePopupStatusMessage");
+            }
         }
 
         public bool IsBranchPopupOpen
@@ -329,6 +445,83 @@ namespace Clever.ViewModel.PanelsVM
             get { return _state == GitUiState.Ready && !string.IsNullOrWhiteSpace(NewBranchName); }
         }
 
+        public bool IsMergePopupOpen
+        {
+            get { return _isMergePopupOpen; }
+            set
+            {
+                _isMergePopupOpen = value;
+                OnPropertyChanged("IsMergePopupOpen");
+            }
+        }
+
+        public bool IsMergeConflictPopupOpen
+        {
+            get { return _isMergeConflictPopupOpen; }
+            set
+            {
+                _isMergeConflictPopupOpen = value;
+                OnPropertyChanged("IsMergeConflictPopupOpen");
+            }
+        }
+
+        public string MergeSourceBranch
+        {
+            get { return _mergeSourceBranch; }
+            set
+            {
+                _mergeSourceBranch = value;
+                OnPropertyChanged("MergeSourceBranch");
+                OnPropertyChanged("IsMergeActionEnabled");
+                OnPropertyChanged("MergeSourceActionText");
+                OnPropertyChanged("MergeTargetActionText");
+            }
+        }
+
+        public string MergeTargetBranch
+        {
+            get { return _mergeTargetBranch; }
+            set
+            {
+                _mergeTargetBranch = value;
+                OnPropertyChanged("MergeTargetBranch");
+                OnPropertyChanged("IsMergeActionEnabled");
+                OnPropertyChanged("MergeSourceActionText");
+                OnPropertyChanged("MergeTargetActionText");
+            }
+        }
+
+        public string MergeConflictMessage
+        {
+            get { return _mergeConflictMessage; }
+            set
+            {
+                _mergeConflictMessage = value;
+                OnPropertyChanged("MergeConflictMessage");
+            }
+        }
+
+        public bool IsMergeActionEnabled
+        {
+            get
+            {
+                return _state == GitUiState.Ready
+                    && !string.IsNullOrWhiteSpace(MergeSourceBranch)
+                    && !string.IsNullOrWhiteSpace(MergeTargetBranch)
+                    && !string.Equals(MergeSourceBranch, MergeTargetBranch, StringComparison.Ordinal);
+            }
+        }
+
+        public string MergeSourceActionText
+        {
+            get { return string.Format(GetText("GitMergeRebaseFrom", "Rebase from {0}"), MergeSourceBranch ?? ""); }
+        }
+
+        public string MergeTargetActionText
+        {
+            get { return string.Format(GetText("GitMergeRebaseFrom", "Rebase from {0}"), MergeTargetBranch ?? ""); }
+        }
+
         public bool IsRemotePopupOpen
         {
             get { return _isRemotePopupOpen; }
@@ -346,7 +539,7 @@ namespace Clever.ViewModel.PanelsVM
 
         public Visibility RemoteCheckVisibility
         {
-            get { return _isRemoteCredentialsVisible ? Visibility.Collapsed : Visibility.Visible; }
+            get { return Visibility.Collapsed; }
         }
 
         public Visibility RemoteConnectSubmitVisibility
@@ -358,7 +551,10 @@ namespace Clever.ViewModel.PanelsVM
         {
             get
             {
-                if (!_isRemoteCredentialsVisible)
+                if (_state != GitUiState.Ready || !_isRemoteCredentialsVisible)
+                    return false;
+
+                if (string.IsNullOrWhiteSpace(RemoteUrl) || string.IsNullOrWhiteSpace(RemoteLogin))
                     return false;
 
                 if (UseTokenAuth)
@@ -405,6 +601,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _remoteUrl = value;
                 OnPropertyChanged("RemoteUrl");
+                OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             }
         }
 
@@ -448,9 +645,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _commitMessage = value;
                 OnPropertyChanged("CommitMessage");
-                OnPropertyChanged("IsGitActionButtonEnabled");
-                OnPropertyChanged("GitActionButtonBackground");
-                OnPropertyChanged("GitActionButtonForeground");
+                OnGitActionStateChanged();
             }
         }
 
@@ -483,6 +678,7 @@ namespace Clever.ViewModel.PanelsVM
                 _workingDirectory = "";
                 BranchName = "";
                 ClearGitData();
+                ApplyRemoteInfo(null);
                 UpdateProjectWatcher("");
                 ApplyState(GitUiState.ProjectMissing);
                 SetLocalizedStatus("GitStatusOpenProject", "Create or open a project to use Git.");
@@ -495,6 +691,7 @@ namespace Clever.ViewModel.PanelsVM
                 _workingDirectory = currentProjectRoot;
                 BranchName = "";
                 ClearGitData();
+                ApplyRemoteInfo(null);
                 UpdateProjectWatcher(currentProjectRoot);
                 ApplyState(GitUiState.GitMissing);
                 SetLocalizedStatus("GitStatusGitMissing", "Git is not installed. Install Git for Windows, then refresh.");
@@ -507,6 +704,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 BranchName = new DirectoryInfo(_workingDirectory).Name;
                 ClearGitData();
+                ApplyRemoteInfo(null);
                 UpdateProjectWatcher(_workingDirectory);
                 ApplyState(GitUiState.RepoMissing);
                 SetLocalizedStatus("GitStatusRepoMissing", "Git repository is not initialized for this project.");
@@ -525,6 +723,9 @@ namespace Clever.ViewModel.PanelsVM
                 Branches.Add(new GitBranchItemVM(branch.Name, branch.IsActive));
 
             ApplyChanges(snapshot.Changes);
+            _remoteOutgoingCommitCount = snapshot.OutgoingCommitCount;
+            _remoteIncomingCommitCount = snapshot.IncomingCommitCount;
+            ApplyRemoteInfo(snapshot.Remote);
 
             Commits.Clear();
             foreach (var commit in snapshot.Commits)
@@ -555,6 +756,7 @@ namespace Clever.ViewModel.PanelsVM
             }
 
             ApplyChanges(_git.GetWorkingTreeChanges(_repositoryRoot));
+            OnGitActionStateChanged();
             if (Changes.Count > 0)
                 StatusMessage = string.Format(GetText("GitStatusChangesFound", "{0} local changes."), Changes.Count);
             else
@@ -659,7 +861,7 @@ namespace Clever.ViewModel.PanelsVM
 
         private void RebuildGraphRows()
         {
-            GraphRows = GitGraphLayoutService.BuildRows(Commits);
+            GraphRows = GitGraphLayoutService.BuildRows(Commits, BranchName);
             GraphWidth = GraphRows.Count == 0 ? 120 : GraphRows.Max(r => r.GraphWidth);
         }
 
@@ -746,11 +948,310 @@ namespace Clever.ViewModel.PanelsVM
             }
         }
 
+        private void ExecutePrimaryAction()
+        {
+            switch (GetPrimaryAction())
+            {
+                case GitPrimaryAction.ConnectRemote:
+                    OpenRemotePopup();
+                    break;
+                case GitPrimaryAction.Pull:
+                    ExecutePull();
+                    break;
+                case GitPrimaryAction.Sync:
+                    ExecutePush();
+                    break;
+                default:
+                    ExecuteCommit(null);
+                    break;
+            }
+        }
+
+        private void OpenMergePopup()
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            if (Branches.Count < 2)
+            {
+                SetLocalizedStatus("GitStatusMergeNeedBranches", "Create another branch before merge.");
+                return;
+            }
+
+            var currentBranch = GetActiveBranchName();
+            MergeSourceBranch = currentBranch;
+            MergeTargetBranch = PickDefaultMergeTarget(currentBranch);
+            MergeConflictMessage = "";
+            IsBranchPopupOpen = false;
+            IsCreateBranchPopupOpen = false;
+            IsRemotePopupOpen = false;
+            IsMergeConflictPopupOpen = false;
+            IsMergePopupOpen = true;
+        }
+
+        private void CancelMerge()
+        {
+            IsMergePopupOpen = false;
+            MergeConflictMessage = "";
+        }
+
+        private void ExecuteSoftMerge()
+        {
+            ExecuteMerge(false, false);
+        }
+
+        private void ExecuteMergeTakingSource()
+        {
+            if (IsMergeConflictPopupOpen)
+                ResolveCurrentMergeConflicts(true);
+            else
+                ExecuteMerge(true, true);
+        }
+
+        private void ExecuteMergeTakingTarget()
+        {
+            if (IsMergeConflictPopupOpen)
+                ResolveCurrentMergeConflicts(false);
+            else
+                ExecuteMerge(true, false);
+        }
+
+        private void ExecuteMerge(bool autoResolveConflicts, bool takeSourceBranch)
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            if (!IsMergeActionEnabled)
+            {
+                SetLocalizedStatus("GitStatusMergeBranchesRequired", "Select two different branches to merge.");
+                return;
+            }
+
+            if (MainWindowVM.HasUnsavedProjectEditorChanges(_repositoryRoot))
+            {
+                SetLocalizedStatus("GitStatusUnsavedOpenFiles", "Save open project files before this Git action.");
+                return;
+            }
+
+            var result = _git.SoftMerge(_repositoryRoot, MergeSourceBranch, MergeTargetBranch);
+            if (result.Success)
+            {
+                IsMergePopupOpen = false;
+                MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
+                RefreshRepositoryState();
+                SetLocalizedStatus("GitStatusMergePrepared", "Merge prepared. Review and commit.");
+                return;
+            }
+
+            if (result.HasConflicts)
+            {
+                RefreshWorkingTreeState();
+                if (autoResolveConflicts)
+                {
+                    ResolveCurrentMergeConflicts(takeSourceBranch);
+                    return;
+                }
+
+                MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
+                IsMergePopupOpen = false;
+                MergeConflictMessage = BuildMergeConflictMessage(result);
+                IsMergeConflictPopupOpen = true;
+                SetLocalizedStatus("GitStatusMergeConflict", "Merge has conflicts.");
+                return;
+            }
+
+            RefreshRepositoryState();
+            StatusMessage = result.Message;
+        }
+
+        private void ResolveCurrentMergeConflicts(bool takeSourceBranch)
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            var result = _git.ResolveMergeConflicts(_repositoryRoot, takeSourceBranch);
+            IsMergePopupOpen = false;
+            IsMergeConflictPopupOpen = false;
+            if (result.Success)
+            {
+                MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
+                RefreshRepositoryState();
+                StatusMessage = string.Format(
+                    GetText("GitStatusMergeResolvedFrom", "Merge conflicts resolved from {0}. Review and commit."),
+                    takeSourceBranch ? MergeSourceBranch : MergeTargetBranch);
+            }
+            else
+            {
+                RefreshWorkingTreeState();
+                StatusMessage = result.Message;
+            }
+        }
+
+        private void CancelConflictMerge()
+        {
+            var result = _git.AbortMerge(_repositoryRoot);
+            IsMergeConflictPopupOpen = false;
+            MergeConflictMessage = "";
+            MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
+            RefreshRepositoryState();
+            StatusMessage = result.Success
+                ? GetText("GitStatusMergeAborted", "Merge cancelled.")
+                : result.Message;
+        }
+
+        private string GetActiveBranchName()
+        {
+            var branch = Branches.FirstOrDefault(item => item.IsActive);
+            if (branch != null && !string.IsNullOrWhiteSpace(branch.Name))
+                return branch.Name;
+
+            return BranchName;
+        }
+
+        private string PickDefaultMergeTarget(string sourceBranch)
+        {
+            if (!string.Equals(sourceBranch, "master", StringComparison.Ordinal)
+                && Branches.Any(item => string.Equals(item.Name, "master", StringComparison.Ordinal)))
+                return "master";
+
+            if (!string.Equals(sourceBranch, "main", StringComparison.Ordinal)
+                && Branches.Any(item => string.Equals(item.Name, "main", StringComparison.Ordinal)))
+                return "main";
+
+            var otherBranch = Branches.FirstOrDefault(item => !string.Equals(item.Name, sourceBranch, StringComparison.Ordinal));
+            return otherBranch == null ? "" : otherBranch.Name;
+        }
+
+        private string BuildMergeConflictMessage(GitMergeResult result)
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.AppendLine(GetText("GitMergeConflictIntro", "Merge stopped on conflicts. Choose how to continue."));
+            builder.AppendLine();
+
+            foreach (var conflict in result.Conflicts)
+                builder.AppendLine(conflict.DisplayText);
+
+            return builder.ToString().TrimEnd();
+        }
+
+        private GitPrimaryAction GetPrimaryAction()
+        {
+            if (_state != GitUiState.Ready)
+                return GitPrimaryAction.Commit;
+
+            if (Changes != null && Changes.Count > 0)
+                return GitPrimaryAction.Commit;
+
+            if (!_isRemoteConnected)
+                return GitPrimaryAction.ConnectRemote;
+
+            if (_remoteIncomingCommitCount > 0)
+                return GitPrimaryAction.Pull;
+
+            if (_remoteOutgoingCommitCount > 0)
+                return GitPrimaryAction.Sync;
+
+            return GitPrimaryAction.Commit;
+        }
+
+        private void OnGitActionStateChanged()
+        {
+            OnPropertyChanged("GitActionButtonText");
+            OnPropertyChanged("GitActionButtonToolTip");
+            OnPropertyChanged("GitCommitActionIconVisibility");
+            OnPropertyChanged("GitRemoteActionIconVisibility");
+            OnPropertyChanged("GitSyncActionIconVisibility");
+            OnPropertyChanged("GitPullActionIconVisibility");
+            OnPropertyChanged("GitSyncCountersVisibility");
+            OnPropertyChanged("GitOutgoingCommitCount");
+            OnPropertyChanged("GitIncomingCommitCount");
+            OnPropertyChanged("IsGitActionButtonEnabled");
+            OnPropertyChanged("GitActionButtonBackground");
+            OnPropertyChanged("GitActionButtonForeground");
+        }
+
+        private void ExecuteReload()
+        {
+            if (_state != GitUiState.Ready)
+            {
+                RefreshRepositoryState();
+                return;
+            }
+
+            var hadRemote = _isRemoteConnected;
+            if (hadRemote)
+            {
+                var fetch = _git.RefreshRemote(_repositoryRoot);
+                if (!fetch.Success)
+                {
+                    RefreshRepositoryState();
+                    StatusMessage = fetch.Message;
+                    return;
+                }
+            }
+
+            RefreshRepositoryState();
+            StatusMessage = hadRemote
+                ? GetText("GitStatusRemoteFetchDone", "Remote data refreshed.")
+                : GetText("GitStatusReload", "Local Git data refreshed.");
+        }
+
+        private void ExecutePush()
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            if (!_isRemoteConnected)
+            {
+                SetLocalizedStatus("GitStatusRemoteMissing", "Remote is not connected.");
+                return;
+            }
+
+            var result = _git.PushAllBranches(_repositoryRoot);
+            RefreshRepositoryState();
+            StatusMessage = result.Success
+                ? GetText("GitStatusRemotePushDone", "Remote push completed.")
+                : result.Message;
+        }
+
+        private void ExecutePull()
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            if (!_isRemoteConnected)
+            {
+                SetLocalizedStatus("GitStatusRemoteMissing", "Remote is not connected.");
+                return;
+            }
+
+            if (MainWindowVM.HasUnsavedProjectEditorChanges(_repositoryRoot))
+            {
+                SetLocalizedStatus("GitStatusUnsavedOpenFiles", "Save open project files before this Git action.");
+                return;
+            }
+
+            var result = _git.PullAllBranches(_repositoryRoot);
+            if (result.Success)
+                MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
+
+            RefreshRepositoryState();
+            StatusMessage = result.Success
+                ? GetText("GitStatusRemotePullDone", "Remote pull completed.")
+                : result.Message;
+        }
+
         private void OpenRemotePopup()
         {
+            if (_state != GitUiState.Ready)
+                return;
+
             IsBranchPopupOpen = false;
-            _isRemoteCredentialsVisible = false;
+            IsMergePopupOpen = false;
+            IsMergeConflictPopupOpen = false;
+            _isRemoteCredentialsVisible = true;
             UseTokenAuth = false;
+            RemotePopupStatusMessage = _isRemoteConnected ? RemoteStatusText : "";
             OnPropertyChanged("RemoteCredentialsVisibility");
             OnPropertyChanged("RemoteCheckVisibility");
             OnPropertyChanged("RemoteConnectSubmitVisibility");
@@ -761,17 +1262,101 @@ namespace Clever.ViewModel.PanelsVM
         private void ShowRemoteCredentials()
         {
             _isRemoteCredentialsVisible = true;
+            RemotePopupStatusMessage = "";
             OnPropertyChanged("RemoteCredentialsVisibility");
             OnPropertyChanged("RemoteCheckVisibility");
             OnPropertyChanged("RemoteConnectSubmitVisibility");
             OnPropertyChanged("IsRemoteConnectSubmitEnabled");
-            SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet.");
         }
 
         private void ConnectRemote()
         {
+            if (_state != GitUiState.Ready)
+                return;
+
+            var secret = UseTokenAuth ? RemoteToken : RemotePassword;
+            var mode = UseTokenAuth ? GitRemoteAuthMode.LoginToken : GitRemoteAuthMode.LoginPassword;
+            RemotePopupStatusMessage = "";
+
+            var result = _git.ConnectRemote(_repositoryRoot, RemoteUrl, RemoteLogin, secret, mode);
+            RefreshRepositoryState();
+
+            if (result.Success)
+            {
+                RemotePassword = "";
+                RemoteToken = "";
+                IsRemotePopupOpen = false;
+                SetLocalizedStatus("GitStatusRemoteConnected", "Remote connected.");
+            }
+            else
+            {
+                StatusMessage = result.Message;
+                RemotePopupStatusMessage = result.Message;
+            }
+        }
+
+        private void DisconnectRemote()
+        {
+            if (_state != GitUiState.Ready)
+                return;
+
+            var result = _git.DisconnectRemote(_repositoryRoot);
+            RemotePassword = "";
+            RemoteToken = "";
+            RefreshRepositoryState();
+
+            if (result.Success)
+            {
+                IsRemotePopupOpen = false;
+                SetLocalizedStatus("GitStatusRemoteDisconnected", "Remote disconnected.");
+            }
+            else
+            {
+                StatusMessage = result.Message;
+                RemotePopupStatusMessage = result.Message;
+            }
+        }
+
+        private void CancelRemote()
+        {
             IsRemotePopupOpen = false;
-            SetLocalizedStatus("GitStatusRemoteStub", "Remote/cloud Git is not implemented yet.");
+            RemotePopupStatusMessage = "";
+        }
+
+        private void ApplyRemoteInfo(GitRemoteInfo remote)
+        {
+            _isRemoteConnected = remote != null && remote.IsConnected;
+            _remoteDisplayUrl = _isRemoteConnected ? remote.DisplayUrl : "";
+            if (!_isRemoteConnected)
+            {
+                _remoteOutgoingCommitCount = 0;
+                _remoteIncomingCommitCount = 0;
+            }
+            if (_isRemoteConnected)
+            {
+                _remoteUrl = remote.Url;
+                OnPropertyChanged("RemoteUrl");
+            }
+
+            OnRemoteStateChanged();
+            OnGitActionStateChanged();
+        }
+
+        private void OnRemoteStateChanged()
+        {
+            OnPropertyChanged("GitRemoteActionIconVisibility");
+            OnPropertyChanged("LocalToolsEnabled");
+            OnPropertyChanged("RemoteSyncToolsEnabled");
+            OnPropertyChanged("RemoteToolsEnabled");
+            OnPropertyChanged("RemoteConnectedVisibility");
+            OnPropertyChanged("RemoteConnectVisibility");
+            OnPropertyChanged("RemoteDisconnectVisibility");
+            OnPropertyChanged("RemoteStatusText");
+            OnPropertyChanged("RemoteCredentialsVisibility");
+            OnPropertyChanged("RemoteCheckVisibility");
+            OnPropertyChanged("RemoteConnectSubmitVisibility");
+            OnPropertyChanged("IsRemoteConnectSubmitEnabled");
+            OnGitActionStateChanged();
         }
 
         private void ApplyState(GitUiState state)
@@ -785,21 +1370,19 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("IsSetupButtonEnabled");
             OnPropertyChanged("SetupButtonText");
             OnPropertyChanged("IsCreateBranchEnabled");
-            OnPropertyChanged("GitActionButtonText");
-            OnPropertyChanged("GitCommitActionIconVisibility");
-            OnPropertyChanged("GitRemoteActionIconVisibility");
-            OnPropertyChanged("GitSyncActionIconVisibility");
-            OnPropertyChanged("GitSyncCountersVisibility");
-            OnPropertyChanged("GitOutgoingCommitCount");
-            OnPropertyChanged("GitIncomingCommitCount");
-            OnPropertyChanged("IsGitActionButtonEnabled");
-            OnPropertyChanged("GitActionButtonBackground");
-            OnPropertyChanged("GitActionButtonForeground");
+            OnGitActionStateChanged();
+            OnPropertyChanged("LocalToolsEnabled");
+            OnPropertyChanged("RemoteSyncToolsEnabled");
             OnPropertyChanged("RemoteToolsEnabled");
             OnPropertyChanged("RemoteConnectedVisibility");
             OnPropertyChanged("RemoteConnectVisibility");
+            OnPropertyChanged("RemoteDisconnectVisibility");
             OnPropertyChanged("RemoteStatusText");
+            OnPropertyChanged("RemoteCredentialsVisibility");
+            OnPropertyChanged("RemoteCheckVisibility");
+            OnPropertyChanged("RemoteConnectSubmitVisibility");
             OnPropertyChanged("IsRemoteConnectSubmitEnabled");
+            OnPropertyChanged("IsMergeActionEnabled");
         }
 
         private static string GetText(string key, string fallback)

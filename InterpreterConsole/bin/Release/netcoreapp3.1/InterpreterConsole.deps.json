@@ -16,7 +16,10 @@
       },
       "Interpreter/1.0.0": {
         "runtime": {
-          "Interpreter.dll": {}
+          "Interpreter.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "5.0.0.0"
+          }
         }
       }
     }

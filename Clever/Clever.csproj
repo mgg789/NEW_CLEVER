@@ -89,6 +89,9 @@
 	-->
   <ItemGroup>
     <Reference Include="PresentationFramework.Aero2" />
+    <Reference Include="Markdig">
+      <HintPath>..\packages\Markdig.0.18.3\lib\net40\Markdig.dll</HintPath>
+    </Reference>
     <Reference Include="ScintillaNET, Version=3.6.3.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\jacobslusser.ScintillaNET.3.6.3\lib\net40\ScintillaNET.dll</HintPath>
     </Reference>
@@ -139,10 +142,12 @@
     <Compile Include="Model\Utils\Converter.cs" />
     <Compile Include="Model\Utils\AiAppSettingsStore.cs" />
     <Compile Include="Model\Utils\Clev3rGitIgnoreService.cs" />
+    <Compile Include="Model\Utils\CsvTableDocument.cs" />
     <Compile Include="Model\Utils\FolderPickerDialog.cs" />
     <Compile Include="Model\Utils\GitCommandRunner.cs" />
     <Compile Include="Model\Utils\GitRepositoryService.cs" />
     <Compile Include="Model\Utils\HelpToolTipModel.cs" />
+    <Compile Include="Model\Utils\MarkdownPreviewHtmlRenderer.cs" />
     <Compile Include="Model\Utils\PrivateFontLoader.cs" />
     <Compile Include="Model\Utils\ProgramMap.cs" />
     <Compile Include="Model\Utils\TextLine.cs" />
@@ -150,6 +155,8 @@
     <Compile Include="ViewModel\ConfigWindowVM.cs" />
     <Compile Include="ViewModel\AiSettingsWindowVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitChangeItemVM.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitCommitMarkerKind.cs" />
+    <Compile Include="ViewModel\PanelsVM\GitCommitMarkerVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitCommitVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitDiffDocumentVM.cs" />
     <Compile Include="ViewModel\PanelsVM\GitDiffFileVM.cs" />

@@ -30,7 +30,7 @@
     </UserControl.Resources>
     <Grid>
         <Button Style="{StaticResource h_open_project}" Height="{StaticResource pnl_but_height}" Width="{StaticResource pnl_but_width}" ToolTip="{Binding Path=GetLocalization[tOpenProject]}" Command="{Binding Path=OpenProjectCommand}">
-            <Viewbox Width="24" Height="24" Stretch="Uniform">
+            <Viewbox Width="21" Height="21" Stretch="Uniform">
                 <Canvas Width="24" Height="24">
                     <Path Data="M18,19 C15.24,19 13,16.76 13,14 L13,22" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="{x:Null}"/>
                     <Path Data="M9,20 H4 C2.9,20 2,19.1 2,18 V5 C2,3.9 2.9,3 4,3 H7.9 C8.57,3 9.2,3.34 9.59,3.9 L10.4,5.1 C10.77,5.65 11.4,6 12.07,6 H20 C21.1,6 22,6.9 22,8 V13" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="{x:Null}"/>

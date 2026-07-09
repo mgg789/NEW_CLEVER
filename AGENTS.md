@@ -51,11 +51,11 @@ Copy runtime folders/files from `Clever/bin/Release` to `Clever/bin/CodexRelease
 ```powershell
 $src = Resolve-Path 'Clever/bin/Release'
 $dst = Resolve-Path 'Clever/bin/CodexRelease'
-foreach ($dir in @('Localization','Examples','Help','Icons','Lib','Media')) {
+foreach ($dir in @('Localization','Examples','Help','Icons','Lib','Media','Assets','Sounds')) {
   $from = Join-Path $src $dir
   if (Test-Path $from) { Copy-Item -LiteralPath $from -Destination $dst -Recurse -Force }
 }
-foreach ($file in @('Clever Registry.exe','Clever Registry.exe.config','Clever Registry.pdb','cleverIcon.ico')) {
+foreach ($file in @('Clever Registry.exe','Clever Registry.exe.config','Clever Registry.pdb','cleverIcon.ico','ScintillaNET.dll')) {
   $from = Join-Path $src $file
   if (Test-Path $from) { Copy-Item -LiteralPath $from -Destination $dst -Force }
 }
@@ -74,7 +74,8 @@ Start-Process -FilePath (Resolve-Path 'Clever/bin/CodexRelease/Clever.exe') -Wor
 
 ## Git Feature Notes
 - Local Git functionality intentionally uses installed `git.exe`.
-- Remote/cloud buttons are still stubs in this stage and must not run `git pull`, `git push`, or remote setup commands.
+- Remote Git is implemented for HTTPS `origin` remotes through installed `git.exe`. Credentials are approved into Windows Git Credential Manager; do not put secrets into `.git/config` or remote URLs.
+- Remote sync is intentionally conservative: `pull` requires saved tabs and a clean working tree, uses fast-forward-only updates, and reloads open project files on success. `push` sends all local branches without force and blocks non-fast-forward/diverged remote branches.
 - Git status is based on saved files on disk. After `Ctrl+S`, Save All, Save As, or the save step before EV3 compile, the Git panel should refresh itself; Git actions also force a fresh `git status` before commit/message generation.
 - Save-triggered Git refresh is intentionally debounced and status-only; full history refresh is reserved for init, reload, commit, restore, and branch switch.
 - Git diff previews render parsed display lines in a read-only Scintilla tab. Keep Git metadata lines visually separate from added/deleted content instead of dumping raw patch text directly.
