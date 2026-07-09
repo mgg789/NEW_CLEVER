@@ -4,6 +4,8 @@ using Clever.View.Controls;
 using Clever.ViewModel;
 using System;
 using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -24,6 +26,13 @@ namespace Clever.View.Controls.Editors
         private bool _isUpdatingCsvText;
         private bool _isRenderedView;
         private string _renderedExtension;
+        private string _cachedMarkdownText;
+        private string _cachedMarkdownTitle;
+        private string _cachedMarkdownHtml;
+        private string _cachedCsvText;
+        private int _renderRequestId;
+        private readonly DispatcherTimer _csvTextUpdateTimer;
+        private bool _pendingCsvTextUpdateMarkDirty;
 
         private static readonly Brush[] CsvColumnBrushes =
         {
@@ -51,6 +60,8 @@ namespace Clever.View.Controls.Editors
             te.TextArea.DragOver += TextArea_EditorTabDragOver;
             te.TextArea.DragLeave += TextArea_EditorTabDragLeave;
             te.TextArea.DragDrop += TextArea_EditorTabDragDrop;
+            _csvTextUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _csvTextUpdateTimer.Tick += CsvTextUpdateTimer_Tick;
         }
 
         internal bool IsRenderedView
@@ -60,11 +71,17 @@ namespace Clever.View.Controls.Editors
 
         internal void SetDocumentViewMode(string extension, bool rendered)
         {
-            CommitRenderedViewChanges();
-
             var normalized = (extension ?? "").ToLowerInvariant();
+            var targetRendered = rendered && (normalized == ".md" || normalized == ".csv");
+            if (_renderedExtension == normalized && _isRenderedView == targetRendered && IsCurrentDocumentViewVisible(normalized, targetRendered))
+                return;
+
+            if (_isRenderedView && !targetRendered)
+                CommitRenderedViewChanges();
+
             _renderedExtension = normalized;
-            _isRenderedView = rendered && (normalized == ".md" || normalized == ".csv");
+            _isRenderedView = targetRendered;
+            _renderRequestId++;
 
             if (!_isRenderedView)
             {
@@ -85,6 +102,7 @@ namespace Clever.View.Controls.Editors
             if (!_isRenderedView)
                 return;
 
+            _renderRequestId++;
             if (_renderedExtension == ".md")
                 ShowMarkdownPreview();
             else if (_renderedExtension == ".csv")
@@ -96,9 +114,12 @@ namespace Clever.View.Controls.Editors
             if (csvDataGrid.Visibility != Visibility.Visible)
                 return;
 
+            var markDirty = _pendingCsvTextUpdateMarkDirty;
+            _pendingCsvTextUpdateMarkDirty = false;
+            _csvTextUpdateTimer.Stop();
             csvDataGrid.CommitEdit(DataGridEditingUnit.Cell, true);
             csvDataGrid.CommitEdit(DataGridEditingUnit.Row, true);
-            UpdateCsvTextFromTable(false);
+            UpdateCsvTextFromTable(markDirty);
         }
 
         public TextEditor GetTextEditor
@@ -155,44 +176,165 @@ namespace Clever.View.Controls.Editors
             te.TextArea.Focus();
         }
 
-        private void ShowMarkdownPreview()
+        private async void ShowMarkdownPreview()
         {
             wfh.Visibility = Visibility.Collapsed;
             csvDataGrid.Visibility = Visibility.Collapsed;
             markdownPreviewHost.Visibility = Visibility.Visible;
 
-            var html = MarkdownPreviewHtmlRenderer.RenderHtml(te.TextArea.Text, te.ProgramName);
+            var text = te.TextArea.Text;
+            var title = te.ProgramName;
+            var requestId = _renderRequestId;
+            if (_cachedMarkdownHtml != null && _cachedMarkdownText == text && _cachedMarkdownTitle == title)
+            {
+                markdownBrowser.NavigateToString(_cachedMarkdownHtml);
+                return;
+            }
+
+            string html;
+            try
+            {
+                html = await Task.Run(() => MarkdownPreviewHtmlRenderer.RenderHtml(text, title));
+            }
+            catch
+            {
+                return;
+            }
+
+            if (requestId != _renderRequestId
+                || !_isRenderedView
+                || _renderedExtension != ".md"
+                || te.TextArea.Text != text
+                || te.ProgramName != title)
+                return;
+
+            _cachedMarkdownText = text;
+            _cachedMarkdownTitle = title;
+            _cachedMarkdownHtml = html;
             markdownBrowser.NavigateToString(html);
         }
 
-        private void ShowCsvTable()
+        private async void ShowCsvTable()
         {
             wfh.Visibility = Visibility.Collapsed;
             markdownPreviewHost.Visibility = Visibility.Collapsed;
             csvDataGrid.Visibility = Visibility.Visible;
 
-            _csvDocument = CsvTableDocument.Parse(te.TextArea.Text);
-            csvDataGrid.Columns.Clear();
-            for (var i = 0; i < _csvDocument.Table.Columns.Count; i++)
+            var text = te.TextArea.Text;
+            var requestId = _renderRequestId;
+            if (_csvDocument != null && _cachedCsvText == text)
             {
-                var column = _csvDocument.Table.Columns[i];
-                var brush = CsvColumnBrushes[i % CsvColumnBrushes.Length];
-                csvDataGrid.Columns.Add(new DataGridTextColumn
-                {
-                    Header = column.Caption,
-                    Binding = new Binding("[" + column.ColumnName + "]")
-                    {
-                        Mode = BindingMode.TwoWay,
-                        UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
-                    },
-                    ElementStyle = CreateCsvTextElementStyle(brush),
-                    EditingElementStyle = CreateCsvTextEditingStyle(brush),
-                    MinWidth = 72,
-                    Width = new DataGridLength(1, DataGridLengthUnitType.Auto)
-                });
+                BindCsvDocument(_csvDocument);
+                return;
             }
 
-            csvDataGrid.ItemsSource = _csvDocument.Table.DefaultView;
+            CsvTableDocument document;
+            try
+            {
+                document = await Task.Run(() => CsvTableDocument.Parse(text));
+            }
+            catch
+            {
+                return;
+            }
+
+            if (requestId != _renderRequestId
+                || !_isRenderedView
+                || _renderedExtension != ".csv"
+                || te.TextArea.Text != text)
+                return;
+
+            _csvDocument = document;
+            _cachedCsvText = text;
+            BindCsvDocument(_csvDocument);
+        }
+
+        private void BindCsvDocument(CsvTableDocument document)
+        {
+            if (document == null)
+                return;
+
+            var currentView = csvDataGrid.ItemsSource;
+            if (currentView == document.Table.DefaultView && CsvColumnsMatch(document.Table))
+                return;
+
+            if (!CsvColumnsMatch(document.Table))
+            {
+                csvDataGrid.Columns.Clear();
+                for (var i = 0; i < document.Table.Columns.Count; i++)
+                {
+                    var column = document.Table.Columns[i];
+                    var brush = CsvColumnBrushes[i % CsvColumnBrushes.Length];
+                    csvDataGrid.Columns.Add(new DataGridTextColumn
+                    {
+                        Header = column.Caption,
+                        Binding = new Binding("[" + column.ColumnName + "]")
+                        {
+                            Mode = BindingMode.TwoWay,
+                            UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                        },
+                        ElementStyle = CreateCsvTextElementStyle(brush),
+                        EditingElementStyle = CreateCsvTextEditingStyle(brush),
+                        MinWidth = 72,
+                        Width = new DataGridLength(EstimateCsvColumnWidth(document.Table, i))
+                    });
+                }
+            }
+
+            csvDataGrid.ItemsSource = document.Table.DefaultView;
+        }
+
+        private bool CsvColumnsMatch(DataTable table)
+        {
+            if (table == null || csvDataGrid.Columns.Count != table.Columns.Count)
+                return false;
+
+            for (var i = 0; i < table.Columns.Count; i++)
+            {
+                var boundColumn = csvDataGrid.Columns[i] as DataGridTextColumn;
+                if (boundColumn == null)
+                    return false;
+
+                if (!Equals(boundColumn.Header, table.Columns[i].Caption))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static double EstimateCsvColumnWidth(DataTable table, int columnIndex)
+        {
+            if (table == null || columnIndex < 0 || columnIndex >= table.Columns.Count)
+                return 96;
+
+            var column = table.Columns[columnIndex];
+            var maxLength = (column.Caption ?? "").Length;
+            foreach (var value in table.Rows.Cast<DataRow>().Take(40).Select(row => Convert.ToString(row[column]) ?? ""))
+                maxLength = Math.Max(maxLength, value.Length);
+
+            return Math.Max(72, Math.Min(420, 28 + maxLength * 8));
+        }
+
+        private bool IsCurrentDocumentViewVisible(string normalizedExtension, bool rendered)
+        {
+            if (!rendered)
+                return wfh.Visibility == Visibility.Visible;
+
+            if (normalizedExtension == ".md")
+                return markdownPreviewHost.Visibility == Visibility.Visible;
+
+            if (normalizedExtension == ".csv")
+                return csvDataGrid.Visibility == Visibility.Visible;
+
+            return false;
+        }
+
+        private void InvalidateRenderedCaches()
+        {
+            _cachedMarkdownText = null;
+            _cachedMarkdownTitle = null;
+            _cachedMarkdownHtml = null;
+            _cachedCsvText = null;
         }
 
         private static Style CreateCsvTextElementStyle(Brush brush)
@@ -239,7 +381,20 @@ namespace Clever.View.Controls.Editors
             if (_isUpdatingCsvText || csvDataGrid.Visibility != Visibility.Visible)
                 return;
 
-            Dispatcher.BeginInvoke(new Action(() => UpdateCsvTextFromTable(markDirty)), DispatcherPriority.Background);
+            if (markDirty && !string.IsNullOrEmpty(te.ProgramName))
+                MainWindowVM.MarkProgramTextChanged(te.ProgramName);
+
+            _pendingCsvTextUpdateMarkDirty = _pendingCsvTextUpdateMarkDirty || markDirty;
+            _csvTextUpdateTimer.Stop();
+            _csvTextUpdateTimer.Start();
+        }
+
+        private void CsvTextUpdateTimer_Tick(object sender, EventArgs e)
+        {
+            _csvTextUpdateTimer.Stop();
+            var markDirty = _pendingCsvTextUpdateMarkDirty;
+            _pendingCsvTextUpdateMarkDirty = false;
+            UpdateCsvTextFromTable(markDirty);
         }
 
         private void UpdateCsvTextFromTable(bool markDirty)
@@ -259,6 +414,7 @@ namespace Clever.View.Controls.Editors
                     te.TextArea.ReadOnly = readOnly;
                 }
 
+                _cachedCsvText = text;
                 if (markDirty && !string.IsNullOrEmpty(te.ProgramName))
                     MainWindowVM.MarkProgramTextChanged(te.ProgramName);
             }
@@ -270,7 +426,9 @@ namespace Clever.View.Controls.Editors
 
         private static Brush CreateBrush(string color)
         {
-            return new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+            var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+            brush.Freeze();
+            return brush;
         }
 
         public Popup GetTextEditorPopup
@@ -303,6 +461,7 @@ namespace Clever.View.Controls.Editors
         private void UserControl_Unloaded(object sender, RoutedEventArgs e)
         {
             this.EditorTextChange -= TextEditorEvents.Editor_Change;
+            CommitRenderedViewChanges();
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
