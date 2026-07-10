@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace Clever.Model.Utils
 {
@@ -69,6 +70,16 @@ namespace Clever.Model.Utils
 
         internal GitCommandResult Run(string workingDirectory, int timeoutMs, string standardInput, IDictionary<string, string> environmentVariables, params string[] args)
         {
+            return Run(workingDirectory, timeoutMs, standardInput, environmentVariables, CancellationToken.None, args);
+        }
+
+        internal GitCommandResult Run(string workingDirectory, CancellationToken cancellationToken, params string[] args)
+        {
+            return Run(workingDirectory, DefaultTimeoutMs, null, null, cancellationToken, args);
+        }
+
+        private GitCommandResult Run(string workingDirectory, int timeoutMs, string standardInput, IDictionary<string, string> environmentVariables, CancellationToken cancellationToken, params string[] args)
+        {
             var result = new GitCommandResult
             {
                 ExitCode = -1,
@@ -82,6 +93,7 @@ namespace Clever.Model.Utils
                 var error = new StringBuilder();
                 using (var process = new Process())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     process.StartInfo = new ProcessStartInfo
                     {
                         FileName = "git",
@@ -128,9 +140,29 @@ namespace Clever.Model.Utils
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    if (!process.WaitForExit(timeoutMs))
+                    var stopwatch = Stopwatch.StartNew();
+                    while (!process.WaitForExit(Math.Min(100, Math.Max(1, timeoutMs - (int)stopwatch.ElapsedMilliseconds))))
                     {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            try
+                            {
+                                process.Kill();
+                            }
+                            catch
+                            {
+                            }
+                            cancellationToken.ThrowIfCancellationRequested();
+                        }
+                        if (stopwatch.ElapsedMilliseconds < timeoutMs)
+                            continue;
+
                         result.TimedOut = true;
+                        break;
+                    }
+
+                    if (result.TimedOut)
+                    {
                         try
                         {
                             process.Kill();
@@ -152,6 +184,10 @@ namespace Clever.Model.Utils
             catch (Win32Exception)
             {
                 result.GitNotFound = true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

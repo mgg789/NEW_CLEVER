@@ -274,11 +274,52 @@
                     <Button Command="{Binding GenerateCommitMessageCommand}"
                             Style="{StaticResource GitInlineIconButton}"
                             Visibility="{Binding AiGenerateVisibility}"
+                            IsEnabled="{Binding IsAiGenerateEnabled}"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
                             Margin="0,0,5,0"
-                            ToolTip="Generate">
-                        <Image Source="{StaticResource ai_icon_generate}" Width="12" Height="12"/>
+                            ToolTip="{Binding AiGenerateToolTip}">
+                        <Grid Width="12" Height="12">
+                            <Image Source="{StaticResource ai_icon_generate}"
+                                   Width="12"
+                                   Height="12"
+                                   Visibility="{Binding AiGenerateIconVisibility}"/>
+                            <Grid Width="12"
+                                  Height="12"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform>
+                                    <RotateTransform/>
+                                </Grid.RenderTransform>
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsGenerating}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard x:Name="AiCommitSpinnerStoryboard">
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                             From="0"
+                                                                             To="360"
+                                                                             Duration="0:0:0.8"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <StopStoryboard BeginStoryboardName="AiCommitSpinnerStoryboard"/>
+                                                </DataTrigger.ExitActions>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Ellipse Width="11"
+                                         Height="11"
+                                         Stroke="#0A86FF"
+                                         StrokeThickness="1.5"
+                                         StrokeDashArray="4 2"/>
+                            </Grid>
+                        </Grid>
                     </Button>
                 </Grid>
                 <Button Command="{Binding GitActionCommand}"

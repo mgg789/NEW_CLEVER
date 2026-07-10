@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Text.RegularExpressions;
 
 namespace Clever.Model.Utils
@@ -52,6 +53,7 @@ namespace Clever.Model.Utils
         public string OldPath { get; set; }
         public string FullPath { get; set; }
         public bool IsDeleted { get; set; }
+        public bool IsUntracked { get; set; }
     }
 
     internal class GitBranchInfo
@@ -144,6 +146,8 @@ namespace Clever.Model.Utils
     internal class GitRepositoryService
     {
         private const int MaxCommitCount = 50;
+        private const int MaxAiPatchLength = 80000;
+        private const int MaxAiFileBytes = 256 * 1024;
         private readonly GitCommandRunner _runner;
 
         internal GitRepositoryService()
@@ -208,6 +212,35 @@ namespace Clever.Model.Utils
             return string.IsNullOrWhiteSpace(repositoryRoot) || !Directory.Exists(repositoryRoot)
                 ? new List<GitChangeInfo>()
                 : GetChanges(repositoryRoot);
+        }
+
+        internal string GetWorkingTreePatchForAi(string repositoryRoot, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(repositoryRoot) || !Directory.Exists(repositoryRoot))
+                return "";
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var changes = GetChanges(repositoryRoot, cancellationToken);
+            if (changes.Count == 0)
+                return "";
+
+            var hasHead = _runner.Run(repositoryRoot, cancellationToken, "rev-parse", "--verify", "HEAD").Success;
+            var patch = new StringBuilder();
+            foreach (var change in changes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var filePatch = change.IsUntracked
+                    ? BuildUntrackedFilePatch(change)
+                    : GetTrackedFilePatch(repositoryRoot, change, hasHead, cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(filePatch))
+                    continue;
+
+                if (!AppendAiPatchPart(patch, filePatch))
+                    break;
+            }
+
+            return patch.ToString();
         }
 
         internal GitActionResult CommitAll(string repositoryRoot, string message)
@@ -955,8 +988,15 @@ namespace Clever.Model.Utils
 
         private List<GitChangeInfo> GetChanges(string repositoryRoot)
         {
+            return GetChanges(repositoryRoot, CancellationToken.None);
+        }
+
+        private List<GitChangeInfo> GetChanges(string repositoryRoot, CancellationToken cancellationToken)
+        {
             var changes = new List<GitChangeInfo>();
-            var result = GetStatusPorcelain(repositoryRoot);
+            var result = cancellationToken.CanBeCanceled
+                ? _runner.Run(repositoryRoot, cancellationToken, "-c", "core.quotepath=false", "status", "--porcelain=v1", "--untracked-files=all")
+                : GetStatusPorcelain(repositoryRoot);
             if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
                 return changes;
 
@@ -988,7 +1028,8 @@ namespace Clever.Model.Utils
                         RelativePath = path,
                         OldPath = oldPath,
                         FullPath = Path.Combine(repositoryRoot, path.Replace('/', Path.DirectorySeparatorChar)),
-                        IsDeleted = status == "D"
+                        IsDeleted = status == "D",
+                        IsUntracked = indexStatus == '?' && workTreeStatus == '?'
                     });
                 }
             }
@@ -1432,6 +1473,285 @@ namespace Clever.Model.Utils
         private GitCommandResult GetStatusPorcelain(string repositoryRoot)
         {
             return _runner.Run(repositoryRoot, "-c", "core.quotepath=false", "status", "--porcelain=v1", "--untracked-files=all");
+        }
+
+        private string GetTrackedFilePatch(string repositoryRoot, GitChangeInfo change, bool hasHead, CancellationToken cancellationToken)
+        {
+            var paths = new List<string>();
+            if (!string.IsNullOrWhiteSpace(change.OldPath))
+                paths.Add(NormalizeGitPath(change.OldPath));
+            if (!string.IsNullOrWhiteSpace(change.RelativePath)
+                && !paths.Contains(NormalizeGitPath(change.RelativePath), StringComparer.Ordinal))
+            {
+                paths.Add(NormalizeGitPath(change.RelativePath));
+            }
+
+            if (paths.Count == 0)
+                return "";
+
+            var patch = new StringBuilder();
+            if (hasHead)
+            {
+                AppendSuccessfulDiff(patch, RunFileDiff(repositoryRoot, paths, "HEAD", false, cancellationToken));
+            }
+            else
+            {
+                AppendSuccessfulDiff(patch, RunFileDiff(repositoryRoot, paths, null, true, cancellationToken));
+                AppendSuccessfulDiff(patch, RunFileDiff(repositoryRoot, paths, null, false, cancellationToken));
+            }
+
+            return TruncateUtf8(patch.ToString(), MaxAiFileBytes, "\n[AI diff truncated: per-file limit reached]\n");
+        }
+
+        private GitCommandResult RunFileDiff(string repositoryRoot, IList<string> paths, string revision, bool cached, CancellationToken cancellationToken)
+        {
+            var args = new List<string>
+            {
+                "-c",
+                "core.quotepath=false",
+                "--literal-pathspecs",
+                "diff",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-color",
+                "--find-renames",
+                "--ignore-submodules=none",
+                "--unified=3"
+            };
+
+            if (cached)
+                args.Add("--cached");
+            if (!string.IsNullOrWhiteSpace(revision))
+                args.Add(revision);
+
+            args.Add("--");
+            args.AddRange(paths);
+            return _runner.Run(repositoryRoot, cancellationToken, args.ToArray());
+        }
+
+        private static void AppendSuccessfulDiff(StringBuilder target, GitCommandResult result)
+        {
+            if (result == null || !result.Success || string.IsNullOrWhiteSpace(result.Output))
+                return;
+
+            if (target.Length > 0 && target[target.Length - 1] != '\n')
+                target.AppendLine();
+            target.Append(result.Output);
+        }
+
+        private static string BuildUntrackedFilePatch(GitChangeInfo change)
+        {
+            string text;
+            bool wasTruncated;
+            if (!TryReadTextFileForAi(change.FullPath, out text, out wasTruncated))
+            {
+                var path = NormalizeGitPath(change.RelativePath);
+                return "diff --git a/" + path + " b/" + path + "\n"
+                    + "new file mode 100644\n"
+                    + "[Binary or unreadable untracked file omitted]\n";
+            }
+
+            var relativePath = NormalizeGitPath(change.RelativePath);
+            var normalizedText = (text ?? "").Replace("\r\n", "\n").Replace('\r', '\n');
+            var builder = new StringBuilder();
+            builder.Append("diff --git a/").Append(relativePath).Append(" b/").Append(relativePath).AppendLine();
+            builder.AppendLine("new file mode 100644");
+            builder.AppendLine("--- /dev/null");
+            builder.Append("+++ b/").Append(relativePath).AppendLine();
+
+            if (normalizedText.Length == 0)
+            {
+                builder.AppendLine("[Empty text file]");
+                return builder.ToString();
+            }
+
+            var lines = normalizedText.Split(new[] { '\n' });
+            if (lines.Length > 0 && lines[lines.Length - 1].Length == 0)
+                Array.Resize(ref lines, lines.Length - 1);
+            builder.Append("@@ -0,0 +1,").Append(lines.Length).AppendLine(" @@");
+            foreach (var line in lines)
+                builder.Append('+').AppendLine(line);
+
+            if (wasTruncated)
+                builder.AppendLine("[AI file content truncated: per-file limit reached]");
+
+            return TruncateUtf8(builder.ToString(), MaxAiFileBytes, "\n[AI diff truncated: per-file limit reached]\n");
+        }
+
+        private static bool TryReadTextFileForAi(string fullPath, out string text, out bool wasTruncated)
+        {
+            text = "";
+            wasTruncated = false;
+            if (string.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath))
+                return false;
+
+            try
+            {
+                if ((File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0)
+                    return false;
+
+                byte[] bytes;
+                using (var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                {
+                    var count = (int)Math.Min(stream.Length, MaxAiFileBytes);
+                    bytes = new byte[count];
+                    var offset = 0;
+                    while (offset < count)
+                    {
+                        var read = stream.Read(bytes, offset, count - offset);
+                        if (read <= 0)
+                            break;
+                        offset += read;
+                    }
+
+                    if (offset != bytes.Length)
+                        Array.Resize(ref bytes, offset);
+                    wasTruncated = stream.Length > bytes.Length;
+                }
+
+                return TryDecodeText(bytes, wasTruncated, out text);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryDecodeText(byte[] bytes, bool mayEndMidCharacter, out string text)
+        {
+            text = "";
+            if (bytes == null || bytes.Length == 0)
+                return true;
+
+            Encoding encoding;
+            var preambleLength = 0;
+            var codeUnitSize = 1;
+            if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            {
+                encoding = new UTF8Encoding(false, true);
+                preambleLength = 3;
+            }
+            else if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+            {
+                encoding = new UnicodeEncoding(false, true, true);
+                preambleLength = 2;
+                codeUnitSize = 2;
+            }
+            else if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+            {
+                encoding = new UnicodeEncoding(true, true, true);
+                preambleLength = 2;
+                codeUnitSize = 2;
+            }
+            else
+            {
+                Encoding utf16;
+                if (TryDetectUtf16WithoutBom(bytes, out utf16))
+                {
+                    encoding = utf16;
+                    codeUnitSize = 2;
+                }
+                else
+                {
+                    if (bytes.Any(value => value == 0))
+                        return false;
+                    encoding = new UTF8Encoding(false, true);
+                }
+            }
+
+            var count = bytes.Length - preambleLength;
+            if (codeUnitSize > 1)
+                count -= count % codeUnitSize;
+
+            for (var trim = 0; trim <= (mayEndMidCharacter ? 4 : 0) && count - trim >= 0; trim++)
+            {
+                var candidateCount = count - trim;
+                if (candidateCount % codeUnitSize != 0)
+                    continue;
+
+                try
+                {
+                    text = encoding.GetString(bytes, preambleLength, candidateCount);
+                    return true;
+                }
+                catch (DecoderFallbackException)
+                {
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryDetectUtf16WithoutBom(byte[] bytes, out Encoding encoding)
+        {
+            encoding = null;
+            if (bytes == null || bytes.Length < 4 || bytes.Length % 2 != 0)
+                return false;
+
+            var evenZeros = 0;
+            var oddZeros = 0;
+            for (var index = 0; index < bytes.Length; index += 2)
+            {
+                if (bytes[index] == 0)
+                    evenZeros++;
+                if (bytes[index + 1] == 0)
+                    oddZeros++;
+            }
+
+            var pairs = bytes.Length / 2;
+            if (oddZeros * 5 >= pairs * 2 && evenZeros * 5 < pairs)
+                encoding = new UnicodeEncoding(false, false, true);
+            else if (evenZeros * 5 >= pairs * 2 && oddZeros * 5 < pairs)
+                encoding = new UnicodeEncoding(true, false, true);
+
+            return encoding != null;
+        }
+
+        private static string TruncateUtf8(string value, int maxBytes, string marker)
+        {
+            value = value ?? "";
+            if (Encoding.UTF8.GetByteCount(value) <= maxBytes)
+                return value;
+
+            marker = marker ?? "";
+            var contentLimit = Math.Max(0, maxBytes - Encoding.UTF8.GetByteCount(marker));
+            var low = 0;
+            var high = value.Length;
+            while (low < high)
+            {
+                var middle = low + (high - low + 1) / 2;
+                if (Encoding.UTF8.GetByteCount(value.Substring(0, middle)) <= contentLimit)
+                    low = middle;
+                else
+                    high = middle - 1;
+            }
+
+            if (low > 0 && low < value.Length && char.IsHighSurrogate(value[low - 1]))
+                low--;
+            return value.Substring(0, low) + marker;
+        }
+
+        private static bool AppendAiPatchPart(StringBuilder target, string value)
+        {
+            if (target.Length > 0 && target[target.Length - 1] != '\n')
+                target.AppendLine();
+
+            var remaining = MaxAiPatchLength - target.Length;
+            if (remaining <= 0)
+                return false;
+            if (value.Length <= remaining)
+            {
+                target.Append(value);
+                return true;
+            }
+
+            const string marker = "\n[AI diff truncated: total limit reached]\n";
+            var contentLength = Math.Max(0, remaining - marker.Length);
+            if (contentLength > 0)
+                target.Append(value.Substring(0, contentLength));
+            if (target.Length < MaxAiPatchLength)
+                target.Append(marker.Substring(0, Math.Min(marker.Length, MaxAiPatchLength - target.Length)));
+            return false;
         }
 
         private static string NormalizeGitPath(string path)

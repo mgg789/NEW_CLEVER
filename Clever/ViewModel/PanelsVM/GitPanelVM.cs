@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -75,6 +76,10 @@ namespace Clever.ViewModel.PanelsVM
         private bool _deferredWorkingTreeRefresh;
         private int _repositoryRefreshVersion;
         private int _workingTreeRefreshVersion;
+        private bool _isGenerating;
+        private CancellationTokenSource _commitMessageGenerationCancellation;
+        private int _commitMessageGenerationVersion;
+        private int _commitMessageVersion;
 
         private sealed class RepositoryRefreshResult
         {
@@ -184,6 +189,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 _changes = value;
                 OnPropertyChanged("Changes");
+                OnPropertyChanged("IsAiGenerateEnabled");
                 OnGitActionStateChanged();
             }
         }
@@ -248,6 +254,43 @@ namespace Clever.ViewModel.PanelsVM
         public Visibility AiGenerateVisibility
         {
             get { return AiAppSettingsStore.Settings.AiEnabled ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public bool IsGenerating
+        {
+            get { return _isGenerating; }
+            private set
+            {
+                if (_isGenerating == value)
+                    return;
+
+                _isGenerating = value;
+                OnPropertyChanged("IsGenerating");
+                OnPropertyChanged("AiGenerateIconVisibility");
+                OnPropertyChanged("IsAiGenerateEnabled");
+            }
+        }
+
+        public bool IsAiGenerateEnabled
+        {
+            get
+            {
+                return AiAppSettingsStore.Settings.AiEnabled
+                    && !IsGenerating
+                    && !_isGitOperationRunning
+                    && _state == GitUiState.Ready
+                    && !string.IsNullOrWhiteSpace(_repositoryRoot);
+            }
+        }
+
+        public Visibility AiGenerateIconVisibility
+        {
+            get { return IsGenerating ? Visibility.Collapsed : Visibility.Visible; }
+        }
+
+        public string AiGenerateToolTip
+        {
+            get { return GetText("GitGenerateCommitMessage", "Generate commit message"); }
         }
 
         public Visibility SetupVisibility
@@ -678,6 +721,8 @@ namespace Clever.ViewModel.PanelsVM
             get { return _commitMessage; }
             set
             {
+                if (!string.Equals(_commitMessage, value, StringComparison.Ordinal))
+                    _commitMessageVersion++;
                 _commitMessage = value;
                 OnPropertyChanged("CommitMessage");
                 OnGitActionStateChanged();
@@ -816,6 +861,8 @@ namespace Clever.ViewModel.PanelsVM
             }
 
             _workingDirectory = refresh.WorkingDirectory ?? "";
+            if (!AreSameDirectory(_repositoryRoot, refresh.RepositoryRoot))
+                CancelCommitMessageGeneration();
             _repositoryRoot = refresh.RepositoryRoot ?? "";
             BranchName = refresh.BranchName ?? "";
             UpdateProjectWatcher(refresh.WatchedRoot ?? "");
@@ -1393,6 +1440,7 @@ namespace Clever.ViewModel.PanelsVM
             if (_isGitOperationRunning)
                 return false;
 
+            CancelCommitMessageGeneration();
             _isGitOperationRunning = true;
             if (!string.IsNullOrWhiteSpace(statusMessage))
                 StatusMessage = statusMessage;
@@ -1430,6 +1478,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("IsCreateBranchEnabled");
             OnPropertyChanged("IsMergeActionEnabled");
             OnPropertyChanged("IsRemoteConnectSubmitEnabled");
+            OnPropertyChanged("IsAiGenerateEnabled");
             OnGitActionStateChanged();
         }
 
@@ -1769,6 +1818,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("RemoteConnectSubmitVisibility");
             OnPropertyChanged("IsRemoteConnectSubmitEnabled");
             OnPropertyChanged("IsMergeActionEnabled");
+            OnPropertyChanged("IsAiGenerateEnabled");
         }
 
         private static string GetText(string key, string fallback)
@@ -1910,58 +1960,132 @@ namespace Clever.ViewModel.PanelsVM
 
         private async void GenerateCommitMessage()
         {
-            if (!AiAppSettingsStore.Settings.AiEnabled)
+            if (!IsAiGenerateEnabled)
                 return;
 
-            if (_state == GitUiState.Ready && !string.IsNullOrWhiteSpace(_repositoryRoot))
+            if (MainWindowVM.HasUnsavedProjectEditorChanges(_repositoryRoot))
             {
-                if (!BeginGitOperation(null))
-                    return;
-
-                var repositoryRoot = _repositoryRoot;
-                var currentProjectRoot = MainWindowVM.CurrentProjectRoot;
-                try
-                {
-                    var changes = await Task.Run(() => RunGitService(() => _git.GetWorkingTreeChanges(repositoryRoot)));
-                    if (!IsCurrentRepositoryContext(currentProjectRoot, repositoryRoot))
-                    {
-                        _deferredRepositoryRefresh = true;
-                        return;
-                    }
-
-                    ApplyChanges(changes);
-                    OnGitActionStateChanged();
-                }
-                catch (Exception ex)
-                {
-                    StatusMessage = ex.Message;
-                    return;
-                }
-                finally
-                {
-                    EndGitOperation();
-                }
+                SetLocalizedStatus("GitStatusUnsavedOpenFiles", "Save open project files before this Git action.");
+                return;
             }
 
-            CommitMessage = Changes != null && Changes.Count > 0
-                ? "Save " + Changes.Count + " local Git changes"
-                : "Update project";
-            SetLocalizedStatus("GitStatusGenerateCommitMessage", "Commit message generated.");
+            var repositoryRoot = _repositoryRoot;
+            var currentProjectRoot = MainWindowVM.CurrentProjectRoot;
+            var commitMessageVersion = _commitMessageVersion;
+            var workingTreeVersion = _workingTreeRefreshVersion;
+            var generationVersion = Interlocked.Increment(ref _commitMessageGenerationVersion);
+            var cancellation = new CancellationTokenSource();
+            Interlocked.Exchange(ref _commitMessageGenerationCancellation, cancellation);
+            IsGenerating = true;
+
+            try
+            {
+                SetLocalizedStatus("GitStatusAiCommitGenerating", "Generating commit message...");
+                var patch = await Task.Run(
+                    () => RunGitService(() => _git.GetWorkingTreePatchForAi(repositoryRoot, cancellation.Token)),
+                    cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                if (!IsCommitMessageGenerationContextCurrent(generationVersion, workingTreeVersion, currentProjectRoot, repositoryRoot))
+                    return;
+
+                if (string.IsNullOrWhiteSpace(patch))
+                {
+                    SetLocalizedStatus("GitStatusAiCommitNoChanges", "There are no text changes to describe.");
+                    return;
+                }
+
+                var generatedMessage = await OpenAiTextGenerationService.Instance.GenerateCommitMessageAsync(
+                    patch,
+                    Configurations.Get.Language,
+                    cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                if (!IsCommitMessageGenerationContextCurrent(generationVersion, workingTreeVersion, currentProjectRoot, repositoryRoot))
+                    return;
+
+                if (commitMessageVersion != _commitMessageVersion)
+                {
+                    SetLocalizedStatus("GitStatusAiCommitTextChanged", "Commit message was edited; the generated result was not applied.");
+                    return;
+                }
+
+                CommitMessage = generatedMessage;
+                SetLocalizedStatus("GitStatusGenerateCommitMessage", "Commit message generated.");
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (AiConfigurationException)
+            {
+                if (IsCommitMessageGenerationContextCurrent(generationVersion, workingTreeVersion, currentProjectRoot, repositoryRoot))
+                    SetLocalizedStatus("GitStatusAiNotConfigured", "Configure the AI provider URL, model and token first.");
+            }
+            catch (Exception ex)
+            {
+                if (IsCommitMessageGenerationContextCurrent(generationVersion, workingTreeVersion, currentProjectRoot, repositoryRoot))
+                {
+                    StatusMessage = string.Format(
+                        GetText("GitStatusAiCommitFailed", "Could not generate a commit message: {0}"),
+                        ex.Message);
+                }
+            }
+            finally
+            {
+                if (ReferenceEquals(
+                    Interlocked.CompareExchange(ref _commitMessageGenerationCancellation, null, cancellation),
+                    cancellation))
+                {
+                    IsGenerating = false;
+                }
+
+                cancellation.Dispose();
+            }
+        }
+
+        private bool IsCommitMessageGenerationContextCurrent(int generationVersion, int workingTreeVersion, string projectRoot, string repositoryRoot)
+        {
+            return generationVersion == Volatile.Read(ref _commitMessageGenerationVersion)
+                && workingTreeVersion == _workingTreeRefreshVersion
+                && IsCurrentRepositoryContext(projectRoot, repositoryRoot);
+        }
+
+        private void CancelCommitMessageGeneration()
+        {
+            var cancellation = Interlocked.CompareExchange(ref _commitMessageGenerationCancellation, null, null);
+            if (cancellation == null)
+                return;
+
+            Interlocked.Increment(ref _commitMessageGenerationVersion);
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
 
         private void AiAppSettingsStore_SettingsChanged(object sender, EventArgs e)
         {
+            if (IsGenerating)
+            {
+                CancelCommitMessageGeneration();
+                SetLocalizedStatus("GitStatusAiCommitCancelled", "Commit message generation cancelled.");
+            }
             OnPropertyChanged("AiGenerateVisibility");
+            OnPropertyChanged("IsAiGenerateEnabled");
+            OnPropertyChanged("AiGenerateToolTip");
         }
 
         private void GitPanelVM_SavedWorkspaceFilesChanged(object sender, EventArgs e)
         {
+            CancelCommitMessageGeneration();
             _savedFilesRefreshTimer.Stop();
             _savedFilesRefreshTimer.Start();
         }
 
         private void GitPanelVM_ProjectContextChanged(object sender, EventArgs e)
         {
+            CancelCommitMessageGeneration();
             RefreshRepositoryState();
         }
 
@@ -1981,6 +2105,8 @@ namespace Clever.ViewModel.PanelsVM
         {
             if (IsGitInternalPath(e.FullPath))
                 return;
+
+            CancelCommitMessageGeneration();
 
             var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
             if (dispatcher == null)

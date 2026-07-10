@@ -6,6 +6,7 @@ using ScintillaNET;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -26,6 +27,12 @@ namespace Clever.Model.Bplus
         internal const int WarningIndicator = 2;
 
         private const int DebounceMilliseconds = 400;
+        // The native Scintilla squiggle is only three pixels high. Diagnostics need
+        // a more visible five-pixel wave, comparable to modern spell checkers.
+        private const int SquiggleHeight = 4;
+        private const int SquiggleStep = 2;
+        private static readonly Color ErrorUnderlineColor = Color.FromArgb(255, 0, 0);
+        private static readonly Color WarningUnderlineColor = Color.FromArgb(255, 192, 0);
         private static readonly Regex DependencyRegex = new Regex(
             @"^\s*(include|import)\s+""([^""]+)""", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -42,6 +49,7 @@ namespace Clever.Model.Bplus
             _textArea = textArea;
             _timer = new FormsTimer { Interval = DebounceMilliseconds };
             _timer.Tick += Timer_Tick;
+            _textArea.Painted += TextArea_Painted;
             ConfigureIndicators();
         }
 
@@ -287,10 +295,13 @@ namespace Clever.Model.Bplus
         {
             if (_textArea == null)
                 return;
-            _textArea.Indicators[ErrorIndicator].Style = IndicatorStyle.Squiggle;
-            _textArea.Indicators[ErrorIndicator].ForeColor = Color.FromArgb(220, 55, 55);
-            _textArea.Indicators[WarningIndicator].Style = IndicatorStyle.Squiggle;
-            _textArea.Indicators[WarningIndicator].ForeColor = Color.FromArgb(210, 150, 20);
+
+            // Keep the ranges as Scintilla indicators, but draw their visual form in
+            // Painted: Scintilla 3.x cannot make its built-in Squiggle thicker.
+            _textArea.Indicators[ErrorIndicator].Style = IndicatorStyle.Hidden;
+            _textArea.Indicators[ErrorIndicator].ForeColor = ErrorUnderlineColor;
+            _textArea.Indicators[WarningIndicator].Style = IndicatorStyle.Hidden;
+            _textArea.Indicators[WarningIndicator].ForeColor = WarningUnderlineColor;
         }
 
         private void SyncIndicators(string currentFile)
@@ -310,6 +321,99 @@ namespace Clever.Model.Bplus
                     continue;
                 _textArea.IndicatorCurrent = problem.IsError ? ErrorIndicator : WarningIndicator;
                 _textArea.IndicatorFillRange(start, length);
+            }
+            _textArea.Invalidate();
+        }
+
+        private void TextArea_Painted(object sender, EventArgs e)
+        {
+            if (_disposed || _textArea == null || _textArea.IsDisposed)
+                return;
+
+            try
+            {
+                var currentFile = GetCurrentFilePath();
+                if (string.IsNullOrWhiteSpace(currentFile))
+                    return;
+
+                var problems = IdeProblemStore.GetSnapshot()
+                    .Where(problem => problem.IsMappedToSource && SamePath(problem.FilePath, currentFile))
+                    .ToList();
+                if (problems.Count == 0)
+                    return;
+
+                using (var graphics = _textArea.CreateGraphics())
+                {
+                    graphics.SmoothingMode = SmoothingMode.None;
+                    graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                    foreach (var problem in problems)
+                        DrawDiagnosticSquiggle(graphics, problem);
+                }
+            }
+            catch
+            {
+                // Rendering a diagnostic must never interrupt editor painting.
+            }
+        }
+
+        private string GetCurrentFilePath()
+        {
+            if (_editor == null || MainWindowVM.Project == null)
+                return "";
+
+            var program = MainWindowVM.Project.GetDictionary().Values
+                .FirstOrDefault(item => item != null && ReferenceEquals(item.Editor, _editor));
+            return program == null ? "" : NormalizePath(program.FullPath);
+        }
+
+        private void DrawDiagnosticSquiggle(Graphics graphics, IdeProblem problem)
+        {
+            var documentLength = _textArea.TextLength;
+            var start = Math.Max(0, Math.Min(problem.Start, documentLength));
+            var end = Math.Max(start, Math.Min(problem.Start + Math.Max(1, problem.Length), documentLength));
+            if (end <= start)
+                return;
+
+            var firstLine = _textArea.LineFromPosition(start);
+            var lastLine = _textArea.LineFromPosition(Math.Max(start, end - 1));
+            using (var pen = new Pen(problem.IsError ? ErrorUnderlineColor : WarningUnderlineColor, 1.6F))
+            {
+                for (var lineIndex = firstLine; lineIndex <= lastLine; lineIndex++)
+                {
+                    var line = _textArea.Lines[lineIndex];
+                    if (!line.Visible)
+                        continue;
+
+                    var segmentStart = Math.Max(start, line.Position);
+                    var segmentEnd = Math.Min(end, line.EndPosition);
+                    if (segmentEnd <= segmentStart)
+                        continue;
+
+                    var xStart = _textArea.PointXFromPosition(segmentStart);
+                    var xEnd = _textArea.PointXFromPosition(segmentEnd);
+                    if (xEnd <= xStart)
+                        continue;
+
+                    var lineTop = _textArea.PointYFromPosition(segmentStart);
+                    var lineBottom = lineTop + Math.Max(1, line.Height) - 1;
+                    var waveTop = Math.Max(lineTop, lineBottom - SquiggleHeight);
+                    DrawWave(graphics, pen, xStart, xEnd, waveTop, lineBottom);
+                }
+            }
+        }
+
+        private static void DrawWave(Graphics graphics, Pen pen, int startX, int endX, int top, int bottom)
+        {
+            var x = startX;
+            var highPoint = ((startX / SquiggleStep) & 1) == 0;
+            var previous = new PointF(x, highPoint ? top : bottom);
+            while (x < endX)
+            {
+                x = Math.Min(endX, x + SquiggleStep);
+                highPoint = !highPoint;
+                var next = new PointF(x, highPoint ? top : bottom);
+                graphics.DrawLine(pen, previous, next);
+                previous = next;
             }
         }
 
@@ -376,6 +480,8 @@ namespace Clever.Model.Bplus
                 return;
             _disposed = true;
             Detach();
+            if (_textArea != null)
+                _textArea.Painted -= TextArea_Painted;
             _timer.Dispose();
         }
     }
