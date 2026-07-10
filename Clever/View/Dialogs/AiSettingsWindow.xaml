@@ -4,8 +4,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         mc:Ignorable="d"
-        Title="AI"
-        Height="430"
+        Title="{Binding WindowTitle}"
+        Height="460"
         Width="520"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner">
@@ -33,6 +33,18 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
         </Style>
+
+        <Style x:Key="AiSettingsPasswordBox" TargetType="PasswordBox">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="7,4"/>
+            <Setter Property="Margin" Value="0,3,0,8"/>
+            <Setter Property="BorderBrush" Value="{StaticResource git_panel_separator}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="Foreground" Value="#414659"/>
+            <Setter Property="FontFamily" Value="{StaticResource ui_fontfamily}"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
     </Window.Resources>
 
     <Grid Background="#F6F7FA" Margin="16">
@@ -45,7 +57,7 @@
             <CheckBox IsChecked="{Binding AiEnabled}"
                       VerticalAlignment="Top"
                       Margin="0,4,8,0"/>
-            <TextBlock Text="Enable AI functions"
+            <TextBlock Text="{Binding EnableAiText}"
                        FontFamily="{StaticResource ui_fontfamily}"
                        FontSize="15"
                        Foreground="#414659"/>
@@ -60,17 +72,29 @@
 
             <Border Background="#FFFFFF" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" Padding="12">
                 <StackPanel>
-                    <TextBlock Text="Embedded model" FontFamily="{StaticResource ui_fontfamily}" FontSize="16" FontWeight="Bold" Foreground="#414659" Margin="0,0,0,8"/>
-                    <TextBlock Text="URL" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#777777"/>
+                    <TextBlock Text="{Binding EmbeddedModelText}" FontFamily="{StaticResource ui_fontfamily}" FontSize="16" FontWeight="Bold" Foreground="#414659" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding UrlText}" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#777777"/>
                     <TextBox Text="{Binding EmbeddedUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AiSettingsTextBox}"/>
-                    <TextBlock Text="Model" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#777777"/>
+                    <TextBlock Text="{Binding ModelText}" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#777777"/>
                     <TextBox Text="{Binding EmbeddedModel, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AiSettingsTextBox}"/>
-                    <TextBlock Text="Token" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#777777"/>
-                    <TextBox Text="{Binding EmbeddedToken, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AiSettingsTextBox}"/>
+                    <TextBlock Text="{Binding TokenText}" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Foreground="#777777"/>
+                    <PasswordBox x:Name="EmbeddedTokenPasswordBox" PasswordChanged="EmbeddedTokenPasswordBox_PasswordChanged" Style="{StaticResource AiSettingsPasswordBox}"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="Save" Command="{Binding SaveEmbeddedCommand}" Style="{StaticResource AiSettingsButton}" Margin="0,0,8,0"/>
-                        <Button Content="Clear" Command="{Binding ClearEmbeddedCommand}" Style="{StaticResource AiSettingsButton}" Background="#D6DAE4" Foreground="#414659"/>
+                        <Button Content="{Binding SaveText}" Command="{Binding SaveEmbeddedCommand}" Style="{StaticResource AiSettingsButton}" Margin="0,0,8,0"/>
+                        <Button Content="{Binding ClearText}" Command="{Binding ClearEmbeddedCommand}" Style="{StaticResource AiSettingsButton}" Background="#D6DAE4" Foreground="#414659"/>
                     </StackPanel>
+                    <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" MinHeight="18" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Margin="0,8,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#4F6B56"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusIsError}" Value="True">
+                                        <Setter Property="Foreground" Value="#B42318"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
 
@@ -81,7 +105,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock Text="Codex" FontFamily="{StaticResource ui_fontfamily}" FontSize="16" FontWeight="Bold" Foreground="#414659"/>
+                        <TextBlock Text="{Binding CodexText}" FontFamily="{StaticResource ui_fontfamily}" FontSize="16" FontWeight="Bold" Foreground="#414659"/>
                         <TextBlock Text="{Binding CodexStatusText}" Visibility="{Binding CodexStatusVisibility}" FontFamily="{StaticResource ui_fontfamily}" FontSize="13" Foreground="#777777" Margin="0,7,0,0"/>
                     </StackPanel>
                     <Button Grid.Column="1" Content="{Binding CodexButtonText}" Command="{Binding ToggleCodexConnectionCommand}" Style="{StaticResource AiSettingsButton}" VerticalAlignment="Top"/>

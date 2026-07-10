@@ -1,5 +1,6 @@
 ﻿using Clever.Model.Bplus;
 using Clever.Model.Program;
+using Clever.Model.Diagnostics;
 using Clever.Model.Utils;
 using Clever.View.Controls;
 using Clever.View.Controls.Editors;
@@ -60,6 +61,8 @@ namespace Clever.ViewModel
         public ICommand SplitTopBottomCommand { get; set; }
         public ICommand ToggleRightSidebarCommand { get; set; }
         public ICommand OpenAiChatCommand { get; set; }
+        public ICommand ToggleAiCodeCompletionsCommand { get; set; }
+        public ICommand FixBugsCommand { get; set; }
         public ICommand EditorRawViewCommand { get; set; }
         public ICommand EditorRenderedViewCommand { get; set; }
         public ICommand AboutCommand { get; set; }
@@ -135,10 +138,13 @@ namespace Clever.ViewModel
             SplitTopBottomCommand = new RelayCommand(param => ToggleEditorSplit(false), true);
             ToggleRightSidebarCommand = new RelayCommand(param => ToggleRightSidebar(), true);
             OpenAiChatCommand = new RelayCommand(param => OpenAiChatSidebar(), true);
+            ToggleAiCodeCompletionsCommand = new RelayCommand(param => ToggleAiCodeCompletions(), true);
+            FixBugsCommand = new RelayCommand(param => OpenFixBugs(), true);
             EditorRawViewCommand = new RelayCommand(param => SwitchCurrentDocumentView(false), true);
             EditorRenderedViewCommand = new RelayCommand(param => SwitchCurrentDocumentView(true), true);
             AboutCommand = new RelayCommand(param => About(), true);
             AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
+            IdeProblemStore.Changed += IdeProblemStore_Changed;
 
             ShowNumber = Configurations.Get.ShowNumber;
             EditShowNumber();
@@ -1326,8 +1332,56 @@ namespace Clever.ViewModel
         private void AiAppSettingsStore_SettingsChanged(object sender, EventArgs e)
         {
             OnPropertyChanged("AiFunctionsVisibility");
+            OnPropertyChanged("AiCodeCompletionsEnabled");
+            OnPropertyChanged("CanFixBugs");
+            OnPropertyChanged("FixBugsToolTip");
             if (!AiAppSettingsStore.Settings.AiEnabled)
                 HelpPanel.EnsureAiChatNotSelected();
+        }
+
+        private void IdeProblemStore_Changed(object sender, EventArgs e)
+        {
+            var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.BeginInvoke(new Action(() => IdeProblemStore_Changed(sender, e)));
+                return;
+            }
+
+            OnPropertyChanged("CanFixBugs");
+            OnPropertyChanged("FixBugsToolTip");
+        }
+
+        private void OpenFixBugs()
+        {
+            if (!CanFixBugs)
+                return;
+
+            FixBugsCoordinator.Open();
+        }
+
+        private void ToggleAiCodeCompletions()
+        {
+            if (!AiAppSettingsStore.Settings.AiEnabled)
+                return;
+
+            var settings = AiAppSettingsStore.Settings;
+            var previousValue = settings.AiCodeCompletionsEnabled;
+            settings.AiCodeCompletionsEnabled = !previousValue;
+            OnPropertyChanged("AiCodeCompletionsEnabled");
+
+            try
+            {
+                AiAppSettingsStore.SaveSettings();
+            }
+            catch (Exception ex)
+            {
+                settings.AiCodeCompletionsEnabled = previousValue;
+                OnPropertyChanged("AiCodeCompletionsEnabled");
+                CommonData.Status.Clear();
+                var message = GetLocalizedOrDefault("AiSettingsSaveFailed", "Could not save AI settings: {0}");
+                CommonData.Status.Add(string.Format(message, ex.Message));
+            }
         }
 
         internal static void OpenGitDiffPreview(GitCommitVM commit)
@@ -2588,6 +2642,38 @@ namespace Clever.ViewModel
         public Visibility AiFunctionsVisibility
         {
             get { return AiAppSettingsStore.Settings.AiEnabled ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public bool AiCodeCompletionsEnabled
+        {
+            get { return AiAppSettingsStore.Settings.AiCodeCompletionsEnabled; }
+        }
+
+        public bool CanFixBugs
+        {
+            get
+            {
+                if (!IdeProblemStore.HasActiveProblems || !AiAppSettingsStore.Settings.AiEnabled)
+                    return false;
+
+                return !string.IsNullOrWhiteSpace(AiAppSettingsStore.Settings.EmbeddedUrl)
+                    && !string.IsNullOrWhiteSpace(AiAppSettingsStore.Settings.EmbeddedModel)
+                    && !string.IsNullOrWhiteSpace(AiAppSettingsStore.EmbeddedToken);
+            }
+        }
+
+        public string FixBugsToolTip
+        {
+            get
+            {
+                if (!IdeProblemStore.HasActiveProblems)
+                    return "Нет активных ошибок для исправления";
+                if (!AiAppSettingsStore.Settings.AiEnabled)
+                    return "AI-функции отключены";
+                if (!CanFixBugs)
+                    return "Настройте URL, модель и токен AI";
+                return GetLocalizedOrDefault("tFixBugs", "Fix bugs");
+            }
         }
 
         private static Visibility _hiddenProgramButton;

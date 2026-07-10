@@ -46,7 +46,11 @@
         </Style>
         <Style x:Key="HomeFixBugsImageStyle" TargetType="Image">
             <Setter Property="Source" Value="{StaticResource git_icon_fix_bugs}"/>
+            <Setter Property="Opacity" Value="1"/>
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsEnabled, RelativeSource={RelativeSource AncestorType=Button}}" Value="False">
+                    <Setter Property="Opacity" Value="0.35"/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
                     <Setter Property="Source" Value="{StaticResource git_icon_fix_bugs_hover}"/>
                 </DataTrigger>
@@ -55,13 +59,16 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="HomeAiCompetitionsImageStyle" TargetType="Image">
+        <Style x:Key="HomeAiCompletionsImageStyle" TargetType="Image">
             <Setter Property="Source" Value="{StaticResource git_icon_ai_competitions}"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
                     <Setter Property="Source" Value="{StaticResource git_icon_ai_competitions_hover}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsPressed, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Source" Value="{StaticResource git_icon_ai_competitions_pressed}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding AiCodeCompletionsEnabled}" Value="True">
                     <Setter Property="Source" Value="{StaticResource git_icon_ai_competitions_pressed}"/>
                 </DataTrigger>
             </Style.Triggers>
@@ -109,11 +116,16 @@
                 <Button Style="{StaticResource HomeEditorToolButton}" Command="{Binding OpenAiChatCommand}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tAiChat]}" AutomationProperties.Name="{Binding Path=GetLocalization[tAiChat]}">
                     <Image Style="{StaticResource HomeAiChatImageStyle}" Width="18" Height="18"/>
                 </Button>
-                <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tFixBugs]}" AutomationProperties.Name="{Binding Path=GetLocalization[tFixBugs]}">
+                <Button Style="{StaticResource HomeEditorToolButton}"
+                        Command="{Binding FixBugsCommand}"
+                        IsEnabled="{Binding CanFixBugs}"
+                        Margin="0,0,8,0"
+                        ToolTip="{Binding FixBugsToolTip}"
+                        AutomationProperties.Name="{Binding Path=GetLocalization[tFixBugs]}">
                     <Image Style="{StaticResource HomeFixBugsImageStyle}" Width="18" Height="18"/>
                 </Button>
-                <Button Style="{StaticResource HomeEditorToolButton}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tAiCompetitions]}" AutomationProperties.Name="{Binding Path=GetLocalization[tAiCompetitions]}">
-                    <Image Style="{StaticResource HomeAiCompetitionsImageStyle}" Width="18" Height="18"/>
+                <Button Style="{StaticResource HomeEditorToolButton}" Command="{Binding ToggleAiCodeCompletionsCommand}" Margin="0,0,8,0" ToolTip="{Binding Path=GetLocalization[tAiCompletions]}" AutomationProperties.Name="{Binding Path=GetLocalization[tAiCompletions]}">
+                    <Image Style="{StaticResource HomeAiCompletionsImageStyle}" Width="18" Height="18"/>
                 </Button>
             </StackPanel>
             <home_but:hButtonEditUndo Margin="0,0,10,0" Visibility="{Binding Path=EditUndoV}"/>

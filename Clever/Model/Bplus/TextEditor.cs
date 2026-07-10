@@ -33,6 +33,9 @@ namespace Clever.Model.Bplus
         private Scintilla textArea;
         private BpLexer lexer;
         private string filepath = "";
+        private string programName = "";
+        private AiInlineCompletionController aiInlineCompletionController;
+        private LiveDiagnosticsController liveDiagnosticsController;
         public SearchManager searchManager = new SearchManager();
         public LineStack lineStack = new LineStack();
         public Popup Menu;
@@ -77,6 +80,13 @@ namespace Clever.Model.Bplus
             // INIT HOTKEYS
             InitHotkeys();
 
+            aiInlineCompletionController = new AiInlineCompletionController(
+                this,
+                textArea,
+                OpenAiTextGenerationService.Instance,
+                new BpAiReferenceProvider());
+            liveDiagnosticsController = new LiveDiagnosticsController(this, textArea);
+
             // SEARCH
             searchManager.TextArea = textArea;
 
@@ -88,6 +98,8 @@ namespace Clever.Model.Bplus
 
         internal void EventsRemove()
         {
+            aiInlineCompletionController.Detach();
+            liveDiagnosticsController.Detach();
             lexer.EventsRemove();
             if (textArea != null)
             {
@@ -101,6 +113,8 @@ namespace Clever.Model.Bplus
         internal void EventsAdd()
         {
             lexer.EventsAdd();
+            aiInlineCompletionController.Attach();
+            liveDiagnosticsController.Attach();
             textArea.PreviewKeyDown += TextArea_PreviewKeyDown;
             textArea.KeyPress += TextArea_KeyPress;
             textArea.MouseDown += TextArea_MouseDown;
@@ -128,10 +142,36 @@ namespace Clever.Model.Bplus
 
         private void TextArea_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
+            if (aiInlineCompletionController != null && aiInlineCompletionController.HasSuggestion &&
+                (e.KeyCode == Keys.Tab || (e.KeyCode == Keys.Enter && e.Shift)))
+            {
+                e.IsInputKey = true;
+            }
             MainWindow.WindowForm_PreviewKeyDown(sender, e);
         }
 
-        internal string ProgramName { get; set; }
+        internal string ProgramName
+        {
+            get { return programName; }
+            set
+            {
+                if (string.Equals(programName, value, StringComparison.Ordinal))
+                    return;
+                programName = value ?? "";
+                if (aiInlineCompletionController != null)
+                    aiInlineCompletionController.OnDocumentIdentityChanged();
+            }
+        }
+
+        internal AiInlineCompletionController AiInlineCompletion
+        {
+            get { return aiInlineCompletionController; }
+        }
+
+        internal LiveDiagnosticsController LiveDiagnostics
+        {
+            get { return liveDiagnosticsController; }
+        }
 
         public Scintilla TextArea
         {
@@ -146,7 +186,14 @@ namespace Clever.Model.Bplus
         public string Filepath
         {
             get { return filepath; }
-            set { filepath = value; }
+            set
+            {
+                if (string.Equals(filepath, value, StringComparison.Ordinal))
+                    return;
+                filepath = value ?? "";
+                if (aiInlineCompletionController != null)
+                    aiInlineCompletionController.OnDocumentIdentityChanged();
+            }
         }
 
         /*////////
@@ -333,7 +380,7 @@ namespace Clever.Model.Bplus
 
         public void Cut()
         {
-            textArea.Cut();
+            aiInlineCompletionController.RunUserEdit(textArea.Cut);
         }
 
         public void Copy()
@@ -346,14 +393,15 @@ namespace Clever.Model.Bplus
             System.Windows.Input.Cursor cursor = System.Windows.Input.Mouse.OverrideCursor;
             System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
 
-            textArea.Paste();
+            aiInlineCompletionController.RunUserEdit(textArea.Paste);
 
             System.Windows.Input.Mouse.OverrideCursor = cursor;
         }
 
         public void Delete()
         {
-            textArea.DeleteRange(textArea.SelectionStart, textArea.SelectionEnd - textArea.SelectionStart);
+            aiInlineCompletionController.RunUserEdit(() =>
+                textArea.DeleteRange(textArea.SelectionStart, textArea.SelectionEnd - textArea.SelectionStart));
         }
 
         public void Undo()
@@ -683,6 +731,8 @@ namespace Clever.Model.Bplus
             if (disposing)
             {
                 //this.EventsRemove();
+                aiInlineCompletionController.Dispose();
+                liveDiagnosticsController.Dispose();
                 lexer.Dispose();
                 try
                 {

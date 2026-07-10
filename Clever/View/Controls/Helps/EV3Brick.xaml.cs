@@ -2,6 +2,7 @@
 using Clever.Brick.Communication;
 using Clever.Brick.Utils;
 using Clever.CommonData;
+using Clever.Model.Diagnostics;
 using Clever.Model.Utils;
 using Clever.View.Controls.Buttons.BrickButtons;
 using Clever.View.Controls.Buttons.CompileButtons;
@@ -1151,6 +1152,7 @@ namespace Clever.View.Controls.Helps
                     builder.StartInterpreter(tmpText, GetPath(pcfile.FullName), GetName(pcfile.FullName), tmpPath, ".bp", ".bpi", ".bpm", "~", tmpLoc, errors, streamI);
                     if (errors.Count > 0)
                     {
+                        CompilerProblemReporter.Replace(IdeProblemSource.Preprocessor, pcfile.FullName, errors);
                         Status.Add(MainWindowVM.GetLocalization["brkFindErr"] + " " + errors.Count);
 
                         foreach (string s in errors)
@@ -1162,6 +1164,7 @@ namespace Clever.View.Controls.Helps
                         }
                         return;
                     }
+                    CompilerProblemReporter.Replace(IdeProblemSource.Preprocessor, pcfile.FullName, new string[0]);
 
                     if (builder.GetIsFolder())
                     {
@@ -1206,6 +1209,7 @@ namespace Clever.View.Controls.Helps
                     //MessageBox.Show(streamC.Length.ToString());
                     if (errors.Count == 0)
                     {
+                        CompilerProblemReporter.Replace(IdeProblemSource.Compiler, pcfile.FullName, new string[0]);
                         Status.Items[Status.Count - 1] = MainWindowVM.GetLocalization["brkCompileStart"] + MainWindowVM.GetLocalization["brkDone"];
                         Status.Add(MainWindowVM.GetLocalization["brkAssembStart"]);
 
@@ -1214,6 +1218,8 @@ namespace Clever.View.Controls.Helps
                         builder.StartAssembler(streamC, streamA, errors);
                         if (errors.Count == 0)
                         {
+                            CompilerProblemReporter.Clear(pcfile.FullName);
+                            IdeProblemStore.ClearIdeError("compile");
                             content = streamA.ToArray();
                             Clev3rGitIgnoreService.EnsureForCompiledFile(pcfile.FullName);
                             Status.Items[Status.Count - 1] = MainWindowVM.GetLocalization["brkAssembStart"] + MainWindowVM.GetLocalization["brkDone"];
@@ -1221,6 +1227,7 @@ namespace Clever.View.Controls.Helps
                         }
                         else
                         {
+                            CompilerProblemReporter.Replace(IdeProblemSource.Assembler, pcfile.FullName, errors);
                             Status.Add(MainWindowVM.GetLocalization["brkExcept"] + " " + errors.Count);
                             foreach (string s in errors)
                             {
@@ -1230,6 +1237,7 @@ namespace Clever.View.Controls.Helps
                     }
                     else
                     {
+                        CompilerProblemReporter.Replace(IdeProblemSource.Compiler, pcfile.FullName, errors);
                         Status.Add(MainWindowVM.GetLocalization["brkFindErr"] + " " + errors.Count);
 
                         //var ln = preprocessor.GetFilesTree;
@@ -1241,6 +1249,7 @@ namespace Clever.View.Controls.Helps
                 }
                 catch (Exception ex)
                 {
+                    IdeProblemStore.ReportIdeError("compile", ex.Message, pcfile.FullName);
                     Status.Add(MainWindowVM.GetLocalization["brkExcept"] + " " + ex.Message);
                 }
             }

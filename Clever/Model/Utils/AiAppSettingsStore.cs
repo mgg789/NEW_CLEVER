@@ -10,6 +10,8 @@ namespace Clever.Model.Utils
 {
     public static class AiAppSettingsStore
     {
+        internal const string DefaultEmbeddedUrl = "https://api.aitunnel.ru/v1/";
+        internal const string DefaultEmbeddedModel = "qwen3-coder-next";
         private const string ProtectedPrefix = "dpapi:";
         private static readonly string BaseDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CLEV3R");
         private static readonly string SettingsPath = Path.Combine(BaseDirectory, "ai_settings.xml");
@@ -120,9 +122,9 @@ namespace Clever.Model.Utils
                 var protectedBytes = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
                 return ProtectedPrefix + Convert.ToBase64String(protectedBytes);
             }
-            catch
+            catch (Exception ex)
             {
-                return Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+                throw new CryptographicException("Unable to protect the AI token for the current Windows user.", ex);
             }
         }
 
@@ -153,8 +155,9 @@ namespace Clever.Model.Utils
         public AiAppSettingsData()
         {
             AiEnabled = true;
-            EmbeddedUrl = "";
-            EmbeddedModel = "";
+            AiCodeCompletionsEnabled = false;
+            EmbeddedUrl = AiAppSettingsStore.DefaultEmbeddedUrl;
+            EmbeddedModel = AiAppSettingsStore.DefaultEmbeddedModel;
             EmbeddedTokenProtected = "";
             CodexConnected = false;
             CodexEmail = "";
@@ -166,6 +169,7 @@ namespace Clever.Model.Utils
         }
 
         public bool AiEnabled { get; set; }
+        public bool AiCodeCompletionsEnabled { get; set; }
         public string EmbeddedUrl { get; set; }
         public string EmbeddedModel { get; set; }
         public string EmbeddedTokenProtected { get; set; }
