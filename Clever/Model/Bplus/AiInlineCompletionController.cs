@@ -15,6 +15,7 @@ namespace Clever.Model.Bplus
         private const int DebounceMilliseconds = 350;
         private const int PrefixLimit = 12000;
         private const int SuffixLimit = 6000;
+        private const int GhostAnnotationStyle = 31;
         private static readonly TimeSpan FailureCooldown = TimeSpan.FromSeconds(5);
 
         private readonly TextEditor _editor;
@@ -26,6 +27,7 @@ namespace Clever.Model.Bplus
         private CancellationTokenSource _requestCancellation;
         private string _ghostText = "";
         private int _ghostPosition = -1;
+        private int _ghostAnnotationLine = -1;
         private int _documentRevision;
         private int _requestVersion;
         private int _lastCaretPosition;
@@ -51,6 +53,7 @@ namespace Clever.Model.Bplus
 
             _debounceTimer = new System.Windows.Forms.Timer { Interval = DebounceMilliseconds };
             _debounceTimer.Tick += DebounceTimer_Tick;
+            ConfigureGhostReservationStyle();
         }
 
         internal event EventHandler StateChanged;
@@ -472,8 +475,10 @@ namespace Clever.Model.Bplus
                 position = -1;
 
             var changed = !string.Equals(_ghostText, text, StringComparison.Ordinal) || _ghostPosition != position;
+            ClearGhostAnnotation();
             _ghostText = text;
             _ghostPosition = position;
+            ApplyGhostAnnotation();
             if (!changed)
                 return;
 
@@ -481,6 +486,50 @@ namespace Clever.Model.Bplus
             var handler = StateChanged;
             if (handler != null)
                 handler(this, EventArgs.Empty);
+        }
+
+        private void ConfigureGhostReservationStyle()
+        {
+            // The annotation is only a virtual spacer. The ghost itself is drawn in
+            // DrawGhostText, while this hidden style reserves the required display rows.
+            _textArea.Styles[GhostAnnotationStyle].Visible = false;
+            _textArea.AnnotationVisible = Annotation.Standard;
+        }
+
+        private void ApplyGhostAnnotation()
+        {
+            if (!HasSuggestion || _ghostPosition < 0 || _ghostPosition > _textArea.TextLength)
+                return;
+
+            var lines = _ghostText.Split('\n');
+            if (lines.Length < 2)
+                return;
+
+            var lineNumber = _textArea.LineFromPosition(_ghostPosition);
+            if (lineNumber < 0 || lineNumber >= _textArea.Lines.Count)
+                return;
+
+            ConfigureGhostReservationStyle();
+            var line = _textArea.Lines[lineNumber];
+            var reservedRows = new string[lines.Length - 1];
+            for (var index = 0; index < reservedRows.Length; index++)
+                reservedRows[index] = " ";
+            line.AnnotationText = string.Join("\n", reservedRows);
+            line.AnnotationStyle = GhostAnnotationStyle;
+            _ghostAnnotationLine = lineNumber;
+        }
+
+        private void ClearGhostAnnotation()
+        {
+            if (_ghostAnnotationLine < 0 || _ghostAnnotationLine >= _textArea.Lines.Count)
+            {
+                _ghostAnnotationLine = -1;
+                return;
+            }
+
+            var line = _textArea.Lines[_ghostAnnotationLine];
+            line.AnnotationText = "";
+            _ghostAnnotationLine = -1;
         }
 
         private void InvalidatePendingRequest(bool stopDebounce)

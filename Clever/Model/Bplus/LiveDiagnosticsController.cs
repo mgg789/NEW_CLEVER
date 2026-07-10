@@ -27,7 +27,7 @@ namespace Clever.Model.Bplus
 
         private const int DebounceMilliseconds = 600;
         private static readonly Color ErrorUnderlineColor = Color.FromArgb(255, 0, 0);
-        private static readonly Color WarningUnderlineColor = Color.FromArgb(255, 192, 0);
+        private static readonly Color WarningUnderlineColor = Color.FromArgb(230, 150, 0);
         // The interpreter analyzer is CPU-heavy for large workspaces. A shared gate
         // prevents several editor tabs from analysing simultaneously while typing.
         private static readonly SemaphoreSlim AnalysisGate = new SemaphoreSlim(1, 1);
@@ -301,11 +301,11 @@ namespace Clever.Model.Bplus
             if (_textArea == null)
                 return;
 
-            // Native Scintilla indicators are paint-cycle aware and stay stable while
-            // typing, scrolling and selecting text. Avoid manual GDI overlay drawing.
-            _textArea.Indicators[ErrorIndicator].Style = IndicatorStyle.Squiggle;
+            // A native two-pixel underline remains stable while typing, scrolling and
+            // selecting text, and is markedly more legible than Scintilla's thin wave.
+            _textArea.Indicators[ErrorIndicator].Style = IndicatorStyle.CompositionThick;
             _textArea.Indicators[ErrorIndicator].ForeColor = ErrorUnderlineColor;
-            _textArea.Indicators[WarningIndicator].Style = IndicatorStyle.Squiggle;
+            _textArea.Indicators[WarningIndicator].Style = IndicatorStyle.CompositionThick;
             _textArea.Indicators[WarningIndicator].ForeColor = WarningUnderlineColor;
         }
 
