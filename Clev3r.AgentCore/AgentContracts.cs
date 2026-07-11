@@ -29,6 +29,8 @@ namespace Clev3r.AgentCore
     {
         ReadOnly,
         ProjectWrite,
+        GitLocalWrite,
+        GitRemoteWrite,
         Ev3Write,
         Ev3Run,
         Ev3Destructive
@@ -100,6 +102,63 @@ namespace Clev3r.AgentCore
     {
         IList<AgentToolDefinition> Definitions { get; }
         Task<AgentToolResult> ExecuteAsync(string qualifiedName, string argumentsJson, CancellationToken cancellationToken);
+    }
+
+    public sealed class GitWorkspaceStatus
+    {
+        public GitWorkspaceStatus()
+        {
+            Branches = new List<string>();
+            ChangedFiles = new List<string>();
+        }
+
+        public string RepositoryRoot { get; set; }
+        public string CurrentBranch { get; set; }
+        public string HeadHash { get; set; }
+        public string Remote { get; set; }
+        public int OutgoingCommitCount { get; set; }
+        public int IncomingCommitCount { get; set; }
+        public IList<string> Branches { get; set; }
+        public IList<string> ChangedFiles { get; set; }
+    }
+
+    public sealed class GitWorkspaceAction
+    {
+        public GitWorkspaceAction()
+        {
+            Conflicts = new List<string>();
+        }
+
+        public string Message { get; set; }
+        public string CurrentBranch { get; set; }
+        public bool MergePrepared { get; set; }
+        public bool HasConflicts { get; set; }
+        public IList<string> Conflicts { get; set; }
+    }
+
+    public interface IGitWorkspaceService
+    {
+        Task<OperationResult<GitWorkspaceStatus>> GetStatusAsync(CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> CommitAsync(string message, CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> PushAsync(CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> PullAsync(CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> CreateBranchAsync(string name, CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> SwitchBranchAsync(string name, CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> MergeAsync(string sourceBranch, string targetBranch, CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> ResolveMergeAsync(string take, CancellationToken cancellationToken);
+        Task<OperationResult<GitWorkspaceAction>> AbortMergeAsync(CancellationToken cancellationToken);
+    }
+
+    public sealed class EditorNavigationResult
+    {
+        public string RelativePath { get; set; }
+        public int? Line { get; set; }
+        public bool AlreadyOpen { get; set; }
+    }
+
+    public interface IEditorNavigationService
+    {
+        Task<OperationResult<EditorNavigationResult>> OpenAsync(string path, int? line, CancellationToken cancellationToken);
     }
 
     public sealed class AgentToolRegistry : IAgentToolRegistry

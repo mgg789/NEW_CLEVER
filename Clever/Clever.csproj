@@ -216,6 +216,8 @@
     <Compile Include="Model\Agent\Ev3SessionService.cs" />
     <Compile Include="Model\Agent\WpfAgentApprovalService.cs" />
     <Compile Include="Model\Agent\WpfCodexUserInputService.cs" />
+    <Compile Include="Model\Agent\EditorNavigationService.cs" />
+    <Compile Include="Model\Agent\GitWorkspaceService.cs" />
     <Compile Include="Model\Agent\Clev3rToolRegistryFactory.cs" />
     <Compile Include="Model\Agent\DocumentationSearchService.cs" />
     <Compile Include="Model\Agent\WorkspaceContextService.cs" />

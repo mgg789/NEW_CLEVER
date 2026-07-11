@@ -22,7 +22,9 @@ namespace Clever.Model.Agent
             IBpBuildService build,
             IEv3SessionService ev3,
             IDocumentationSearchService documentation,
-            IAgentApprovalService approvals)
+            IAgentApprovalService approvals,
+            IGitWorkspaceService git,
+            IEditorNavigationService editorNavigation)
         {
             var registry = new AgentToolRegistry();
             Register(registry, "workspace_context", "Read the active project tree, open documents, diagnostics, robot profile and EV3 status.", ObjectSchema(""), AgentToolRisk.ReadOnly,
@@ -74,6 +76,46 @@ namespace Clever.Model.Agent
             Register(registry, "docs_read", "Read one documentation topic or verified example returned by docs_search.",
                 ObjectSchema("\"id\":{\"type\":\"string\"}", "id"), AgentToolRisk.ReadOnly,
                 async (args, ct) => ToToolResult(await documentation.ReadAsync(GetString(args, "id"), ct).ConfigureAwait(false)));
+
+            Register(registry, "git_status", "Read Git status for the active project through the CLEV3R Git flow. Never use terminal or shell commands for Git.",
+                ObjectSchema(""), AgentToolRisk.ReadOnly,
+                async (args, ct) => ToToolResult(await git.GetStatusAsync(ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_commit", "Save project editors and commit all active-project Git changes through the CLEV3R Git flow.",
+                ObjectSchema("\"message\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}", "message"), AgentToolRisk.GitLocalWrite,
+                args => "Commit active project changes with message: " + GetString(args, "message"),
+                async (args, ct) => ToToolResult(await git.CommitAsync(GetString(args, "message"), ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_push", "Push all local branches through the existing conservative CLEV3R Git flow.",
+                ObjectSchema(""), AgentToolRisk.GitRemoteWrite,
+                args => "Push all local branches to the configured remote",
+                async (args, ct) => ToToolResult(await git.PushAsync(ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_pull", "Pull remote branches using CLEV3R fast-forward-only Git flow.",
+                ObjectSchema(""), AgentToolRisk.GitRemoteWrite,
+                args => "Pull remote changes for the active project",
+                async (args, ct) => ToToolResult(await git.PullAsync(ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_create_branch", "Create and switch to a new Git branch through the CLEV3R Git flow.",
+                ObjectSchema("\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":200}", "name"), AgentToolRisk.GitLocalWrite,
+                args => "Create and switch to Git branch '" + GetString(args, "name") + "'",
+                async (args, ct) => ToToolResult(await git.CreateBranchAsync(GetString(args, "name"), ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_switch_branch", "Switch Git branch through the CLEV3R Git flow; it requires saved files and a clean working tree.",
+                ObjectSchema("\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":200}", "name"), AgentToolRisk.GitLocalWrite,
+                args => "Switch to Git branch '" + GetString(args, "name") + "'",
+                async (args, ct) => ToToolResult(await git.SwitchBranchAsync(GetString(args, "name"), ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_merge", "Prepare a no-commit merge through the CLEV3R Git flow. Review the result and use git_commit separately.",
+                ObjectSchema("\"sourceBranch\":{\"type\":\"string\"},\"targetBranch\":{\"type\":\"string\"}", "sourceBranch", "targetBranch"), AgentToolRisk.GitLocalWrite,
+                args => "Merge Git branch '" + GetString(args, "sourceBranch") + "' into '" + GetString(args, "targetBranch") + "' without committing",
+                async (args, ct) => ToToolResult(await git.MergeAsync(GetString(args, "sourceBranch"), GetString(args, "targetBranch"), ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_resolve_merge", "Resolve all Git merge conflicts by taking either source or target versions; review and commit separately.",
+                ObjectSchema("\"take\":{\"type\":\"string\",\"enum\":[\"source\",\"target\"]}", "take"), AgentToolRisk.GitLocalWrite,
+                args => "Resolve merge conflicts by taking the " + GetString(args, "take") + " side",
+                async (args, ct) => ToToolResult(await git.ResolveMergeAsync(GetString(args, "take"), ct).ConfigureAwait(false)));
+            RegisterApproved(registry, approvals, "git_abort_merge", "Abort the active Git merge through the CLEV3R Git flow.",
+                ObjectSchema(""), AgentToolRisk.GitLocalWrite,
+                args => "Abort the active Git merge",
+                async (args, ct) => ToToolResult(await git.AbortMergeAsync(ct).ConfigureAwait(false)));
+
+            Register(registry, "editor_open_file", "Open a file from the active project in the CLEV3R editor, activate it if already open, and optionally reveal a 1-based line.",
+                ObjectSchema("\"path\":{\"type\":\"string\"},\"line\":{\"type\":\"integer\",\"minimum\":1}", "path"), AgentToolRisk.ReadOnly,
+                async (args, ct) => ToToolResult(await editorNavigation.OpenAsync(GetString(args, "path"), GetOptionalInt(args, "line"), ct).ConfigureAwait(false)));
 
             Register(registry, "ev3_connect", "Connect to an EV3 using the IDE connection chooser when required.", ObjectSchema(""), AgentToolRisk.ReadOnly,
                 async (args, ct) => ToToolResult(await ev3.ConnectAsync(ct).ConfigureAwait(false)));
@@ -155,7 +197,7 @@ namespace Clever.Model.Agent
             registry.Register(new DelegateToolHandler(definition, async (args, ct) =>
             {
                 var approved = await approvals.RequestApprovalAsync(definition, summarize(args), ct).ConfigureAwait(false);
-                return approved ? await execute(args, ct).ConfigureAwait(false) : AgentToolResult.Fail("approval_declined", "The EV3 action was declined by the user.");
+                return approved ? await execute(args, ct).ConfigureAwait(false) : AgentToolResult.Fail("approval_declined", "The requested CLEV3R action was declined by the user.");
             }));
         }
 
@@ -197,6 +239,16 @@ namespace Clever.Model.Agent
                 JsonElement value;
                 int parsed;
                 return document.RootElement.TryGetProperty(property, out value) && value.TryGetInt32(out parsed) ? parsed : fallback;
+            }
+        }
+
+        private static int? GetOptionalInt(string json, string property)
+        {
+            using (var document = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json))
+            {
+                JsonElement value;
+                int parsed;
+                return document.RootElement.TryGetProperty(property, out value) && value.TryGetInt32(out parsed) ? (int?)parsed : null;
             }
         }
 

@@ -70,7 +70,6 @@ namespace Clever.ViewModel.PanelsVM
         private readonly DispatcherTimer _projectRefreshTimer;
         private FileSystemWatcher _projectWatcher;
         private string _watchedProjectRoot;
-        private readonly object _gitOperationLock = new object();
         private bool _isGitOperationRunning;
         private bool _deferredRepositoryRefresh;
         private bool _deferredWorkingTreeRefresh;
@@ -147,6 +146,7 @@ namespace Clever.ViewModel.PanelsVM
             AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
             SavedWorkspaceFilesChanged += GitPanelVM_SavedWorkspaceFilesChanged;
             ProjectContextChanged += GitPanelVM_ProjectContextChanged;
+            RepositoryChanged += GitPanelVM_RepositoryChanged;
             _savedFilesRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
             _savedFilesRefreshTimer.Tick += SavedFilesRefreshTimer_Tick;
             _projectRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
@@ -157,6 +157,7 @@ namespace Clever.ViewModel.PanelsVM
 
         internal static event EventHandler SavedWorkspaceFilesChanged;
         internal static event EventHandler ProjectContextChanged;
+        internal static event EventHandler RepositoryChanged;
 
         internal static void NotifySavedWorkspaceFilesChanged()
         {
@@ -168,6 +169,13 @@ namespace Clever.ViewModel.PanelsVM
         internal static void NotifyProjectContextChanged()
         {
             var handler = ProjectContextChanged;
+            if (handler != null)
+                handler(null, EventArgs.Empty);
+        }
+
+        internal static void NotifyRepositoryChanged()
+        {
+            var handler = RepositoryChanged;
             if (handler != null)
                 handler(null, EventArgs.Empty);
         }
@@ -1014,7 +1022,7 @@ namespace Clever.ViewModel.PanelsVM
 
             if (_state == GitUiState.RepoMissing)
             {
-                var result = _git.InitRepository(_workingDirectory);
+                var result = RunGitService(() => _git.InitRepository(_workingDirectory));
                 RefreshRepositoryState();
                 StatusMessage = result.Success
                     ? GetText("GitStatusInitRepo", "Repository initialized.")
@@ -1298,7 +1306,7 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             }
 
-            var result = _git.SoftMerge(_repositoryRoot, MergeSourceBranch, MergeTargetBranch);
+            var result = RunGitService(() => _git.SoftMerge(_repositoryRoot, MergeSourceBranch, MergeTargetBranch));
             if (result.Success)
             {
                 IsMergePopupOpen = false;
@@ -1334,7 +1342,7 @@ namespace Clever.ViewModel.PanelsVM
             if (_state != GitUiState.Ready)
                 return;
 
-            var result = _git.ResolveMergeConflicts(_repositoryRoot, takeSourceBranch);
+            var result = RunGitService(() => _git.ResolveMergeConflicts(_repositoryRoot, takeSourceBranch));
             IsMergePopupOpen = false;
             IsMergeConflictPopupOpen = false;
             if (result.Success)
@@ -1354,7 +1362,7 @@ namespace Clever.ViewModel.PanelsVM
 
         private void CancelConflictMerge()
         {
-            var result = _git.AbortMerge(_repositoryRoot);
+            var result = RunGitService(() => _git.AbortMerge(_repositoryRoot));
             IsMergeConflictPopupOpen = false;
             MergeConflictMessage = "";
             MainWindowVM.ReloadOpenProjectFilesFromDisk(_repositoryRoot);
@@ -1484,10 +1492,7 @@ namespace Clever.ViewModel.PanelsVM
 
         private T RunGitService<T>(Func<T> action)
         {
-            lock (_gitOperationLock)
-            {
-                return action();
-            }
+            return GitOperationCoordinator.Run(action);
         }
 
         private GitActionRefreshResult RunActionWithRepositoryRefresh(Func<GitActionResult> action, string currentProjectRoot)
@@ -2086,6 +2091,23 @@ namespace Clever.ViewModel.PanelsVM
         private void GitPanelVM_ProjectContextChanged(object sender, EventArgs e)
         {
             CancelCommitMessageGeneration();
+            RefreshRepositoryState();
+        }
+
+        private void GitPanelVM_RepositoryChanged(object sender, EventArgs e)
+        {
+            var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.BeginInvoke(new Action(() => GitPanelVM_RepositoryChanged(sender, e)));
+                return;
+            }
+            CancelCommitMessageGeneration();
+            if (_isGitOperationRunning)
+            {
+                _deferredRepositoryRefresh = true;
+                return;
+            }
             RefreshRepositoryState();
         }
 

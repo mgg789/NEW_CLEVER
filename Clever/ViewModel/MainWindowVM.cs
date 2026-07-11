@@ -20,6 +20,9 @@ using System.Windows.Media;
 using Clever.ViewModel.BaseVM;
 using Clever.ViewModel.PanelsVM;
 using Clever.Model.Intellisense;
+using Clever.Model.Agent;
+using Clev3r.AgentCore;
+using System.Threading.Tasks;
 
 namespace Clever.ViewModel
 {
@@ -74,6 +77,8 @@ namespace Clever.ViewModel
         private static MainWindowVM _instance;
         private const string BaseWindowTitle = "CLEVƎR v1.8.0-B";
         private static string _currentProjectRoot = "";
+        private ICodexSessionBackend _codexBackend;
+        private bool _codexChatConnected;
 
         Elements elements;
         BPInterop interop;
@@ -145,6 +150,9 @@ namespace Clever.ViewModel
             AboutCommand = new RelayCommand(param => About(), true);
             AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
             IdeProblemStore.Changed += IdeProblemStore_Changed;
+            _codexBackend = Clev3rAgentServices.Current.SessionBackend;
+            _codexBackend.StateChanged += CodexBackend_StateChanged;
+            RefreshCodexChatAvailability();
 
             ShowNumber = Configurations.Get.ShowNumber;
             EditShowNumber();
@@ -1307,7 +1315,7 @@ namespace Clever.ViewModel
 
         private void OpenAiChatSidebar()
         {
-            if (!AiAppSettingsStore.Settings.AiEnabled)
+            if (AiChatVisibility != Visibility.Visible)
                 return;
 
             try
@@ -1332,10 +1340,49 @@ namespace Clever.ViewModel
         private void AiAppSettingsStore_SettingsChanged(object sender, EventArgs e)
         {
             OnPropertyChanged("AiFunctionsVisibility");
+            OnPropertyChanged("AiChatVisibility");
             OnPropertyChanged("AiCodeCompletionsEnabled");
             OnPropertyChanged("CanFixBugs");
             OnPropertyChanged("FixBugsToolTip");
             if (!AiAppSettingsStore.Settings.AiEnabled)
+                HelpPanel.EnsureAiChatNotSelected();
+        }
+
+        private void CodexBackend_StateChanged(object sender, EventArgs e)
+        {
+            var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.BeginInvoke(new Action(() => CodexBackend_StateChanged(sender, e)));
+                return;
+            }
+            RefreshCodexChatAvailability();
+        }
+
+        private async void RefreshCodexChatAvailability()
+        {
+            var backend = _codexBackend;
+            if (backend == null)
+            {
+                SetCodexChatConnected(false);
+                return;
+            }
+
+            BackendResult<CodexStatusSnapshot> status;
+            try { status = await backend.GetStatusAsync(null, System.Threading.CancellationToken.None); }
+            catch { status = null; }
+            var connected = status != null && status.Success && status.Data != null &&
+                status.Data.ConnectionState == CodexConnectionState.Connected;
+            SetCodexChatConnected(connected);
+        }
+
+        private void SetCodexChatConnected(bool value)
+        {
+            if (_codexChatConnected == value)
+                return;
+            _codexChatConnected = value;
+            OnPropertyChanged("AiChatVisibility");
+            if (AiChatVisibility != Visibility.Visible)
                 HelpPanel.EnsureAiChatNotSelected();
         }
 
@@ -2668,6 +2715,100 @@ namespace Clever.ViewModel
             }
         }
 
+        internal static bool TryOpenProjectFileAtLine(string fullPath, int? line, out bool alreadyOpen, out int? selectedLine, out string error)
+        {
+            alreadyOpen = false;
+            selectedLine = null;
+            error = "";
+            if (Project == null || string.IsNullOrWhiteSpace(fullPath))
+            {
+                error = "The active project is not available.";
+                return false;
+            }
+
+            FileInfo file;
+            try
+            {
+                file = new FileInfo(Path.GetFullPath(fullPath));
+                if (!file.Exists)
+                {
+                    error = "The requested project file was not found.";
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+
+            if (!IsSupportedEditorExtension(file.Extension))
+            {
+                error = "The requested file type cannot be opened in the CLEV3R editor.";
+                return false;
+            }
+
+            var data = Project.GetDictionary().Values.FirstOrDefault(item =>
+                item != null && !item.IsPreview && !string.IsNullOrWhiteSpace(item.FullPath) &&
+                string.Equals(item.FullPath, file.FullName, StringComparison.OrdinalIgnoreCase));
+            if (data != null)
+            {
+                alreadyOpen = true;
+                ActivateProgram(data.Item);
+            }
+            else
+            {
+                if (Project.ContainsKey(file.Name))
+                {
+                    error = "A different open file already uses the name '" + file.Name + "'.";
+                    return false;
+                }
+
+                try
+                {
+                    var text = File.ReadAllText(file.FullName);
+                    var item = new NewTabItem().Create(Project.GetDictionary(), text, file.Name);
+                    data = new ProgramData
+                    {
+                        AddToObjects = IsBasicPlusExtension(file.Extension),
+                        OldName = file.Name,
+                        ClosedName = file.Name,
+                        Name = file.Name,
+                        Path = file.DirectoryName,
+                        FullPath = file.FullName,
+                        Item = item,
+                        TextChange = false
+                    };
+                    ApplyProjectMembership(data);
+                    if (!Project.Add(data.Name, data))
+                    {
+                        error = "The requested file could not be added to the editor.";
+                        return false;
+                    }
+                    currentPath = file.FullName;
+                    InsertProgramItem(data.Item);
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                    return false;
+                }
+            }
+
+            if (line.HasValue)
+            {
+                var lineCount = data.Editor == null ? 0 : data.Editor.TextArea.Lines.Count;
+                if (line.Value < 1 || line.Value > lineCount)
+                {
+                    error = "Line " + line.Value + " is outside the file range (1-" + lineCount + ").";
+                    return false;
+                }
+                data.Editor.SelectLine(line.Value - 1);
+                selectedLine = line.Value;
+            }
+            return true;
+        }
+
         private static string GetLocalizedOrDefault(string key, string fallback)
         {
             string value;
@@ -2687,6 +2828,11 @@ namespace Clever.ViewModel
         public Visibility AiFunctionsVisibility
         {
             get { return AiAppSettingsStore.Settings.AiEnabled ? Visibility.Visible : Visibility.Collapsed; }
+        }
+
+        public Visibility AiChatVisibility
+        {
+            get { return AiAppSettingsStore.Settings.AiEnabled && _codexChatConnected ? Visibility.Visible : Visibility.Collapsed; }
         }
 
         public bool AiCodeCompletionsEnabled

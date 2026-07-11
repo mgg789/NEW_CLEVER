@@ -22,6 +22,22 @@ namespace Clever.View.Controls
             _tiView = TiView;
             _tiBrick = TiBrick;
             _tiAiChat = TiAiChat;
+            TiAiChat.IsVisibleChanged += TiAiChat_IsVisibleChanged;
+            UpdateAiChatColumnLayout();
+        }
+
+        private void TiAiChat_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            UpdateAiChatColumnLayout();
+        }
+
+        private void UpdateAiChatColumnLayout()
+        {
+            if (TabGrid.ColumnDefinitions.Count < 11)
+                return;
+            var visible = TiAiChat.Visibility == Visibility.Visible;
+            TabGrid.ColumnDefinitions[9].Width = visible ? new GridLength(2, GridUnitType.Pixel) : new GridLength(0, GridUnitType.Pixel);
+            TabGrid.ColumnDefinitions[10].Width = visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0, GridUnitType.Pixel);
         }
 
         private void Grid_SizeChanged(object sender, SizeChangedEventArgs e)

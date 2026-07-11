@@ -31,6 +31,8 @@ namespace Clever.Model.Agent
         internal IEv3SessionService Ev3 { get; private set; }
         internal IDocumentationSearchService Documentation { get; private set; }
         internal IAgentApprovalService Approvals { get; private set; }
+        internal IGitWorkspaceService GitWorkspace { get; private set; }
+        internal IEditorNavigationService EditorNavigation { get; private set; }
         private CodexRuntimeManager _runtimeManager;
         private CodexMcpBridgeHost _bridgeHost;
         private readonly WpfCodexUserInputService _userInput = new WpfCodexUserInputService();
@@ -48,7 +50,9 @@ namespace Clever.Model.Agent
             Ev3 = ev3 ?? throw new ArgumentNullException("ev3");
             Documentation = documentation ?? throw new ArgumentNullException("documentation");
             Approvals = approvals ?? throw new ArgumentNullException("approvals");
-            ToolRegistry = Clev3rToolRegistryFactory.Create(WorkspaceContext, Build, Ev3, Documentation, Approvals);
+            GitWorkspace = new GitWorkspaceService(WorkspaceContext);
+            EditorNavigation = new EditorNavigationService(WorkspaceContext);
+            ToolRegistry = Clev3rToolRegistryFactory.Create(WorkspaceContext, Build, Ev3, Documentation, Approvals, GitWorkspace, EditorNavigation);
         }
 
         internal void InitializeDefaultFoundation()

@@ -17,8 +17,8 @@ namespace Clever.Model.Agent
             return dispatcher.InvokeAsync(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var title = "Codex · EV3";
-                var message = "Codex requests permission to perform this EV3 action:\n\n" + (actionSummary ?? definition.Name) + "\n\nContinue?";
+                var title = "Codex · CLEV3R";
+                var message = "Codex requests permission to perform this action:\n\n" + (actionSummary ?? definition.Name) + "\n\nContinue?";
                 return MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
             }).Task;
         }

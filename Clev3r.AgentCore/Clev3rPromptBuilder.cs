@@ -25,6 +25,7 @@ namespace Clev3r.AgentCore
             builder.AppendLine("The IDE saves all project editors before a turn, so files on disk are authoritative for edits.");
             builder.AppendLine("Use CLEV3R documentation tools before inventing Basic Plus syntax, objects, methods, directives, or EV3 behavior.");
             builder.AppendLine("CLEV3R tools can be exposed either as the clev3r dynamic namespace or through the clev3r MCP server after a cold resume; both represent the same host operations.");
+            builder.AppendLine("For Git, use the clev3r.git_* tools instead of terminal or shell commands. They follow the IDE Git flow, preserve clean-tree safeguards, and request host approval for mutations. Use clev3r.editor_open_file to open, activate, and reveal project files for the user.");
             builder.AppendLine("After source changes, use clev3r.compile_program and resolve its structured diagnostics.");
             builder.AppendLine("Before EV3 actions, refresh clev3r.robot_context and clev3r.ev3_status. Never claim deploy or run success without a successful tool result.");
             builder.AppendLine("EV3 write, delete, deploy, and run operations require host approval. clev3r.ev3_stop_program is always allowed.");

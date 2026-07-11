@@ -9,6 +9,19 @@ using System.Text.RegularExpressions;
 
 namespace Clever.Model.Utils
 {
+    internal static class GitOperationCoordinator
+    {
+        private static readonly object Gate = new object();
+
+        internal static T Run<T>(Func<T> action)
+        {
+            lock (Gate)
+            {
+                return action();
+            }
+        }
+    }
+
     internal class GitActionResult
     {
         public bool Success { get; set; }
