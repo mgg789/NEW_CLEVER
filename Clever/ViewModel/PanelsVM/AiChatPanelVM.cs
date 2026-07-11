@@ -1499,6 +1499,7 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             OnUi(() =>
             {
+                var persistedModel = (AiAppSettingsStore.Settings.CodexModel ?? "").Trim();
                 _suppressSettingsUpdate = true;
                 try
                 {
@@ -1509,7 +1510,16 @@ namespace Clever.ViewModel.PanelsVM
                         _modelInfos.Add(model);
                         Models.Add(model.Id);
                     }
-                    if (!Models.Contains(SelectedModel))
+                    var preferredModel = Models.FirstOrDefault(item => string.Equals(item, persistedModel, StringComparison.OrdinalIgnoreCase));
+                    if (!string.IsNullOrWhiteSpace(preferredModel))
+                        SelectedModel = preferredModel;
+                    else if (!string.IsNullOrWhiteSpace(persistedModel))
+                    {
+                        _modelInfos.Insert(0, new CodexModelInfo { Id = persistedModel, DisplayName = persistedModel });
+                        Models.Insert(0, persistedModel);
+                        SelectedModel = persistedModel;
+                    }
+                    else if (!Models.Any(item => string.Equals(item, SelectedModel, StringComparison.OrdinalIgnoreCase)))
                         SelectedModel = result.Data.FirstOrDefault(item => item.IsDefault)?.Id ?? Models.FirstOrDefault();
                     RefreshModelDependentOptions();
                 }
@@ -1540,6 +1550,12 @@ namespace Clever.ViewModel.PanelsVM
                         !SpeedTiers.Any(existing => !string.IsNullOrWhiteSpace(existing.Id) &&
                             string.Equals(existing.Id, item.Id, StringComparison.OrdinalIgnoreCase))))
                         SpeedTiers.Add(new AiServiceTierChoiceVM(value.Id, string.IsNullOrWhiteSpace(value.Name) ? (value.IsDefault ? Localize("AiSpeedDefault", "Default") : value.Id) : value.Name, value.Description));
+                }
+                else
+                {
+                    if (!string.IsNullOrWhiteSpace(SelectedReasoning))
+                        ReasoningModes.Add(SelectedReasoning);
+                    SpeedTiers.Add(new AiServiceTierChoiceVM(null, Localize("AiSpeedDefault", "Default"), ""));
                 }
                 if (!ReasoningModes.Contains(SelectedReasoning)) SelectedReasoning = ReasoningModes.FirstOrDefault();
                 SelectedSpeed = SpeedTiers.FirstOrDefault(item => string.Equals(item.Id, selectedTierId, StringComparison.OrdinalIgnoreCase))
