@@ -7,6 +7,55 @@ using System.Text;
 
 namespace Clever.Model.Utils
 {
+    internal sealed class CsvTableChangeTracker : IDisposable
+    {
+        private DataTable _table;
+
+        internal CsvTableChangeTracker(DataTable table)
+        {
+            _table = table ?? throw new ArgumentNullException(nameof(table));
+            _table.ColumnChanged += Table_ColumnChanged;
+            _table.RowChanged += Table_RowChanged;
+            _table.RowDeleted += Table_RowDeleted;
+        }
+
+        internal event EventHandler Changed;
+
+        public void Dispose()
+        {
+            var table = _table;
+            if (table == null)
+                return;
+
+            _table = null;
+            table.ColumnChanged -= Table_ColumnChanged;
+            table.RowChanged -= Table_RowChanged;
+            table.RowDeleted -= Table_RowDeleted;
+        }
+
+        private void Table_ColumnChanged(object sender, DataColumnChangeEventArgs e)
+        {
+            OnChanged();
+        }
+
+        private void Table_RowChanged(object sender, DataRowChangeEventArgs e)
+        {
+            OnChanged();
+        }
+
+        private void Table_RowDeleted(object sender, DataRowChangeEventArgs e)
+        {
+            OnChanged();
+        }
+
+        private void OnChanged()
+        {
+            var handler = Changed;
+            if (handler != null)
+                handler(this, EventArgs.Empty);
+        }
+    }
+
     internal class CsvTableDocument
     {
         private CsvTableDocument()

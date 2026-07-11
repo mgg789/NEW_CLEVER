@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -151,6 +152,55 @@ namespace Clev3r.AgentCore
         public string CreditBalance { get; set; }
     }
 
+    public sealed class CodexTokenUsageSnapshot
+    {
+        public long TotalTokens { get; set; }
+        public long ModelContextWindow { get; set; }
+
+        public int UsedPercent
+        {
+            get
+            {
+                if (ModelContextWindow <= 0)
+                    return 0;
+                return (int)Math.Max(0, Math.Min(100, TotalTokens * 100 / ModelContextWindow));
+            }
+        }
+
+        public static CodexTokenUsageSnapshot ParseNotification(JsonElement parameters)
+        {
+            JsonElement usage;
+            if (parameters.ValueKind == JsonValueKind.Object && parameters.TryGetProperty("tokenUsage", out usage))
+                parameters = usage;
+            long context;
+            if (!TryGetInt64(parameters, "modelContextWindow", out context) || context <= 0)
+                return null;
+            JsonElement total;
+            // `last` is the current request/context footprint. `total` is lifetime
+            // thread usage and must not drive the context-window indicator.
+            if (!parameters.TryGetProperty("last", out total) && !parameters.TryGetProperty("totalTokenUsage", out total))
+                return null;
+            long used;
+            if (!TryGetInt64(total, "totalTokens", out used))
+                return null;
+            return new CodexTokenUsageSnapshot
+            {
+                TotalTokens = Math.Max(0, used),
+                ModelContextWindow = context
+            };
+        }
+
+        private static bool TryGetInt64(JsonElement element, string property, out long value)
+        {
+            value = 0;
+            JsonElement child;
+            if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(property, out child))
+                return false;
+            if (child.ValueKind == JsonValueKind.Number) return child.TryGetInt64(out value);
+            return child.ValueKind == JsonValueKind.String && long.TryParse(child.GetString(), out value);
+        }
+    }
+
     public sealed class CodexThreadSummary
     {
         public string Id { get; set; }
@@ -192,6 +242,7 @@ namespace Clev3r.AgentCore
         public string Text { get; set; }
         public string Details { get; set; }
         public string RawJson { get; set; }
+        public long? TurnDurationMs { get; set; }
     }
 
     public sealed class CodexThreadDetails
@@ -263,6 +314,7 @@ namespace Clev3r.AgentCore
         public CodexGoal Goal { get; set; }
         public CodexAccountSnapshot Auth { get; set; }
         public CodexRateLimitSnapshot RateLimits { get; set; }
+        public CodexTokenUsageSnapshot TokenUsage { get; set; }
         public CodexThreadState ThreadState { get; set; }
         public int? ContextUsedPercent { get; set; }
         public int? PrimaryRateLimitUsedPercent { get; set; }
@@ -372,6 +424,8 @@ namespace Clev3r.AgentCore
         public CodexThreadItem Item { get; set; }
         public CodexAccountSnapshot Account { get; set; }
         public CodexRateLimitSnapshot RateLimits { get; set; }
+        public CodexTokenUsageSnapshot TokenUsage { get; set; }
+        public long? TurnDurationMs { get; set; }
         public int? ContextUsedPercent { get; set; }
         public string RawJson { get; set; }
     }

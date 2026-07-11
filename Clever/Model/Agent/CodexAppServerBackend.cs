@@ -26,8 +26,8 @@ namespace Clever.Model.Agent
             new Dictionary<string, CodexThreadSettings>(StringComparer.Ordinal);
         private readonly Dictionary<string, CodexGoal> _threadGoals =
             new Dictionary<string, CodexGoal>(StringComparer.Ordinal);
-        private readonly Dictionary<string, int> _threadContextUsed =
-            new Dictionary<string, int>(StringComparer.Ordinal);
+        private readonly Dictionary<string, CodexTokenUsageSnapshot> _threadTokenUsage =
+            new Dictionary<string, CodexTokenUsageSnapshot>(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _threadCwds =
             new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly Dictionary<string, CodexThreadState> _threadStates =
@@ -922,8 +922,8 @@ namespace Clever.Model.Agent
                 RaiseEvent(eventArgs);
 
             if (eventArgs != null && eventArgs.Kind == CodexBackendEventKind.TokenUsageUpdated &&
-                !string.IsNullOrWhiteSpace(eventArgs.ThreadId) && eventArgs.ContextUsedPercent.HasValue)
-                lock (_stateSync) _threadContextUsed[eventArgs.ThreadId] = eventArgs.ContextUsedPercent.Value;
+                !string.IsNullOrWhiteSpace(eventArgs.ThreadId) && eventArgs.TokenUsage != null)
+                lock (_stateSync) _threadTokenUsage[eventArgs.ThreadId] = eventArgs.TokenUsage;
 
             if (string.Equals(method, "turn/started", StringComparison.Ordinal))
             {
@@ -945,20 +945,25 @@ namespace Clever.Model.Agent
 
             if (string.Equals(method, "account/updated", StringComparison.Ordinal))
             {
-                var account = new CodexAccountSnapshot
+                lock (_stateSync)
                 {
-                    RequiresOpenAiAuth = true,
-                    LoggedIn = !string.IsNullOrWhiteSpace(GetString(parameters, "authMode")),
-                    AuthMode = GetString(parameters, "authMode"),
-                    PlanType = GetString(parameters, "planType")
-                };
-                lock (_stateSync) _account = account;
+                    var authMode = GetString(parameters, "authMode");
+                    var planType = GetString(parameters, "planType");
+                    _account = new CodexAccountSnapshot
+                    {
+                        RequiresOpenAiAuth = _account == null || _account.RequiresOpenAiAuth,
+                        LoggedIn = !string.IsNullOrWhiteSpace(authMode),
+                        AuthMode = authMode,
+                        Email = _account == null ? null : _account.Email,
+                        PlanType = string.IsNullOrWhiteSpace(planType) && _account != null ? _account.PlanType : planType
+                    };
+                }
                 RaiseStateChanged();
             }
             else if (string.Equals(method, "account/rateLimits/updated", StringComparison.Ordinal))
             {
                 var limits = ParseRateLimits(parameters);
-                lock (_stateSync) _rateLimits = limits;
+                lock (_stateSync) _rateLimits = MergeRateLimits(_rateLimits, limits);
                 RaiseStateChanged();
             }
             else if (string.Equals(method, "thread/goal/updated", StringComparison.Ordinal))
@@ -1012,7 +1017,10 @@ namespace Clever.Model.Agent
                 if (args.Thread != null) args.ThreadId = args.Thread.Id;
             }
             if (parameters.TryGetProperty("turn", out turn) && turn.ValueKind == JsonValueKind.Object)
+            {
                 args.TurnId = GetString(turn, "id") ?? args.TurnId;
+                args.TurnDurationMs = GetNullableInt64(turn, "durationMs");
+            }
             if (parameters.TryGetProperty("item", out item) && item.ValueKind == JsonValueKind.Object)
             {
                 args.Item = ParseItem(item, args.TurnId);
@@ -1037,7 +1045,8 @@ namespace Clever.Model.Agent
                     break;
                 case "thread/tokenUsage/updated":
                     args.Kind = CodexBackendEventKind.TokenUsageUpdated;
-                    args.ContextUsedPercent = ParseContextUsedPercent(parameters);
+                    args.TokenUsage = CodexTokenUsageSnapshot.ParseNotification(parameters);
+                    args.ContextUsedPercent = args.TokenUsage == null ? (int?)null : args.TokenUsage.UsedPercent;
                     break;
                 case "account/updated":
                     args.Kind = CodexBackendEventKind.AccountUpdated;
@@ -1271,8 +1280,7 @@ namespace Clever.Model.Agent
         {
             CodexThreadSettings settings = null;
             CodexGoal goal = null;
-            int contextUsed = 0;
-            var hasContextUsed = false;
+            CodexTokenUsageSnapshot tokenUsage = null;
             CodexAccountSnapshot account;
             CodexRateLimitSnapshot limits;
             CodexThreadState threadState = CodexThreadState.NotLoaded;
@@ -1282,7 +1290,7 @@ namespace Clever.Model.Agent
                 {
                     _threadSettings.TryGetValue(threadId, out settings);
                     _threadGoals.TryGetValue(threadId, out goal);
-                    hasContextUsed = _threadContextUsed.TryGetValue(threadId, out contextUsed);
+                    _threadTokenUsage.TryGetValue(threadId, out tokenUsage);
                     if (string.Equals(_activeThreadId, threadId, StringComparison.Ordinal))
                         threadState = CodexThreadState.Active;
                     else if (!_threadStates.TryGetValue(threadId, out threadState))
@@ -1300,10 +1308,11 @@ namespace Clever.Model.Agent
                 PlanType = account == null ? null : account.PlanType,
                 Auth = account,
                 RateLimits = limits,
+                TokenUsage = tokenUsage,
                 Capabilities = Capabilities,
                 Settings = settings ?? new CodexThreadSettings(),
                 Goal = goal,
-                ContextUsedPercent = hasContextUsed ? (int?)contextUsed : null,
+                ContextUsedPercent = tokenUsage == null ? (int?)null : tokenUsage.UsedPercent,
                 ThreadState = string.IsNullOrWhiteSpace(threadId) ? CodexThreadState.NotLoaded : threadState,
                 PrimaryRateLimitUsedPercent = limits == null || limits.Primary == null ? (int?)null : limits.Primary.UsedPercent,
                 SecondaryRateLimitUsedPercent = limits == null || limits.Secondary == null ? (int?)null : limits.Secondary.UsedPercent,
@@ -1421,6 +1430,7 @@ namespace Clever.Model.Agent
             foreach (var turn in turns.EnumerateArray().Reverse())
             {
                 var turnId = GetString(turn, "id");
+                var turnDurationMs = GetNullableInt64(turn, "durationMs");
                 JsonElement items;
                 if (!turn.TryGetProperty("items", out items) || items.ValueKind != JsonValueKind.Array)
                     continue;
@@ -1428,6 +1438,7 @@ namespace Clever.Model.Agent
                 {
                     var item = ParseItem(itemElement, turnId);
                     if (item == null) continue;
+                    item.TurnDurationMs = turnDurationMs;
                     details.Items.Add(item);
                     if (item.Kind == CodexItemKind.UserMessage || item.Kind == CodexItemKind.AgentMessage)
                     {
@@ -1461,6 +1472,10 @@ namespace Clever.Model.Agent
                 case "dynamicToolCall": kind = CodexItemKind.DynamicToolCall; break;
                 case "contextCompaction": kind = CodexItemKind.ContextCompaction; break;
             }
+            var extractedText = ExtractText(element);
+            if (kind != CodexItemKind.UserMessage && kind != CodexItemKind.AgentMessage && extractedText.Length > 4000)
+                extractedText = extractedText.Substring(0, 4000) + "…";
+            var rawJson = element.GetRawText();
             return new CodexThreadItem
             {
                 Id = GetString(element, "id"),
@@ -1468,10 +1483,39 @@ namespace Clever.Model.Agent
                 Kind = kind,
                 Status = ParseStringLike(element, "status"),
                 Title = FirstString(element, "title", "tool", "command"),
-                Text = ExtractText(element),
-                Details = element.GetRawText(),
-                RawJson = element.GetRawText()
+                Text = extractedText,
+                Details = extractedText,
+                RawJson = CompactItemJson(element, rawJson)
             };
+        }
+
+        private static string CompactItemJson(JsonElement element, string rawJson)
+        {
+            if (rawJson == null || rawJson.Length <= 65536)
+                return rawJson ?? "{}";
+            var compact = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var name in new[] { "type", "id", "status", "server", "tool", "command", "cwd", "exitCode", "durationMs" })
+            {
+                JsonElement value;
+                if (element.TryGetProperty(name, out value))
+                    compact[name] = LimitJsonValue(value, 4000);
+            }
+            JsonElement arguments;
+            if (element.TryGetProperty("arguments", out arguments)) compact["arguments"] = LimitJsonValue(arguments, 8000);
+            JsonElement result;
+            if (element.TryGetProperty("result", out result))
+            {
+                var message = result.ValueKind == JsonValueKind.Object ? FirstString(result, "message", "code", "error") : null;
+                compact["resultMessage"] = !string.IsNullOrWhiteSpace(message) ? message : LimitJsonValue(result, 2000);
+            }
+            return JsonSerializer.Serialize(compact);
+        }
+
+        private static string LimitJsonValue(JsonElement value, int max)
+        {
+            var text = value.ValueKind == JsonValueKind.String ? value.GetString() : value.GetRawText();
+            text = text ?? "";
+            return text.Length <= max ? text : text.Substring(0, max) + "…";
         }
 
         private static string ExtractText(JsonElement element)
@@ -1585,6 +1629,20 @@ namespace Clever.Model.Agent
             return result;
         }
 
+        private static CodexRateLimitSnapshot MergeRateLimits(CodexRateLimitSnapshot current, CodexRateLimitSnapshot update)
+        {
+            if (current == null) return update;
+            if (update == null) return current;
+            return new CodexRateLimitSnapshot
+            {
+                Primary = update.Primary ?? current.Primary,
+                Secondary = update.Secondary ?? current.Secondary,
+                HasCredits = update.HasCredits || current.HasCredits,
+                UnlimitedCredits = update.UnlimitedCredits || current.UnlimitedCredits,
+                CreditBalance = string.IsNullOrWhiteSpace(update.CreditBalance) ? current.CreditBalance : update.CreditBalance
+            };
+        }
+
         private static CodexRateLimitWindow ParseRateWindow(JsonElement element)
         {
             if (element.ValueKind != JsonValueKind.Object) return null;
@@ -1675,23 +1733,11 @@ namespace Clever.Model.Agent
             {
                 _threadSettings.Remove(threadId);
                 _threadGoals.Remove(threadId);
-                _threadContextUsed.Remove(threadId);
+                _threadTokenUsage.Remove(threadId);
                 _threadCwds.Remove(threadId);
                 _threadStates.Remove(threadId);
                 _liveDynamicToolThreads.Remove(threadId);
             }
-        }
-
-        private static int? ParseContextUsedPercent(JsonElement parameters)
-        {
-            JsonElement usage;
-            if (parameters.TryGetProperty("tokenUsage", out usage)) parameters = usage;
-            var context = GetNullableInt64(parameters, "modelContextWindow");
-            JsonElement total;
-            if (!context.HasValue || !parameters.TryGetProperty("totalTokenUsage", out total)) return null;
-            var used = GetNullableInt64(total, "totalTokens");
-            if (!used.HasValue || context.Value <= 0) return null;
-            return (int)Math.Max(0, Math.Min(100, used.Value * 100 / context.Value));
         }
 
         private static void AddThreadSettings(IDictionary<string, object> parameters, CodexThreadSettings settings)

@@ -83,8 +83,10 @@
                   Visibility="Collapsed"
                   Panel.ZIndex="1"
                   AutoGenerateColumns="False"
+                  IsReadOnly="False"
                   CanUserAddRows="True"
                   CanUserDeleteRows="True"
+                  CanUserSortColumns="False"
                   CanUserResizeRows="False"
                   EnableRowVirtualization="True"
                   EnableColumnVirtualization="True"
@@ -106,9 +108,9 @@
                   ColumnHeaderStyle="{StaticResource CsvGridHeaderStyle}"
                   CellStyle="{StaticResource CsvGridCellStyle}"
                   RowHeaderStyle="{StaticResource CsvGridRowHeaderStyle}"
+                  PreviewMouseLeftButtonDown="CsvDataGrid_PreviewMouseLeftButtonDown"
                   LoadingRow="CsvDataGrid_LoadingRow"
                   CellEditEnding="CsvDataGrid_CellEditEnding"
-                  CurrentCellChanged="CsvDataGrid_CurrentCellChanged"
                   RowEditEnding="CsvDataGrid_RowEditEnding"/>
 
         <Popup PlacementTarget="{Binding ElementName=edit}" x:Name="editorPopup" StaysOpen="False" Placement="MousePoint" Width="{StaticResource te_menu_width}" Height="{StaticResource te_menu_height_all}">

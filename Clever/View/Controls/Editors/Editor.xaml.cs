@@ -23,6 +23,8 @@ namespace Clever.View.Controls.Editors
     {
         TextEditor te;
         private CsvTableDocument _csvDocument;
+        private CsvTableChangeTracker _csvChangeTracker;
+        private DataTable _trackedCsvTable;
         private bool _isUpdatingCsvText;
         private bool _isRenderedView;
         private string _renderedExtension;
@@ -254,6 +256,8 @@ namespace Clever.View.Controls.Editors
             if (document == null)
                 return;
 
+            TrackCsvChanges(document.Table);
+
             var currentView = csvDataGrid.ItemsSource;
             if (currentView == document.Table.DefaultView && CsvColumnsMatch(document.Table))
                 return;
@@ -268,6 +272,8 @@ namespace Clever.View.Controls.Editors
                     csvDataGrid.Columns.Add(new DataGridTextColumn
                     {
                         Header = column.Caption,
+                        IsReadOnly = false,
+                        CanUserSort = false,
                         Binding = new Binding("[" + column.ColumnName + "]")
                         {
                             Mode = BindingMode.TwoWay,
@@ -282,6 +288,28 @@ namespace Clever.View.Controls.Editors
             }
 
             csvDataGrid.ItemsSource = document.Table.DefaultView;
+        }
+
+        private void TrackCsvChanges(DataTable table)
+        {
+            if (ReferenceEquals(_trackedCsvTable, table))
+                return;
+
+            if (_csvChangeTracker != null)
+            {
+                _csvChangeTracker.Changed -= CsvTable_Changed;
+                _csvChangeTracker.Dispose();
+            }
+
+            _trackedCsvTable = table;
+            _csvChangeTracker = table == null ? null : new CsvTableChangeTracker(table);
+            if (_csvChangeTracker != null)
+                _csvChangeTracker.Changed += CsvTable_Changed;
+        }
+
+        private void CsvTable_Changed(object sender, EventArgs e)
+        {
+            QueueCsvTextUpdate(true);
         }
 
         private bool CsvColumnsMatch(DataTable table)
@@ -361,12 +389,90 @@ namespace Clever.View.Controls.Editors
             e.Row.Header = (e.Row.GetIndex() + 1).ToString();
         }
 
-        private void CsvDataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        private void CsvDataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            QueueCsvTextUpdate(true);
+            var source = e.OriginalSource as DependencyObject;
+            var columnHeader = FindVisualParent<DataGridColumnHeader>(source);
+            if (columnHeader != null && columnHeader.Column != null)
+            {
+                SelectCsvColumn(columnHeader.Column);
+                e.Handled = true;
+                return;
+            }
+
+            var rowHeader = FindVisualParent<DataGridRowHeader>(source);
+            if (rowHeader == null)
+                return;
+
+            var row = FindVisualParent<DataGridRow>(rowHeader);
+            if (row == null || ReferenceEquals(row.Item, CollectionView.NewItemPlaceholder))
+                return;
+
+            SelectCsvRow(row.Item);
+            e.Handled = true;
         }
 
-        private void CsvDataGrid_CurrentCellChanged(object sender, EventArgs e)
+        private void SelectCsvColumn(DataGridColumn column)
+        {
+            csvDataGrid.SelectedCells.Clear();
+            DataGridCellInfo? firstCell = null;
+            foreach (var item in csvDataGrid.Items)
+            {
+                if (ReferenceEquals(item, CollectionView.NewItemPlaceholder))
+                    continue;
+
+                var cell = new DataGridCellInfo(item, column);
+                csvDataGrid.SelectedCells.Add(cell);
+                if (!firstCell.HasValue)
+                    firstCell = cell;
+            }
+
+            if (firstCell.HasValue)
+                csvDataGrid.CurrentCell = firstCell.Value;
+        }
+
+        private void SelectCsvRow(object item)
+        {
+            csvDataGrid.SelectedCells.Clear();
+            DataGridCellInfo? firstCell = null;
+            foreach (var column in csvDataGrid.Columns.Where(candidate => candidate.Visibility == Visibility.Visible))
+            {
+                var cell = new DataGridCellInfo(item, column);
+                csvDataGrid.SelectedCells.Add(cell);
+                if (!firstCell.HasValue)
+                    firstCell = cell;
+            }
+
+            if (firstCell.HasValue)
+                csvDataGrid.CurrentCell = firstCell.Value;
+        }
+
+        private static T FindVisualParent<T>(DependencyObject source) where T : DependencyObject
+        {
+            while (source != null)
+            {
+                var match = source as T;
+                if (match != null)
+                    return match;
+
+                var contentElement = source as ContentElement;
+                if (contentElement != null)
+                {
+                    source = ContentOperations.GetParent(contentElement);
+                    var frameworkContentElement = contentElement as FrameworkContentElement;
+                    if (source == null && frameworkContentElement != null)
+                        source = frameworkContentElement.Parent;
+                }
+                else
+                {
+                    source = VisualTreeHelper.GetParent(source);
+                }
+            }
+
+            return null;
+        }
+
+        private void CsvDataGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
             QueueCsvTextUpdate(true);
         }

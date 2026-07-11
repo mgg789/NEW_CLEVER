@@ -2,7 +2,9 @@ using Clever.ViewModel;
 using Clever.ViewModel.PanelsVM;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
+using System.Globalization;
 
 namespace Clever.View.Panels
 {
@@ -36,6 +38,10 @@ namespace Clever.View.Panels
                 return;
             }
 
+            var shift = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+            if (e.Key == Key.Enter && shift)
+                return;
+
             if (e.Key == Key.Enter && viewModel.ExecuteSelectedSlash())
             {
                 e.Handled = true;
@@ -49,11 +55,11 @@ namespace Clever.View.Panels
                 return;
             }
 
-            if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            if (e.Key == Key.Enter)
             {
                 if (viewModel.IsBotWorking && viewModel.CanSend && viewModel.SteerCommand.CanExecute(null))
                     viewModel.SteerCommand.Execute(null);
-                else if (viewModel.SendOrStopCommand.CanExecute(null))
+                else if (!viewModel.IsBotWorking && viewModel.SendOrStopCommand.CanExecute(null))
                     viewModel.SendOrStopCommand.Execute(null);
                 e.Handled = true;
             }
@@ -66,6 +72,15 @@ namespace Clever.View.Panels
             else
                 e.Effects = DragDropEffects.None;
 
+            e.Handled = true;
+        }
+
+        private void ConversationScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            var viewer = sender as ScrollViewer;
+            if (viewer == null)
+                return;
+            viewer.ScrollToVerticalOffset(viewer.VerticalOffset - e.Delta);
             e.Handled = true;
         }
 
@@ -98,6 +113,27 @@ namespace Clever.View.Panels
             var disposable = DataContext as System.IDisposable;
             if (disposable != null)
                 disposable.Dispose();
+        }
+    }
+
+    public sealed class AiReasoningDisplayConverter : IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, CultureInfo culture)
+        {
+            var text = (value as string ?? "").Trim();
+            var normalized = text.ToLowerInvariant().Replace("-", "").Replace("_", "").Replace(" ", "");
+            if (normalized == "medium") return "mid";
+            if (normalized == "extrahigh") return "xhigh";
+            switch (normalized)
+            {
+                case "low": case "high": case "xhigh": case "max": case "ultra": return normalized;
+                default: return text;
+            }
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, CultureInfo culture)
+        {
+            return Binding.DoNothing;
         }
     }
 }

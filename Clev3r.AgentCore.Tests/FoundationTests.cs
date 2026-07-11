@@ -125,6 +125,21 @@ namespace Clev3r.AgentCore.Tests
             Assert.Equal("clev3r.workspace_context", DynamicToolWireAdapter.ResolveQualifiedName(null, "clev3r_workspace_context", false));
         }
 
+        [Theory]
+        [InlineData("{\"threadId\":\"t\",\"tokenUsage\":{\"last\":{\"totalTokens\":13000},\"total\":{\"totalTokens\":713000},\"modelContextWindow\":353000}}")]
+        [InlineData("{\"tokenUsage\":{\"totalTokenUsage\":{\"totalTokens\":13000},\"modelContextWindow\":353000}}")]
+        public void TokenUsageParserSupportsBundledAndLegacyShapes(string json)
+        {
+            using (var document = JsonDocument.Parse(json))
+            {
+                var usage = CodexTokenUsageSnapshot.ParseNotification(document.RootElement);
+                Assert.NotNull(usage);
+                Assert.Equal(13000, usage.TotalTokens);
+                Assert.Equal(353000, usage.ModelContextWindow);
+                Assert.Equal(3, usage.UsedPercent);
+            }
+        }
+
         [Fact]
         public void ToolResultEnvelopeIsSerializedInsideInputText()
         {

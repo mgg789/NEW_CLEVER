@@ -39,8 +39,8 @@
         </Style>
 
         <Style x:Key="DocumentViewSwitchButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Width" Value="30"/>
-            <Setter Property="Height" Value="20"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="22"/>
             <Setter Property="Padding" Value="3"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -223,7 +223,7 @@
         <Border Panel.ZIndex="30"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                Margin="0,2,18,0"
+                Margin="0,2,4,0"
                 Padding="1"
                 Background="#F7F8FB"
                 BorderBrush="#D7DCE8"
@@ -235,7 +235,7 @@
                         Command="{Binding EditorRawViewCommand}"
                         Background="{Binding EditorRawViewBackground}"
                         ToolTip="{Binding EditorRawViewToolTip}">
-                    <Viewbox Width="15" Height="15" Stretch="Uniform">
+                    <Viewbox Width="17" Height="17" Stretch="Uniform">
                         <Canvas Width="24" Height="24">
                             <Path Data="M3 5h18 M3 12h18 M3 19h18"
                                   Stroke="{Binding EditorRawViewForeground}"
@@ -251,7 +251,7 @@
                         Background="{Binding EditorRenderedViewBackground}"
                         ToolTip="{Binding EditorRenderedViewToolTip}"
                         Margin="2,0,0,0">
-                    <Grid Width="15" Height="15">
+                    <Grid Width="17" Height="17">
                         <Viewbox Stretch="Uniform" Visibility="{Binding EditorMarkdownRenderedIconVisibility}">
                             <Canvas Width="24" Height="24">
                                 <Path Data="M4 14h6"

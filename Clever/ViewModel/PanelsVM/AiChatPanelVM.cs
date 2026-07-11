@@ -29,6 +29,7 @@ namespace Clever.ViewModel.PanelsVM
         private readonly SlashCommandCatalog _slashCatalog;
         private readonly IList<CodexModelInfo> _modelInfos = new List<CodexModelInfo>();
         private readonly Dictionary<string, StringBuilder> _pendingDeltas = new Dictionary<string, StringBuilder>(StringComparer.Ordinal);
+        private readonly Dictionary<string, AiTurnWorkGroupVM> _workGroups = new Dictionary<string, AiTurnWorkGroupVM>(StringComparer.Ordinal);
         private readonly DispatcherTimer _deltaFlushTimer;
         private readonly DispatcherTimer _historySearchTimer;
         private CancellationTokenSource _turnCancellation;
@@ -42,6 +43,7 @@ namespace Clever.ViewModel.PanelsVM
         private string _selectedModel;
         private string _selectedReasoning;
         private AiServiceTierChoiceVM _selectedSpeed;
+        private string _preferredSpeedId;
         private string _wheelDiameter;
         private string _wheelBaseWidth;
         private string _robotDescription;
@@ -54,6 +56,10 @@ namespace Clever.ViewModel.PanelsVM
         private int _historyVersion;
         private bool _suppressSettingsUpdate;
         private bool _turnStartPending;
+        private CodexStatusSnapshot _latestStatus;
+        private int _contextUsedPercent;
+        private AiChatMessageVM _waitingMessage;
+        private AiTurnWorkGroupVM _currentWorkGroup;
         private bool _disposed;
 
         public AiChatPanelVM()
@@ -73,6 +79,9 @@ namespace Clever.ViewModel.PanelsVM
             _wheelDiameter = AiAppSettingsStore.Settings.WheelDiameter ?? "";
             _wheelBaseWidth = AiAppSettingsStore.Settings.WheelBaseWidth ?? "";
             _robotDescription = AiAppSettingsStore.Settings.RobotDescription ?? "";
+            _selectedModel = AiAppSettingsStore.Settings.CodexModel ?? "";
+            _selectedReasoning = AiAppSettingsStore.Settings.CodexReasoningEffort ?? "";
+            _preferredSpeedId = NullIfBlank(AiAppSettingsStore.Settings.CodexServiceTier);
             _statusTooltip = Localize("AiStatusLoading", "Codex status is loading.");
 
             NewChatCommand = new RelayCommand(param => StartNewChat(), true);
@@ -233,6 +242,7 @@ namespace Clever.ViewModel.PanelsVM
                 _selectedModel = value;
                 OnPropertyChanged("SelectedModel");
                 RefreshModelDependentOptions();
+                PersistCodexDefaults();
                 RequestSettingsUpdate();
             }
         }
@@ -246,6 +256,7 @@ namespace Clever.ViewModel.PanelsVM
                     return;
                 _selectedReasoning = value;
                 OnPropertyChanged("SelectedReasoning");
+                PersistCodexDefaults();
                 RequestSettingsUpdate();
             }
         }
@@ -258,7 +269,9 @@ namespace Clever.ViewModel.PanelsVM
                 if (_selectedSpeed == value)
                     return;
                 _selectedSpeed = value;
+                _preferredSpeedId = value == null ? null : value.Id;
                 OnPropertyChanged("SelectedSpeed");
+                PersistCodexDefaults();
                 RequestSettingsUpdate();
             }
         }
@@ -322,6 +335,8 @@ namespace Clever.ViewModel.PanelsVM
         public string ProjectRequiredText { get { return Localize("AiOpenProjectSend", "Open or create a project before starting a Codex chat."); } }
         public string ChatInputTooltip { get { return HasActiveProject ? MessageText : ProjectRequiredText; } }
         public string ContextTooltip { get { return _statusTooltip; } }
+        public int ContextUsedPercent { get { return _contextUsedPercent; } }
+        public Geometry ContextArcGeometry { get { return CreateContextArcGeometry(_contextUsedPercent); } }
 
         public void AttachDroppedFile(string path)
         {
@@ -383,6 +398,10 @@ namespace Clever.ViewModel.PanelsVM
             _activeTurnId = null;
             _nextTurnsCursor = null;
             _turnStartPending = false;
+            _waitingMessage = null;
+            _currentWorkGroup = null;
+            _workGroups.Clear();
+            _contextUsedPercent = 0;
             IsHistoryOpen = false;
             IsBotWorking = false;
             Messages.Clear();
@@ -390,6 +409,8 @@ namespace Clever.ViewModel.PanelsVM
             InputText = "";
             OnPropertyChanged("AttachmentVisibility");
             OnPropertyChanged("LoadMoreTurnsVisibility");
+            OnPropertyChanged("ContextUsedPercent");
+            OnPropertyChanged("ContextArcGeometry");
         }
 
         private void OpenHistory()
@@ -486,15 +507,16 @@ namespace Clever.ViewModel.PanelsVM
                 _currentThreadId = result.Data.Thread.Id;
                 IsHistoryOpen = false;
                 Messages.Clear();
+                _workGroups.Clear();
                 if (result.Data.Items.Count > 0)
-                    foreach (var threadItem in result.Data.Items)
-                        Messages.Add(AiChatMessageVM.CreateItem(threadItem));
+                    AddHistoryItems(result.Data.Items, false);
                 else
                     foreach (var message in result.Data.Messages)
                         Messages.Add(AiChatMessageVM.Create(message.Markdown, message.IsUser));
                 _nextTurnsCursor = result.Data.NextTurnsCursor;
                 OnPropertyChanged("LoadMoreTurnsVisibility");
                 RefreshBackendState();
+                RequestSettingsUpdate();
             });
         }
 
@@ -513,8 +535,7 @@ namespace Clever.ViewModel.PanelsVM
                 }
                 var older = new List<AiChatMessageVM>();
                 if (result.Data.Items.Count > 0)
-                    foreach (var threadItem in result.Data.Items)
-                        older.Add(AiChatMessageVM.CreateItem(threadItem));
+                    older.AddRange(CreateHistoryItems(result.Data.Items));
                 else
                     foreach (var message in result.Data.Messages)
                         older.Add(AiChatMessageVM.Create(message.Markdown, message.IsUser));
@@ -523,6 +544,53 @@ namespace Clever.ViewModel.PanelsVM
                 _nextTurnsCursor = result.Data.NextTurnsCursor;
                 OnPropertyChanged("LoadMoreTurnsVisibility");
             });
+        }
+
+        private void AddHistoryItems(IEnumerable<CodexThreadItem> items, bool prepend)
+        {
+            var timeline = CreateHistoryItems(items);
+            if (!prepend)
+            {
+                foreach (var entry in timeline) Messages.Add(entry);
+                return;
+            }
+            for (var i = timeline.Count - 1; i >= 0; i--) Messages.Insert(0, timeline[i]);
+        }
+
+        private static List<AiChatMessageVM> CreateHistoryItems(IEnumerable<CodexThreadItem> items)
+        {
+            var result = new List<AiChatMessageVM>();
+            var groups = new Dictionary<string, AiTurnWorkGroupVM>(StringComparer.Ordinal);
+            foreach (var item in items ?? Enumerable.Empty<CodexThreadItem>())
+            {
+                if (item == null) continue;
+                if (AiChatMessageVM.IsProcessKind(item.Kind))
+                {
+                    var key = item.TurnId ?? "history";
+                    AiTurnWorkGroupVM group;
+                    if (!groups.TryGetValue(key, out group))
+                    {
+                        group = new AiTurnWorkGroupVM(key, DateTime.UtcNow);
+                        groups[key] = group;
+                        result.Add(AiChatMessageVM.CreateWorkSummary(group));
+                    }
+                    var process = AiChatMessageVM.CreateItem(item);
+                    process.AssignWorkGroup(group);
+                    group.AddProcessItem();
+                    result.Add(process);
+                }
+                else
+                    result.Add(AiChatMessageVM.CreateItem(item));
+            }
+            foreach (var pair in groups)
+            {
+                var duration = (items ?? Enumerable.Empty<CodexThreadItem>())
+                    .Where(item => item != null && string.Equals(item.TurnId ?? "history", pair.Key, StringComparison.Ordinal))
+                    .Select(item => item.TurnDurationMs)
+                    .FirstOrDefault(value => value.HasValue);
+                pair.Value.Complete(duration);
+            }
+            return result;
         }
 
         private async void RenameHistoryItem(AiChatHistoryItemVM item)
@@ -588,6 +656,21 @@ namespace Clever.ViewModel.PanelsVM
             SendAsync();
         }
 
+        private void ShowWaitingIndicator()
+        {
+            RemoveWaitingIndicator();
+            _waitingMessage = AiChatMessageVM.CreateWaiting();
+            Messages.Add(_waitingMessage);
+        }
+
+        private void RemoveWaitingIndicator()
+        {
+            if (_waitingMessage == null)
+                return;
+            Messages.Remove(_waitingMessage);
+            _waitingMessage = null;
+        }
+
         private async void SendAsync()
         {
             if (!CanSend || _turnStartPending)
@@ -622,9 +705,11 @@ namespace Clever.ViewModel.PanelsVM
             Attachments.Clear();
             OnPropertyChanged("AttachmentVisibility");
             Messages.Add(AiChatMessageVM.CreateUser(text));
+            ShowWaitingIndicator();
 
             ReplaceCancellation(ref _turnCancellation);
             SetTurnStartPending(true);
+            var turnAccepted = false;
             try
             {
                 if (_services.WorkspaceContext == null)
@@ -682,6 +767,7 @@ namespace Clever.ViewModel.PanelsVM
                 {
                     _currentThreadId = turn.Data.ThreadId ?? _currentThreadId;
                     _activeTurnId = turn.Data.TurnId;
+                    turnAccepted = true;
                 }
             }
             catch (OperationCanceledException)
@@ -694,6 +780,8 @@ namespace Clever.ViewModel.PanelsVM
             }
             finally
             {
+                if (!turnAccepted)
+                    OnUi(RemoveWaitingIndicator);
                 OnUi(() => SetTurnStartPending(false));
             }
         }
@@ -737,6 +825,7 @@ namespace Clever.ViewModel.PanelsVM
             var threadId = _currentThreadId;
             var turnId = _activeTurnId;
             CancelTurn();
+            RemoveWaitingIndicator();
             if (!string.IsNullOrWhiteSpace(threadId) && !string.IsNullOrWhiteSpace(turnId))
             {
                 var result = await _backend.InterruptTurnAsync(threadId, turnId, CancellationToken.None);
@@ -870,14 +959,59 @@ namespace Clever.ViewModel.PanelsVM
             {
                 SlashItems.Add(new AiSlashCommandItemVM(
                     match.Command,
-                    "/" + match.Command.Name,
-                    Localize(match.Command.DescriptionKey, match.Command.Name),
+                    Localize(match.Command.TitleKey, HumanizeCommandName(match.Command.Name)),
+                    GetSlashStatus(match.Command),
+                    GetSlashIcon(match.Command),
                     match.IsAvailable,
                     match.IsAvailable ? "" : Localize("AiCapabilityUnavailableShort", "Unavailable until a compatible Codex app-server is connected.")));
             }
             _selectedSlashIndex = 0;
             UpdateSlashSelection();
             IsSlashOpen = SlashItems.Count > 0;
+        }
+
+        private string GetSlashStatus(SlashCommandDefinition command)
+        {
+            if (command == null) return "";
+            switch (command.Name)
+            {
+                case "model": return SelectedModel ?? "";
+                case "reasoning": return DisplayReasoning(SelectedReasoning);
+                case "speed": return SelectedSpeed == null ? Localize("AiSpeedDefault", "Default") : SelectedSpeed.DisplayName;
+                case "goal": return _latestStatus != null && _latestStatus.Goal != null && !string.IsNullOrWhiteSpace(_latestStatus.Goal.Objective)
+                    ? _latestStatus.Goal.Objective : Localize("AiGoalNotSet", "Not set");
+                case "compact": return _contextUsedPercent + "%";
+                case "status": return _latestStatus == null ? Localize("AiStatusLoadingShort", "Loading") : _latestStatus.ConnectionState.ToString();
+                default: return "";
+            }
+        }
+
+        private static Geometry GetSlashIcon(SlashCommandDefinition command)
+        {
+            switch (command == null ? "" : command.Name)
+            {
+                case "model": return AiIconGeometry.Model;
+                case "reasoning": return AiIconGeometry.Reasoning;
+                case "speed": return AiIconGeometry.Speed;
+                case "goal": return AiIconGeometry.Goal;
+                case "compact": return AiIconGeometry.Compact;
+                default: return AiIconGeometry.SystemTool;
+            }
+        }
+
+        private static string DisplayReasoning(string value)
+        {
+            var text = (value ?? "").Trim();
+            var normalized = text.ToLowerInvariant().Replace("-", "").Replace("_", "").Replace(" ", "");
+            if (normalized == "medium") return "mid";
+            if (normalized == "extrahigh") return "xhigh";
+            return text;
+        }
+
+        private static string HumanizeCommandName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            return char.ToUpperInvariant(value[0]) + value.Substring(1).Replace('_', ' ');
         }
 
         private void UpdateSlashSelection()
@@ -888,17 +1022,40 @@ namespace Clever.ViewModel.PanelsVM
 
         private async void RefreshBackendState()
         {
-            await LoadModelsAsync();
-            var result = await _backend.GetStatusAsync(_currentThreadId, CancellationToken.None);
-            OnUi(() =>
+            try
             {
-                if (result.Success && result.Data != null && !string.IsNullOrWhiteSpace(_currentThreadId))
-                    ApplyBackendSettings(result.Data.Settings);
-                _statusTooltip = result.Success && result.Data != null ? FormatStatus(result.Data) : BackendMessage(result.Message);
-                OnPropertyChanged("ContextTooltip");
-                NotifySelectorState();
-                RefreshSlashItems();
-            });
+                await LoadModelsAsync();
+                var result = await _backend.GetStatusAsync(_currentThreadId, CancellationToken.None);
+                OnUi(() =>
+                {
+                    if (result.Success && result.Data != null && !string.IsNullOrWhiteSpace(_currentThreadId))
+                        ApplyBackendSettings(result.Data.Settings);
+                    ApplyStatus(result.Success ? result.Data : null, result.Success ? null : result.Message);
+                    NotifySelectorState();
+                    RefreshSlashItems();
+                });
+            }
+            catch (Exception ex)
+            {
+                OnUi(() => ApplyStatus(null, ex.Message));
+            }
+        }
+
+        private async void RefreshStatusOnly()
+        {
+            try
+            {
+                var result = await _backend.GetStatusAsync(_currentThreadId, CancellationToken.None);
+                OnUi(() =>
+                {
+                    ApplyStatus(result.Success ? result.Data : null, result.Success ? null : result.Message);
+                    RefreshSlashItems();
+                });
+            }
+            catch (Exception ex)
+            {
+                OnUi(() => ApplyStatus(null, ex.Message));
+            }
         }
 
         private async Task LoadModelsAsync()
@@ -914,9 +1071,6 @@ namespace Clever.ViewModel.PanelsVM
                         Models.Clear();
                         ReasoningModes.Clear();
                         SpeedTiers.Clear();
-                        SelectedModel = null;
-                        SelectedReasoning = null;
-                        SelectedSpeed = null;
                     }
                     finally { _suppressSettingsUpdate = false; }
                     NotifySelectorState();
@@ -939,7 +1093,7 @@ namespace Clever.ViewModel.PanelsVM
                         Models.Add(model.Id);
                     }
                     if (!Models.Contains(SelectedModel))
-                        SelectedModel = Models.FirstOrDefault();
+                        SelectedModel = result.Data.FirstOrDefault(item => item.IsDefault)?.Id ?? Models.FirstOrDefault();
                     RefreshModelDependentOptions();
                 }
                 finally { _suppressSettingsUpdate = false; }
@@ -951,7 +1105,7 @@ namespace Clever.ViewModel.PanelsVM
         {
             var model = _modelInfos.FirstOrDefault(item => string.Equals(item.Id, SelectedModel, StringComparison.OrdinalIgnoreCase));
             var previousSuppression = _suppressSettingsUpdate;
-            var selectedTierId = SelectedSpeed == null ? null : SelectedSpeed.Id;
+            var selectedTierId = SelectedSpeed == null ? _preferredSpeedId : SelectedSpeed.Id;
             _suppressSettingsUpdate = true;
             try
             {
@@ -979,7 +1133,8 @@ namespace Clever.ViewModel.PanelsVM
             _suppressSettingsUpdate = true;
             try
             {
-                if (!string.IsNullOrWhiteSpace(settings.Model))
+                var preferredModel = AiAppSettingsStore.Settings.CodexModel;
+                if (string.IsNullOrWhiteSpace(preferredModel) && !string.IsNullOrWhiteSpace(settings.Model))
                 {
                     if (!Models.Any(item => string.Equals(item, settings.Model, StringComparison.OrdinalIgnoreCase)))
                         Models.Add(settings.Model);
@@ -987,18 +1142,21 @@ namespace Clever.ViewModel.PanelsVM
                 }
                 RefreshModelDependentOptions();
 
-                if (!string.IsNullOrWhiteSpace(settings.ReasoningEffort))
+                var preferredReasoning = AiAppSettingsStore.Settings.CodexReasoningEffort;
+                if (string.IsNullOrWhiteSpace(preferredReasoning) && !string.IsNullOrWhiteSpace(settings.ReasoningEffort))
                 {
                     if (!ReasoningModes.Any(item => string.Equals(item, settings.ReasoningEffort, StringComparison.OrdinalIgnoreCase)))
                         ReasoningModes.Add(settings.ReasoningEffort);
                     SelectedReasoning = settings.ReasoningEffort;
                 }
 
+                var preferredTier = NullIfBlank(AiAppSettingsStore.Settings.CodexServiceTier);
+                var effectiveTier = preferredTier ?? settings.ServiceTier;
                 var selectedTier = SpeedTiers.FirstOrDefault(item =>
-                    string.Equals(item.Id, settings.ServiceTier, StringComparison.OrdinalIgnoreCase));
-                if (selectedTier == null && !string.IsNullOrWhiteSpace(settings.ServiceTier))
+                    string.Equals(item.Id, effectiveTier, StringComparison.OrdinalIgnoreCase));
+                if (selectedTier == null && preferredTier == null && !string.IsNullOrWhiteSpace(effectiveTier))
                 {
-                    selectedTier = new AiServiceTierChoiceVM(settings.ServiceTier, settings.ServiceTier, "");
+                    selectedTier = new AiServiceTierChoiceVM(effectiveTier, effectiveTier, "");
                     SpeedTiers.Add(selectedTier);
                 }
                 SelectedSpeed = selectedTier ?? SpeedTiers.FirstOrDefault(item => item.Id == null);
@@ -1009,8 +1167,15 @@ namespace Clever.ViewModel.PanelsVM
 
         private async void RequestSettingsUpdate()
         {
-            if (!_suppressSettingsUpdate && !string.IsNullOrWhiteSpace(_currentThreadId))
-                await UpdateSettingsAsync();
+            try
+            {
+                if (!_suppressSettingsUpdate && !string.IsNullOrWhiteSpace(_currentThreadId))
+                    await UpdateSettingsAsync();
+            }
+            catch (Exception ex)
+            {
+                OnUi(() => ShowBackendMessage(ex.Message));
+            }
         }
 
         private async Task UpdateSettingsAsync()
@@ -1034,8 +1199,7 @@ namespace Clever.ViewModel.PanelsVM
             catch (Exception ex) { result = BackendResult<CodexStatusSnapshot>.Fail("backend_start_failed", ex.Message); }
             OnUi(() =>
             {
-                _statusTooltip = result.Success && result.Data != null ? FormatStatus(result.Data) : BackendMessage(result.Message);
-                OnPropertyChanged("ContextTooltip");
+                ApplyStatus(result.Success ? result.Data : null, result.Success ? null : result.Message);
                 RefreshBackendState();
             });
         }
@@ -1118,10 +1282,21 @@ namespace Clever.ViewModel.PanelsVM
             switch (e.Kind)
             {
                 case CodexBackendEventKind.ConnectionChanged:
+                    RefreshBackendState();
+                    break;
                 case CodexBackendEventKind.AccountUpdated:
                 case CodexBackendEventKind.RateLimitsUpdated:
+                    RefreshStatusOnly();
+                    break;
                 case CodexBackendEventKind.TokenUsageUpdated:
-                    RefreshBackendState();
+                    if (belongsToCurrentThread && e.TokenUsage != null)
+                    {
+                        if (_latestStatus == null) _latestStatus = new CodexStatusSnapshot();
+                        _latestStatus.TokenUsage = e.TokenUsage;
+                        _latestStatus.ContextUsedPercent = e.TokenUsage.UsedPercent;
+                        ApplyStatus(_latestStatus, null);
+                        RefreshSlashItems();
+                    }
                     break;
                 case CodexBackendEventKind.ThreadStarted:
                     if (_turnStartPending && e.Thread != null && SamePath(e.Thread.Cwd, MainWindowVM.CurrentProjectRoot))
@@ -1138,33 +1313,51 @@ namespace Clever.ViewModel.PanelsVM
                         _activeTurnId = e.TurnId;
                         SetTurnStartPending(false);
                         IsBotWorking = true;
+                        _currentWorkGroup = GetOrCreateWorkGroup(e.TurnId);
                     }
                     break;
                 case CodexBackendEventKind.TurnCompleted:
                     if (belongsToCurrentThread && (string.IsNullOrWhiteSpace(_activeTurnId) || string.Equals(e.TurnId, _activeTurnId, StringComparison.Ordinal)))
                     {
+                        RemoveWaitingIndicator();
                         FlushAllDeltas();
+                        CompleteWorkGroup(e.TurnId, e.TurnDurationMs);
                         IsBotWorking = false;
                         _activeTurnId = null;
                     }
                     break;
                 case CodexBackendEventKind.ItemStarted:
                     if (belongsToCurrentThread && (e.Item == null || e.Item.Kind != CodexItemKind.UserMessage))
+                    {
+                        RemoveWaitingIndicator();
                         AddOrUpdateItem(e.Item, e.ItemId);
+                    }
                     break;
                 case CodexBackendEventKind.ItemDelta:
-                    if (belongsToCurrentThread) QueueDelta(e.ItemId, e.Delta, e.Item);
+                    if (belongsToCurrentThread)
+                    {
+                        RemoveWaitingIndicator();
+                        QueueDelta(e.ItemId, e.Delta, e.Item);
+                    }
                     break;
                 case CodexBackendEventKind.ItemCompleted:
                     if (belongsToCurrentThread && (e.Item == null || e.Item.Kind != CodexItemKind.UserMessage))
                     {
+                        RemoveWaitingIndicator();
                         FlushDelta(e.ItemId);
                         AddOrUpdateItem(e.Item, e.ItemId);
                     }
                     break;
                 case CodexBackendEventKind.Error:
                     if (belongsToCurrentThread)
+                    {
+                        RemoveWaitingIndicator();
+                        CompleteWorkGroup(e.TurnId, e.TurnDurationMs);
+                        IsBotWorking = false;
+                        _activeTurnId = null;
+                        SetTurnStartPending(false);
                         Messages.Add(AiChatMessageVM.CreateError(BackendMessage(e.Message)));
+                    }
                     break;
             }
         }
@@ -1178,10 +1371,24 @@ namespace Clever.ViewModel.PanelsVM
             if (existing == null)
             {
                 existing = AiChatMessageVM.CreateItem(item, itemId);
+                if (AiChatMessageVM.IsProcessKind(item.Kind))
+                {
+                    var group = GetOrCreateWorkGroup(item.TurnId);
+                    existing.AssignWorkGroup(group);
+                    group.AddProcessItem();
+                }
                 Messages.Add(existing);
             }
             else
+            {
                 existing.Update(item);
+                if (AiChatMessageVM.IsProcessKind(item.Kind) && existing.WorkGroup == null)
+                {
+                    var group = GetOrCreateWorkGroup(item.TurnId);
+                    existing.AssignWorkGroup(group);
+                    group.AddProcessItem();
+                }
+            }
         }
 
         private void QueueDelta(string itemId, string delta, CodexThreadItem item)
@@ -1190,7 +1397,16 @@ namespace Clever.ViewModel.PanelsVM
             if (string.IsNullOrWhiteSpace(itemId) || string.IsNullOrEmpty(delta))
                 return;
             if (FindTimelineItem(itemId) == null)
-                Messages.Add(item == null ? AiChatMessageVM.CreateStreaming(itemId) : AiChatMessageVM.CreateItem(item, itemId));
+            {
+                var created = item == null ? AiChatMessageVM.CreateStreaming(itemId) : AiChatMessageVM.CreateItem(item, itemId);
+                if (item != null && AiChatMessageVM.IsProcessKind(item.Kind))
+                {
+                    var group = GetOrCreateWorkGroup(item.TurnId);
+                    created.AssignWorkGroup(group);
+                    group.AddProcessItem();
+                }
+                Messages.Add(created);
+            }
             StringBuilder builder;
             if (!_pendingDeltas.TryGetValue(itemId, out builder))
             {
@@ -1232,6 +1448,30 @@ namespace Clever.ViewModel.PanelsVM
             return string.IsNullOrWhiteSpace(itemId) ? null : Messages.FirstOrDefault(item => string.Equals(item.ItemId, itemId, StringComparison.Ordinal));
         }
 
+        private AiTurnWorkGroupVM GetOrCreateWorkGroup(string turnId)
+        {
+            var key = string.IsNullOrWhiteSpace(turnId) ? (_activeTurnId ?? "current") : turnId;
+            AiTurnWorkGroupVM group;
+            if (_workGroups.TryGetValue(key, out group))
+                return group;
+            group = new AiTurnWorkGroupVM(key, DateTime.UtcNow);
+            _workGroups[key] = group;
+            Messages.Add(AiChatMessageVM.CreateWorkSummary(group));
+            return group;
+        }
+
+        private void CompleteWorkGroup(string turnId, long? durationMs)
+        {
+            var key = string.IsNullOrWhiteSpace(turnId) ? (_activeTurnId ?? "current") : turnId;
+            AiTurnWorkGroupVM group;
+            if (!_workGroups.TryGetValue(key, out group))
+                group = _currentWorkGroup;
+            if (group != null)
+                group.Complete(durationMs);
+            if (ReferenceEquals(_currentWorkGroup, group))
+                _currentWorkGroup = null;
+        }
+
         private void HistorySearchTimer_Tick(object sender, EventArgs e)
         {
             _historySearchTimer.Stop();
@@ -1254,26 +1494,74 @@ namespace Clever.ViewModel.PanelsVM
             }
         }
 
+        private void ApplyStatus(CodexStatusSnapshot status, string error)
+        {
+            _latestStatus = status;
+            var usage = status == null ? null : status.TokenUsage;
+            _contextUsedPercent = usage != null ? usage.UsedPercent : status != null && status.ContextUsedPercent.HasValue ? status.ContextUsedPercent.Value : 0;
+            _statusTooltip = status == null ? BackendMessage(error) : FormatStatus(status);
+            OnPropertyChanged("ContextTooltip");
+            OnPropertyChanged("ContextUsedPercent");
+            OnPropertyChanged("ContextArcGeometry");
+        }
+
         private string FormatStatus(CodexStatusSnapshot status)
         {
-            var lines = new List<string>
-            {
-                Localize("AiStatusProject", "Project") + ": " + (MainWindowVM.CurrentProjectRoot ?? ""),
-                Localize("AiStatusConnection", "Connection") + ": " + status.ConnectionState
-            };
-            var version = status.Runtime == null ? status.Version : status.Runtime.Version;
-            if (!string.IsNullOrWhiteSpace(version)) lines.Add(Localize("AiStatusVersion", "Version") + ": " + version);
-            if (status.Auth != null && !string.IsNullOrWhiteSpace(status.Auth.Email)) lines.Add(Localize("AiStatusAccount", "Account") + ": " + status.Auth.Email);
-            if (status.Auth != null && !string.IsNullOrWhiteSpace(status.Auth.PlanType)) lines.Add(Localize("AiStatusPlan", "Plan") + ": " + status.Auth.PlanType);
-            if (status.Settings != null && !string.IsNullOrWhiteSpace(status.Settings.Model)) lines.Add(ModelText + ": " + status.Settings.Model);
-            if (status.Settings != null && !string.IsNullOrWhiteSpace(status.Settings.ReasoningEffort)) lines.Add(ReasoningText + ": " + status.Settings.ReasoningEffort);
-            if (status.Settings != null) lines.Add(SpeedText + ": " + (string.IsNullOrWhiteSpace(status.Settings.ServiceTier) ? Localize("AiSpeedDefault", "Default") : status.Settings.ServiceTier));
-            if (status.Goal != null && !string.IsNullOrWhiteSpace(status.Goal.Objective)) lines.Add(Localize("AiGoal", "Goal") + ": " + status.Goal.Objective);
-            if (status.ContextUsedPercent.HasValue) lines.Add(Localize("AiStatusContext", "Context") + ": " + status.ContextUsedPercent.Value + "%");
-            if (status.RateLimits != null && status.RateLimits.Primary != null) lines.Add(Localize("AiStatusPrimaryLimit", "Primary limit used") + ": " + status.RateLimits.Primary.UsedPercent + "%");
-            if (_services.Ev3 != null && _services.Ev3.State != null) lines.Add("EV3: " + (_services.Ev3.State.Connected ? Localize("AiEv3Connected", "connected") : Localize("AiEv3Disconnected", "disconnected")));
-            if (!string.IsNullOrWhiteSpace(status.Message)) lines.Add(status.Message);
+            var lines = new List<string>();
+            if (status.Auth != null && !string.IsNullOrWhiteSpace(status.Auth.Email))
+                lines.Add(Localize("AiStatusAccount", "Account") + ": " + status.Auth.Email);
+            if (status.Auth != null && !string.IsNullOrWhiteSpace(status.Auth.PlanType))
+                lines.Add(Localize("AiStatusPlan", "Plan") + ": " + FormatPlan(status.Auth.PlanType));
+            AddRateLimitLine(lines, status.RateLimits == null ? null : status.RateLimits.Primary);
+            AddRateLimitLine(lines, status.RateLimits == null ? null : status.RateLimits.Secondary);
+            var usage = status.TokenUsage;
+            if (usage != null && usage.ModelContextWindow > 0)
+                lines.Add(Localize("AiStatusContext", "Context") + ": " + FormatTokens(usage.TotalTokens) + " / " + FormatTokens(usage.ModelContextWindow));
+            else if (status.ContextUsedPercent.HasValue)
+                lines.Add(Localize("AiStatusContext", "Context") + ": " + status.ContextUsedPercent.Value + "%");
+            if (lines.Count == 0 && !string.IsNullOrWhiteSpace(status.Message))
+                lines.Add(status.Message);
             return string.Join("\n", lines);
+        }
+
+        private static string FormatPlan(string value)
+        {
+            var normalized = (value ?? "").Trim().ToLowerInvariant().Replace("-", "").Replace("_", "").Replace(" ", "");
+            switch (normalized)
+            {
+                case "free": return "Free";
+                case "go": return "Go";
+                case "plus": return "Plus";
+                case "prolite":
+                case "pro5x": return "Pro 5x";
+                case "pro":
+                case "pro20x": return "Pro 20x";
+                default: return string.IsNullOrWhiteSpace(value) ? "" : char.ToUpperInvariant(value[0]) + value.Substring(1);
+            }
+        }
+
+        private void AddRateLimitLine(ICollection<string> lines, CodexRateLimitWindow window)
+        {
+            if (window == null)
+                return;
+            var label = FormatRateWindow(window.WindowDurationMinutes);
+            lines.Add(label + " " + Localize("AiStatusLimit", "limit") + ": " + window.UsedPercent + "%");
+        }
+
+        private static string FormatRateWindow(long? minutes)
+        {
+            if (!minutes.HasValue || minutes.Value <= 0) return "Codex";
+            if (minutes.Value % (7 * 24 * 60) == 0) return (minutes.Value / (7 * 24 * 60)) + "w";
+            if (minutes.Value % (24 * 60) == 0) return (minutes.Value / (24 * 60)) + "d";
+            if (minutes.Value % 60 == 0) return (minutes.Value / 60) + "h";
+            return minutes.Value + "m";
+        }
+
+        private static string FormatTokens(long value)
+        {
+            if (value >= 1000000) return (value / 1000000d).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "m";
+            if (value >= 1000) return (value / 1000d).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "k";
+            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private void ShowBackendMessage(string message)
@@ -1299,6 +1587,24 @@ namespace Clever.ViewModel.PanelsVM
             catch (Exception ex) { _statusTooltip = ex.Message; OnPropertyChanged("ContextTooltip"); }
         }
 
+        private void PersistCodexDefaults()
+        {
+            if (_suppressSettingsUpdate)
+                return;
+            try
+            {
+                AiAppSettingsStore.Settings.CodexModel = _selectedModel ?? "";
+                AiAppSettingsStore.Settings.CodexReasoningEffort = _selectedReasoning ?? "";
+                AiAppSettingsStore.Settings.CodexServiceTier = _preferredSpeedId ?? "";
+                AiAppSettingsStore.SaveSettings();
+            }
+            catch (Exception ex)
+            {
+                _statusTooltip = ex.Message;
+                OnPropertyChanged("ContextTooltip");
+            }
+        }
+
         private void NotifySelectorState()
         {
             OnPropertyChanged("SelectorsEnabled");
@@ -1307,7 +1613,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("SpeedSelectorEnabled");
         }
 
-        private void Backend_StateChanged(object sender, EventArgs e) { OnUi(RefreshBackendState); }
+        private void Backend_StateChanged(object sender, EventArgs e) { OnUi(RefreshStatusOnly); }
 
         private void MainWindowVM_StaticPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
@@ -1361,6 +1667,31 @@ namespace Clever.ViewModel.PanelsVM
             catch { return ""; }
         }
 
+        private static string NullIfBlank(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private static Geometry CreateContextArcGeometry(int percent)
+        {
+            if (percent <= 0)
+                return Geometry.Empty;
+            if (percent >= 100)
+            {
+                var full = new EllipseGeometry(new Point(9, 9), 7, 7);
+                full.Freeze();
+                return full;
+            }
+
+            var angle = Math.PI * 2 * percent / 100d;
+            var end = new Point(9 + 7 * Math.Sin(angle), 9 - 7 * Math.Cos(angle));
+            var figure = new PathFigure { StartPoint = new Point(9, 2), IsClosed = false };
+            figure.Segments.Add(new ArcSegment(end, new Size(7, 7), 0, percent > 50, SweepDirection.Clockwise, true));
+            var geometry = new PathGeometry(new[] { figure });
+            geometry.Freeze();
+            return geometry;
+        }
+
         private static bool SamePath(string left, string right)
         {
             return string.Equals(NormalizePath(left), NormalizePath(right), StringComparison.OrdinalIgnoreCase);
@@ -1390,18 +1721,20 @@ namespace Clever.ViewModel.PanelsVM
     {
         private bool _isSelected;
 
-        public AiSlashCommandItemVM(SlashCommandDefinition command, string title, string description, bool isAvailable, string unavailableReason)
+        public AiSlashCommandItemVM(SlashCommandDefinition command, string title, string currentStatus, Geometry iconGeometry, bool isAvailable, string unavailableReason)
         {
             Command = command;
             Title = title;
-            Description = description;
+            CurrentStatus = currentStatus ?? "";
+            IconGeometry = iconGeometry;
             IsAvailable = isAvailable;
             UnavailableReason = unavailableReason;
         }
 
         public SlashCommandDefinition Command { get; private set; }
         public string Title { get; private set; }
-        public string Description { get; private set; }
+        public string CurrentStatus { get; private set; }
+        public Geometry IconGeometry { get; private set; }
         public bool IsAvailable { get; private set; }
         public string UnavailableReason { get; private set; }
         public double Opacity { get { return IsAvailable ? 1 : 0.55; } }
@@ -1415,6 +1748,11 @@ namespace Clever.ViewModel.PanelsVM
         private string _details;
         private string _status;
         private FlowDocument _document;
+        private FlowDocument _detailsDocument;
+        private bool _isWaiting;
+        private bool _isWorkSummary;
+        private AiTurnWorkGroupVM _workGroup;
+        private Geometry _iconGeometry;
 
         private AiChatMessageVM(string markdown, bool isUser, string itemId, CodexItemKind kind)
         {
@@ -1423,6 +1761,8 @@ namespace Clever.ViewModel.PanelsVM
             ItemId = itemId;
             Kind = kind;
             _document = AiMarkdownRenderer.CreateDocument(_markdown, isUser);
+            _detailsDocument = AiMarkdownRenderer.CreateDocument("", false);
+            _iconGeometry = IconFor(kind, null);
         }
 
         public string ItemId { get; private set; }
@@ -1434,9 +1774,39 @@ namespace Clever.ViewModel.PanelsVM
         public bool IsUser { get; private set; }
         public bool IsCard { get { return Kind != CodexItemKind.UserMessage && Kind != CodexItemKind.AgentMessage; } }
         public FlowDocument Document { get { return _document; } }
-        public Visibility UserVisibility { get { return IsUser ? Visibility.Visible : Visibility.Collapsed; } }
-        public Visibility AssistantVisibility { get { return !IsUser && !IsCard ? Visibility.Visible : Visibility.Collapsed; } }
-        public Visibility CardVisibility { get { return IsCard ? Visibility.Visible : Visibility.Collapsed; } }
+        public FlowDocument DetailsDocument { get { return _detailsDocument; } }
+        public Geometry IconGeometry { get { return _iconGeometry; } }
+        public AiTurnWorkGroupVM WorkGroup { get { return _workGroup; } }
+        public Visibility UserVisibility { get { return IsUser && !_isWaiting && !_isWorkSummary ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility AssistantVisibility { get { return !IsUser && !IsCard && !_isWaiting && !_isWorkSummary ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility WaitingVisibility { get { return _isWaiting ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility WorkSummaryVisibility { get { return _isWorkSummary && _workGroup != null ? _workGroup.SummaryVisibility : Visibility.Collapsed; } }
+        public Visibility CompactionVisibility { get { return !_isWaiting && !_isWorkSummary && Kind == CodexItemKind.ContextCompaction ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility CardVisibility
+        {
+            get
+            {
+                if (_isWaiting || _isWorkSummary || !IsProcessKind(Kind)) return Visibility.Collapsed;
+                return _workGroup == null ? Visibility.Visible : _workGroup.ProcessVisibility;
+            }
+        }
+
+        public void AssignWorkGroup(AiTurnWorkGroupVM group)
+        {
+            if (ReferenceEquals(_workGroup, group)) return;
+            if (_workGroup != null) _workGroup.PropertyChanged -= WorkGroup_PropertyChanged;
+            _workGroup = group;
+            if (_workGroup != null) _workGroup.PropertyChanged += WorkGroup_PropertyChanged;
+            OnPropertyChanged("WorkGroup");
+            OnPropertyChanged("CardVisibility");
+            OnPropertyChanged("WorkSummaryVisibility");
+        }
+
+        private void WorkGroup_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            OnPropertyChanged("CardVisibility");
+            OnPropertyChanged("WorkSummaryVisibility");
+        }
 
         public void Append(string delta)
         {
@@ -1453,9 +1823,11 @@ namespace Clever.ViewModel.PanelsVM
             if (item == null)
                 return;
             Kind = item.Kind;
-            _title = string.IsNullOrWhiteSpace(item.Title) ? ItemTitle(item.Kind) : item.Title;
-            _details = string.IsNullOrWhiteSpace(item.Details) ? item.Text : item.Details;
+            _title = ItemTitle(item);
+            _details = BuildDetails(item);
             _status = item.Status ?? "";
+            _detailsDocument = AiMarkdownRenderer.CreateDocument(_details, false);
+            _iconGeometry = IconFor(item.Kind, item.Title);
             if (!string.IsNullOrWhiteSpace(item.Text) && !IsCard)
             {
                 _markdown = item.Text;
@@ -1464,22 +1836,40 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("Kind");
             OnPropertyChanged("Title");
             OnPropertyChanged("Details");
+            OnPropertyChanged("DetailsDocument");
+            OnPropertyChanged("IconGeometry");
             OnPropertyChanged("Status");
             OnPropertyChanged("Document");
             OnPropertyChanged("CardVisibility");
             OnPropertyChanged("AssistantVisibility");
+            OnPropertyChanged("CompactionVisibility");
         }
 
         public static AiChatMessageVM Create(string markdown, bool isUser) { return new AiChatMessageVM(markdown, isUser, null, isUser ? CodexItemKind.UserMessage : CodexItemKind.AgentMessage); }
         public static AiChatMessageVM CreateUser(string markdown) { return Create(markdown, true); }
         public static AiChatMessageVM CreateAssistant(string markdown) { return Create(markdown, false); }
         public static AiChatMessageVM CreateStreaming(string itemId) { return new AiChatMessageVM("", false, itemId, CodexItemKind.AgentMessage); }
+        public static AiChatMessageVM CreateWaiting()
+        {
+            var result = new AiChatMessageVM("", false, "waiting:" + Guid.NewGuid().ToString("N"), CodexItemKind.Unknown);
+            result._isWaiting = true;
+            return result;
+        }
+        public static AiChatMessageVM CreateWorkSummary(AiTurnWorkGroupVM group)
+        {
+            var result = new AiChatMessageVM("", false, "work:" + (group == null ? Guid.NewGuid().ToString("N") : group.TurnId), CodexItemKind.Unknown);
+            result._isWorkSummary = true;
+            result.AssignWorkGroup(group);
+            return result;
+        }
         public static AiChatMessageVM CreateError(string message)
         {
             var result = new AiChatMessageVM("", false, null, CodexItemKind.Unknown);
             result._title = AiChatPanelVM.Localize("AiTimelineError", "Error");
             result._details = message ?? "";
             result.Kind = CodexItemKind.CommandExecution;
+            result._detailsDocument = AiMarkdownRenderer.CreateDocument(result._details, false);
+            result._iconGeometry = AiIconGeometry.SystemTool;
             return result;
         }
         public static AiChatMessageVM CreateItem(CodexThreadItem item) { return CreateItem(item, item == null ? null : item.Id); }
@@ -1491,8 +1881,19 @@ namespace Clever.ViewModel.PanelsVM
             return result;
         }
 
-        private static string ItemTitle(CodexItemKind kind)
+        public static bool IsProcessKind(CodexItemKind kind)
         {
+            return kind != CodexItemKind.Unknown && kind != CodexItemKind.UserMessage && kind != CodexItemKind.AgentMessage && kind != CodexItemKind.ContextCompaction;
+        }
+
+        private static string ItemTitle(CodexThreadItem item)
+        {
+            var kind = item == null ? CodexItemKind.Unknown : item.Kind;
+            var rawTitle = item == null ? null : item.Title;
+            var normalized = (rawTitle ?? "").Trim().ToLowerInvariant();
+            if (normalized.EndsWith("docs_search") || normalized == "docs_search") return AiChatPanelVM.Localize("AiToolDocsSearch", "Docs search");
+            if (normalized.EndsWith("docs_read") || normalized == "docs_read") return AiChatPanelVM.Localize("AiToolDocsRead", "Docs read");
+            if (normalized.EndsWith("workspace_context") || normalized.EndsWith("robot_context")) return AiChatPanelVM.Localize("AiToolContextGet", "Context get");
             switch (kind)
             {
                 case CodexItemKind.Reasoning: return AiChatPanelVM.Localize("AiTimelineReasoning", "Reasoning");
@@ -1502,8 +1903,192 @@ namespace Clever.ViewModel.PanelsVM
                 case CodexItemKind.McpToolCall: return AiChatPanelVM.Localize("AiTimelineMcp", "MCP tool");
                 case CodexItemKind.DynamicToolCall: return AiChatPanelVM.Localize("AiTimelineTool", "CLEV3R tool");
                 case CodexItemKind.ContextCompaction: return AiChatPanelVM.Localize("AiTimelineCompaction", "Context compaction");
-                default: return kind.ToString();
+                default: return Humanize(rawTitle, kind.ToString());
             }
+        }
+
+        private static string BuildDetails(CodexThreadItem item)
+        {
+            if (item == null) return "";
+            if (item.Kind == CodexItemKind.Reasoning || item.Kind == CodexItemKind.Plan)
+                return Limit(item.Text, 4000);
+            if (item.Kind == CodexItemKind.ContextCompaction)
+                return "";
+
+            try
+            {
+                using (var document = JsonDocument.Parse(item.RawJson ?? "{}"))
+                {
+                    var root = document.RootElement;
+                    var lines = new List<string>();
+                    if (item.Kind == CodexItemKind.CommandExecution)
+                    {
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailCommand", "Command"), root, "command");
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailFolder", "Folder"), root, "cwd");
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailExitCode", "Exit code"), root, "exitCode");
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailDuration", "Duration"), root, "durationMs", " ms");
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailOutput", "Output"), root, "aggregatedOutput");
+                    }
+                    else if (item.Kind == CodexItemKind.FileChange)
+                    {
+                        JsonElement changes;
+                        if (root.TryGetProperty("changes", out changes) && changes.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var change in changes.EnumerateArray().Take(20))
+                            {
+                                var path = JsonString(change, "path");
+                                var changeKind = JsonString(change, "kind");
+                                if (!string.IsNullOrWhiteSpace(path)) lines.Add("• " + path + (string.IsNullOrWhiteSpace(changeKind) ? "" : " — " + changeKind));
+                            }
+                        }
+                    }
+                    else if (item.Kind == CodexItemKind.DynamicToolCall || item.Kind == CodexItemKind.McpToolCall)
+                    {
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailServer", "Server"), root, "server");
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailTool", "Tool"), root, "tool");
+                        var query = FindNestedString(root, "arguments", "query") ?? FindNestedString(root, "arguments", "path");
+                        if (!string.IsNullOrWhiteSpace(query)) lines.Add(AiChatPanelVM.Localize("AiDetailRequest", "Request") + ": " + Limit(query, 500));
+                        AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailStatus", "Status"), root, "status");
+                        var resultMessage = JsonString(root, "resultMessage") ?? FindNestedString(root, "result", "message") ?? FindNestedString(root, "result", "code");
+                        if (!string.IsNullOrWhiteSpace(resultMessage)) lines.Add(AiChatPanelVM.Localize("AiDetailResult", "Result") + ": " + Limit(resultMessage, 1000));
+                        var error = JsonString(root, "error");
+                        if (!string.IsNullOrWhiteSpace(error)) lines.Add(AiChatPanelVM.Localize("AiTimelineError", "Error") + ": " + Limit(error, 1000));
+                    }
+                    if (lines.Count == 0 && !string.IsNullOrWhiteSpace(item.Text)) lines.Add(Limit(item.Text, 3000));
+                    return string.Join("\n", lines);
+                }
+            }
+            catch
+            {
+                return Limit(item.Text, 3000);
+            }
+        }
+
+        private static void AddJsonLine(ICollection<string> lines, string label, JsonElement root, string property, string suffix = "")
+        {
+            JsonElement value;
+            if (!root.TryGetProperty(property, out value) || value.ValueKind == JsonValueKind.Null || value.ValueKind == JsonValueKind.Undefined) return;
+            var text = value.ValueKind == JsonValueKind.String ? value.GetString() : value.GetRawText();
+            if (!string.IsNullOrWhiteSpace(text)) lines.Add(label + ": " + Limit(text, 2000) + suffix);
+        }
+
+        private static string FindNestedString(JsonElement root, string parentName, string childName)
+        {
+            JsonElement parent;
+            if (!root.TryGetProperty(parentName, out parent)) return null;
+            if (parent.ValueKind == JsonValueKind.String)
+            {
+                var text = parent.GetString();
+                if (string.IsNullOrWhiteSpace(text)) return null;
+                try
+                {
+                    using (var nested = JsonDocument.Parse(text)) return JsonString(nested.RootElement, childName);
+                }
+                catch { return childName == "query" ? text : null; }
+            }
+            return parent.ValueKind == JsonValueKind.Object ? JsonString(parent, childName) : null;
+        }
+
+        private static string JsonString(JsonElement root, string property)
+        {
+            JsonElement value;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(property, out value)) return null;
+            return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ValueKind == JsonValueKind.Null ? null : value.GetRawText();
+        }
+
+        private static string Limit(string value, int max)
+        {
+            value = value ?? "";
+            return value.Length <= max ? value : value.Substring(0, max) + "…";
+        }
+
+        private static string Humanize(string value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return fallback;
+            var text = Regex.Replace(value.Replace('_', ' '), "(?<=[a-z])(?=[A-Z])", " ").Trim();
+            return text.Length == 0 ? fallback : char.ToUpperInvariant(text[0]) + text.Substring(1);
+        }
+
+        private static Geometry IconFor(CodexItemKind kind, string title)
+        {
+            var normalized = (title ?? "").ToLowerInvariant();
+            if (kind == CodexItemKind.Reasoning) return AiIconGeometry.Reasoning;
+            if (kind == CodexItemKind.FileChange) return AiIconGeometry.File;
+            if (kind == CodexItemKind.McpToolCall) return AiIconGeometry.Web;
+            if (normalized.Contains("docs_")) return AiIconGeometry.Documentation;
+            if (normalized.Contains("context")) return AiIconGeometry.Context;
+            return AiIconGeometry.SystemTool;
+        }
+    }
+
+    internal sealed class AiTurnWorkGroupVM : BaseViewModel
+    {
+        private readonly DateTime _startedAtUtc;
+        private bool _isCompleted;
+        private bool _isExpanded;
+        private int _processItemCount;
+        private long _durationMs;
+
+        public AiTurnWorkGroupVM(string turnId, DateTime startedAtUtc)
+        {
+            TurnId = turnId ?? "";
+            _startedAtUtc = startedAtUtc;
+        }
+
+        public string TurnId { get; private set; }
+        public bool IsExpanded
+        {
+            get { return _isExpanded; }
+            set { _isExpanded = value; OnPropertyChanged("IsExpanded"); OnPropertyChanged("ProcessVisibility"); }
+        }
+        public string SummaryText { get { return AiChatPanelVM.Localize("AiWorked", "Worked") + " " + FormatDuration(_durationMs); } }
+        public Visibility SummaryVisibility { get { return _isCompleted && _processItemCount > 0 ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility ProcessVisibility { get { return !_isCompleted || IsExpanded ? Visibility.Visible : Visibility.Collapsed; } }
+
+        public void AddProcessItem()
+        {
+            _processItemCount++;
+            OnPropertyChanged("SummaryVisibility");
+        }
+
+        public void Complete(long? durationMs)
+        {
+            _durationMs = durationMs ?? Math.Max(0, (long)(DateTime.UtcNow - _startedAtUtc).TotalMilliseconds);
+            _isCompleted = true;
+            _isExpanded = false;
+            OnPropertyChanged("SummaryText");
+            OnPropertyChanged("SummaryVisibility");
+            OnPropertyChanged("ProcessVisibility");
+            OnPropertyChanged("IsExpanded");
+        }
+
+        private static string FormatDuration(long durationMs)
+        {
+            var totalSeconds = Math.Max(0, durationMs / 1000);
+            var minutes = totalSeconds / 60;
+            var seconds = totalSeconds % 60;
+            return minutes > 0 ? minutes + "m " + seconds + "s" : seconds + "s";
+        }
+    }
+
+    internal static class AiIconGeometry
+    {
+        public static readonly Geometry Reasoning = Create("M12,18 L12,5 M15,13 C13,12 12,10 12,9 C12,11 11,12 9,13 M17.6,6.5 C20,7 21,9 20.5,11 M18,18 C21,17 21,13 20,11 M6,18 C3,17 3,13 4,11 M6.4,6.5 C4,7 3,9 3.5,11");
+        public static readonly Geometry Documentation = Create("M2.6,9.1 L11.2,5.2 C11.7,5 12.3,5 12.8,5.2 L21.4,9.1 C22.2,9.5 22.2,10.5 21.4,10.9 L12.8,14.8 C12.3,15 11.7,15 11.2,14.8 L2.6,10.9 C1.8,10.5 1.8,9.5 2.6,9.1 M22,10 L22,16 M6,12.5 L6,16 C6,20 18,20 18,16 L18,12.5");
+        public static readonly Geometry Context = Create("M18,16 L22,12 18,8 M6,8 L2,12 6,16 M14.5,4 L9.5,20");
+        public static readonly Geometry File = Create("M6,22 C5,22 4,21 4,20 L4,4 C4,3 5,2 6,2 L14,2 L20,8 L20,20 C20,21 19,22 18,22 Z M14,2 L14,7 C14,8 15,8 16,8 L20,8");
+        public static readonly Geometry Web = Create("M12,2 A10,10 0 1 0 12,22 A10,10 0 1 0 12,2 M2,12 L22,12 M12,2 C7,7 7,17 12,22 M12,2 C17,7 17,17 12,22");
+        public static readonly Geometry SystemTool = Create("M10,5 L3,5 M14,3 L14,7 M21,5 L14,5 M8,10 L8,14 M3,12 L8,12 M12,12 L21,12 M12,19 L3,19 M16,17 L16,21 M21,19 L16,19");
+        public static readonly Geometry Model = Create("M12,2 L16,6 12,10 8,6 Z M5,9 L9,13 5,17 1,13 Z M19,9 L23,13 19,17 15,13 Z M12,14 L16,18 12,22 8,18 Z");
+        public static readonly Geometry Speed = Create("M3.3,19 A10,10 0 1 1 20.7,19 M12,14 L16,10");
+        public static readonly Geometry Goal = Create("M12,13 L12,2 20,6 12,10 M20.5,10.2 A9,9 0 1 1 8,4.9 M8,10 A5,5 0 1 0 17,12");
+        public static readonly Geometry Compact = Create("M11,21.7 C11.6,22 12.4,22 13,21.7 L20,17.7 C20.6,17.4 21,16.7 21,16 L21,8 C21,7.3 20.6,6.6 20,6.3 L13,2.3 C12.4,2 11.6,2 11,2.3 L4,6.3 C3.4,6.6 3,7.3 3,8 L3,16 C3,16.7 3.4,17.4 4,17.7 Z M12,22 L12,12 M3.3,7 L12,12 20.7,7 M7.5,4.3 L16.5,9.4");
+
+        private static Geometry Create(string data)
+        {
+            var geometry = Geometry.Parse(data);
+            geometry.Freeze();
+            return geometry;
         }
     }
 

@@ -3,9 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:panels="clr-namespace:Clever.View.Panels"
              mc:Ignorable="d"
              d:DesignHeight="520" d:DesignWidth="340">
     <UserControl.Resources>
+        <panels:AiReasoningDisplayConverter x:Key="AiReasoningDisplayConverter"/>
         <Style x:Key="AiIconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Width" Value="30"/>
             <Setter Property="Height" Value="30"/>
@@ -106,21 +108,91 @@
                         HorizontalAlignment="Stretch">
                     <FlowDocumentScrollViewer Document="{Binding Document}" IsToolBarVisible="False" Focusable="False" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"/>
                 </Border>
-                <Border Visibility="{Binding CardVisibility}"
-                        Background="#F3F5F9" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1"
-                        CornerRadius="7" Padding="8,6" HorizontalAlignment="Stretch">
-                    <Expander IsExpanded="False">
-                        <Expander.Header>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="12"/>
-                                <TextBlock Text="{Binding Status}" Foreground="#8F98AB" FontSize="11" Margin="7,0,0,0"/>
+                <Grid Visibility="{Binding WaitingVisibility}" HorizontalAlignment="Left" Margin="4,5">
+                    <Ellipse Width="7" Height="7" Fill="#0A86FF">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Opacity" Value="0.28"/>
+                                <Style.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.25" To="1" Duration="0:0:0.65"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)" From="0.8" To="1.15" Duration="0:0:0.65"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)" From="0.8" To="1.15" Duration="0:0:0.65"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                        <Ellipse.RenderTransform><ScaleTransform ScaleX="1" ScaleY="1"/></Ellipse.RenderTransform>
+                        <Ellipse.RenderTransformOrigin>0.5,0.5</Ellipse.RenderTransformOrigin>
+                    </Ellipse>
+                </Grid>
+
+                <ToggleButton Visibility="{Binding WorkSummaryVisibility}"
+                              IsChecked="{Binding WorkGroup.IsExpanded, Mode=TwoWay}"
+                              Background="#00FFFFFF" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding WorkGroup.SummaryText}" Foreground="#737B8D" FontWeight="SemiBold" FontSize="11.5" VerticalAlignment="Center"/>
+                        <Path Grid.Column="1" Data="M2,3 L6,7 10,3" Stroke="#8F98AB" StrokeThickness="1.5" Width="10" Height="7" Stretch="Uniform" Margin="6,0,7,0"/>
+                        <Border Grid.Column="2" Height="1" Background="{StaticResource git_panel_separator}" VerticalAlignment="Center"/>
+                    </Grid>
+                </ToggleButton>
+
+                <Grid Visibility="{Binding CompactionVisibility}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Height="1" Background="{StaticResource git_panel_separator}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Title}" Foreground="#8F98AB" FontSize="11" Margin="8,0"/>
+                    <Border Grid.Column="2" Height="1" Background="{StaticResource git_panel_separator}" VerticalAlignment="Center"/>
+                </Grid>
+
+                <Expander Visibility="{Binding CardVisibility}" IsExpanded="False" Background="#00FFFFFF" HorizontalAlignment="Stretch">
+                    <Expander.Template>
+                        <ControlTemplate TargetType="Expander">
+                            <StackPanel>
+                                <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                              Background="#00FFFFFF" BorderThickness="0" Padding="0" HorizontalContentAlignment="Stretch">
+                                    <ContentPresenter ContentSource="Header"/>
+                                </ToggleButton>
+                                <ContentPresenter x:Name="ExpandSite" ContentSource="Content" Visibility="Collapsed"/>
                             </StackPanel>
-                        </Expander.Header>
-                        <TextBox Text="{Binding Details, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="#00FFFFFF"
-                                 Foreground="#596174" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto" MaxHeight="220" Margin="0,5,0,0"/>
-                    </Expander>
-                </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsExpanded" Value="True">
+                                    <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Expander.Template>
+                    <Expander.Header>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="18"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Data="{Binding IconGeometry}" Stroke="#737B8D" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="12.5"/>
+                                <TextBlock Text="{Binding Status}" Foreground="#9AA2B2" FontSize="10.5" Margin="6,0,0,0"/>
+                            </StackPanel>
+                            <Path Grid.Column="2" Data="M2,3 L6,7 10,3" Stroke="#8F98AB" StrokeThickness="1.5" Width="10" Height="7" Stretch="Uniform" Margin="6,0,2,0" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Expander.Header>
+                    <Border Margin="18,4,0,4" Padding="8,5" Background="#F6F7FA" CornerRadius="5">
+                        <FlowDocumentScrollViewer Document="{Binding DetailsDocument}" IsToolBarVisible="False" Focusable="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="190"/>
+                    </Border>
+                </Expander>
             </Grid>
         </DataTemplate>
 
@@ -186,7 +258,7 @@
                 </Grid.RowDefinitions>
                 <Button Grid.Row="0" Content="{Binding LoadMoreTurnsText}" Command="{Binding LoadMoreTurnsCommand}"
                         Visibility="{Binding LoadMoreTurnsVisibility}" Margin="10,6,10,0" Padding="7,3"/>
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,6,0,8">
+                <ScrollViewer x:Name="ConversationScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,6,0,8" PreviewMouseWheel="ConversationScrollViewer_PreviewMouseWheel">
                     <ItemsControl ItemsSource="{Binding Messages}" ItemTemplate="{StaticResource AiMessageTemplate}"/>
                 </ScrollViewer>
             </Grid>
@@ -271,14 +343,14 @@
 
                 <Border Visibility="{Binding SlashVisibility}"
                         Background="#F7F8FB" BorderBrush="#BCC3D4" BorderThickness="1"
-                        CornerRadius="8" Margin="0,0,0,6" Padding="4" MaxHeight="230">
+                        CornerRadius="7" Margin="0,0,0,5" Padding="3" MaxHeight="190">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding SlashItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button Command="{Binding DataContext.SelectSlashCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}" Opacity="{Binding Opacity}"
-                                            BorderThickness="0" Padding="8,6" HorizontalContentAlignment="Stretch">
+                                            BorderThickness="0" Padding="6,4" HorizontalContentAlignment="Stretch">
                                         <Button.Style>
                                             <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                                 <Setter Property="Background" Value="#00FFFFFF"/>
@@ -289,11 +361,19 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="13"/>
-                                            <TextBlock Text="{Binding Description}" Foreground="#737B8D" FontSize="11" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding UnavailableReason}" Foreground="#B42318" FontSize="10" TextWrapping="Wrap"/>
-                                        </StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="20"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Path Data="{Binding IconGeometry}" Stroke="#667085" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="12.5"/>
+                                                <TextBlock Text="{Binding UnavailableReason}" Foreground="#B42318" FontSize="9.5" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding CurrentStatus}" Foreground="#8F98AB" FontSize="11" MaxWidth="110" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="8,0,2,0"/>
+                                        </Grid>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -339,14 +419,18 @@
                                         VerticalAlignment="Center">
                                     <Canvas Width="18" Height="18">
                                         <Ellipse Width="16" Height="16" Canvas.Left="1" Canvas.Top="1" Stroke="#D6DAE4" StrokeThickness="2"/>
-                                        <Path Data="M9,2 A7,7 0,1 1,3.4,13.2" Stroke="#0A86FF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        <Path Data="{Binding ContextArcGeometry}" Stroke="#0A86FF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                                     </Canvas>
                                 </Border>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
                                 <ComboBox ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding ModelSelectorEnabled}" ToolTip="{Binding ModelText}" Style="{StaticResource AiComboBox}"/>
-                                <ComboBox ItemsSource="{Binding ReasoningModes}" SelectedItem="{Binding SelectedReasoning}" IsEnabled="{Binding ReasoningSelectorEnabled}" ToolTip="{Binding ReasoningText}" Style="{StaticResource AiComboBox}"/>
+                                <ComboBox ItemsSource="{Binding ReasoningModes}" SelectedItem="{Binding SelectedReasoning}" IsEnabled="{Binding ReasoningSelectorEnabled}" ToolTip="{Binding ReasoningText}" Style="{StaticResource AiComboBox}" MinWidth="58" Width="62">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate><TextBlock Text="{Binding Converter={StaticResource AiReasoningDisplayConverter}}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                                 <ComboBox ItemsSource="{Binding SpeedTiers}" SelectedItem="{Binding SelectedSpeed}" DisplayMemberPath="DisplayName" IsEnabled="{Binding SpeedSelectorEnabled}" ToolTip="{Binding SpeedText}" Style="{StaticResource AiComboBox}"/>
                             </StackPanel>
 

@@ -160,6 +160,9 @@ namespace Clever.Model.Utils
             EmbeddedModel = AiAppSettingsStore.DefaultEmbeddedModel;
             EmbeddedTokenProtected = "";
             CodexExecutablePath = "";
+            CodexModel = "";
+            CodexReasoningEffort = "";
+            CodexServiceTier = "";
             WheelDiameter = "56";
             WheelBaseWidth = "120";
             RobotDescription = "";
@@ -171,6 +174,9 @@ namespace Clever.Model.Utils
         public string EmbeddedModel { get; set; }
         public string EmbeddedTokenProtected { get; set; }
         public string CodexExecutablePath { get; set; }
+        public string CodexModel { get; set; }
+        public string CodexReasoningEffort { get; set; }
+        public string CodexServiceTier { get; set; }
         public string WheelDiameter { get; set; }
         public string WheelBaseWidth { get; set; }
         public string RobotDescription { get; set; }

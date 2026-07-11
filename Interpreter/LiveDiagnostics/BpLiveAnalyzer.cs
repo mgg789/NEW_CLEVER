@@ -446,7 +446,10 @@ namespace Interpreter.LiveDiagnostics
                         stack.Push(new BlockState("If", "EndIf", line, FindFirstNonWhitespace(line.Code), lower.Length));
                     else if (!ContainsExpected(stack, "EndIf"))
                         Add(line, FindFirstNonWhitespace(line.Code), lower.Length, "BP2202", "ElseIf допустим только внутри If ... EndIf.", BpDiagnosticSeverity.Error, BpDiagnosticStage.Syntax, true);
-                    AnalyzeVariableReads(line, line.Code.Substring(Math.Min(line.Code.Length, lower.Length)), knownVariables, initializedVariables, currentParameters);
+                    var conditionStart = Math.Min(
+                        line.Code.Length,
+                        FindFirstNonWhitespace(line.Code) + lower.Length);
+                    AnalyzeVariableReads(line, line.Code.Substring(conditionStart), knownVariables, initializedVariables, currentParameters);
                     return true;
                 }
 
