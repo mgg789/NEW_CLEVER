@@ -2779,6 +2779,10 @@ namespace Clever.ViewModel.PanelsVM
             var normalized = (rawTitle ?? "").Trim().ToLowerInvariant();
             if (normalized.EndsWith("docs_search") || normalized == "docs_search") return AiChatPanelVM.Localize("AiToolDocsSearch", "Docs search");
             if (normalized.EndsWith("docs_read") || normalized == "docs_read") return AiChatPanelVM.Localize("AiToolDocsRead", "Docs read");
+            if (normalized.EndsWith("examples_search") || normalized == "examples_search") return AiChatPanelVM.Localize("AiToolExamplesSearch", "Examples search");
+            if (normalized.EndsWith("examples_read") || normalized == "examples_read") return AiChatPanelVM.Localize("AiToolExamplesRead", "Examples read");
+            if (normalized.EndsWith("project_search") || normalized == "project_search") return AiChatPanelVM.Localize("AiToolProjectSearch", "Project search");
+            if (normalized.EndsWith("project_read") || normalized == "project_read") return AiChatPanelVM.Localize("AiToolProjectRead", "Project read");
             if (normalized.EndsWith("workspace_context") || normalized.EndsWith("robot_context")) return AiChatPanelVM.Localize("AiToolContextGet", "Context get");
             switch (kind)
             {
@@ -2875,12 +2879,12 @@ namespace Clever.ViewModel.PanelsVM
                     var tool = JsonString(root, "tool") ?? item.Title ?? "";
                     var normalized = tool.Trim().ToLowerInvariant();
                     var argument = FindToolArgument(root, "query", "id", "path", "entryPath", "localPath", "destinationPath", "buildId", "name");
-                    if (normalized.EndsWith("docs_read"))
+                    if (normalized.EndsWith("docs_read") || normalized.EndsWith("examples_read") || normalized.EndsWith("project_read"))
                     {
                         var topic = ExtractToolDataTitle(root);
                         return Limit(topic ?? argument ?? item.Status ?? "", 140);
                     }
-                    if (normalized.EndsWith("docs_search"))
+                    if (normalized.EndsWith("docs_search") || normalized.EndsWith("examples_search") || normalized.EndsWith("project_search"))
                         return Limit(argument ?? item.Status ?? "", 140);
 
                     var commandName = Humanize(tool, "");
@@ -3051,6 +3055,7 @@ namespace Clever.ViewModel.PanelsVM
             if (kind == CodexItemKind.FileChange) return AiIconGeometry.File;
             if (kind == CodexItemKind.CommandExecution) return AiIconGeometry.Terminal;
             if (kind == CodexItemKind.McpToolCall) return AiIconGeometry.Web;
+            if (normalized.Contains("examples_")) return AiIconGeometry.Examples;
             if (normalized.Contains("docs_")) return AiIconGeometry.Documentation;
             if (normalized.Contains("context")) return AiIconGeometry.Context;
             return AiIconGeometry.SystemTool;
@@ -3135,6 +3140,7 @@ namespace Clever.ViewModel.PanelsVM
         public static readonly Geometry Terminal = Create("M7,11 L9,9 7,7 M11,13 L15,13 M5,3 L19,3 A2,2 0,0 1,21,5 L21,19 A2,2 0,0 1,19,21 L5,21 A2,2 0,0 1,3,19 L3,5 A2,2 0,0 1,5,3");
         public static readonly Geometry Reasoning = Create("M12,18 L12,5 M15,13 C13,12 12,10 12,9 C12,11 11,12 9,13 M17.6,6.5 C20,7 21,9 20.5,11 M18,18 C21,17 21,13 20,11 M6,18 C3,17 3,13 4,11 M6.4,6.5 C4,7 3,9 3.5,11");
         public static readonly Geometry Documentation = Create("M2.6,9.1 L11.2,5.2 C11.7,5 12.3,5 12.8,5.2 L21.4,9.1 C22.2,9.5 22.2,10.5 21.4,10.9 L12.8,14.8 C12.3,15 11.7,15 11.2,14.8 L2.6,10.9 C1.8,10.5 1.8,9.5 2.6,9.1 M22,10 L22,16 M6,12.5 L6,16 C6,20 18,20 18,16 L18,12.5");
+        public static readonly Geometry Examples = Create("M4,3 L10,3 A1,1 0,0 1,11,4 L11,20 A1,1 0,0 1,10,21 L4,21 A1,1 0,0 1,3,20 L3,4 A1,1 0,0 1,4,3 Z M7,3 L7,21 M20.4,18.9 C20.6,19.4 20.3,20 19.8,20.2 L17.9,20.9 C17.4,21.1 16.8,20.8 16.6,20.3 L11.1,5.1 C10.9,4.6 11.2,4 11.7,3.8 L13.6,3.1 C14.1,2.9 14.7,3.2 14.9,3.7 Z");
         public static readonly Geometry Context = Create("M18,16 L22,12 18,8 M6,8 L2,12 6,16 M14.5,4 L9.5,20");
         public static readonly Geometry File = Create("M6,22 C5,22 4,21 4,20 L4,4 C4,3 5,2 6,2 L14,2 L20,8 L20,20 C20,21 19,22 18,22 Z M14,2 L14,7 C14,8 15,8 16,8 L20,8");
         public static readonly Geometry Web = Create("M12,2 A10,10 0 1 0 12,22 A10,10 0 1 0 12,2 M2,12 L22,12 M12,2 C7,7 7,17 12,22 M12,2 C17,7 17,17 12,22");

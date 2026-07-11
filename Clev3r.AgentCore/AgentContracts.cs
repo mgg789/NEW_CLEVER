@@ -378,6 +378,23 @@ namespace Clev3r.AgentCore
         public string SourcePath { get; set; }
     }
 
+    public sealed class ProjectSearchHit
+    {
+        public string RelativePath { get; set; }
+        public int Line { get; set; }
+        public string Snippet { get; set; }
+        public double Score { get; set; }
+    }
+
+    public sealed class ProjectFileContent
+    {
+        public string RelativePath { get; set; }
+        public int StartLine { get; set; }
+        public int EndLine { get; set; }
+        public string Content { get; set; }
+        public bool Truncated { get; set; }
+    }
+
     public interface IWorkspaceContextService
     {
         Task<OperationResult<WorkspaceContextData>> SaveAllAndCaptureAsync(CancellationToken cancellationToken);
@@ -395,6 +412,19 @@ namespace Clev3r.AgentCore
         Task<OperationResult<IList<DocumentationSearchHit>>> SearchAsync(string query, int limit, CancellationToken cancellationToken);
         Task<OperationResult<DocumentationTopic>> ReadAsync(string id, CancellationToken cancellationToken);
         string GetCompactGuide();
+    }
+
+    public interface IExampleLibraryService
+    {
+        void Warmup();
+        Task<OperationResult<IList<DocumentationSearchHit>>> SearchAsync(string query, int limit, CancellationToken cancellationToken);
+        Task<OperationResult<DocumentationTopic>> ReadAsync(string id, CancellationToken cancellationToken);
+    }
+
+    public interface IProjectSourceSearchService
+    {
+        Task<OperationResult<IList<ProjectSearchHit>>> SearchAsync(string query, int limit, CancellationToken cancellationToken);
+        Task<OperationResult<ProjectFileContent>> ReadAsync(string path, int? startLine, int? endLine, CancellationToken cancellationToken);
     }
 
     public interface IAgentApprovalService

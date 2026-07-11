@@ -220,6 +220,8 @@
     <Compile Include="Model\Agent\GitWorkspaceService.cs" />
     <Compile Include="Model\Agent\Clev3rToolRegistryFactory.cs" />
     <Compile Include="Model\Agent\DocumentationSearchService.cs" />
+    <Compile Include="Model\Agent\ExampleLibraryService.cs" />
+    <Compile Include="Model\Agent\ProjectSourceSearchService.cs" />
     <Compile Include="Model\Agent\WorkspaceContextService.cs" />
     <Compile Include="Model\Agent\CodexJsonRpcTransport.cs" />
     <Compile Include="Model\Agent\CodexAppServerProcessHost.cs" />
@@ -1595,6 +1597,10 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Resources\Codex\BP_GUIDE.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\ai-examples\**\*.md">
+      <Link>ai-examples\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\Codex\runtime-manifest.json">

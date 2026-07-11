@@ -30,6 +30,8 @@ namespace Clever.Model.Agent
         internal IBpBuildService Build { get; private set; }
         internal IEv3SessionService Ev3 { get; private set; }
         internal IDocumentationSearchService Documentation { get; private set; }
+        internal IExampleLibraryService Examples { get; private set; }
+        internal IProjectSourceSearchService ProjectSource { get; private set; }
         internal IAgentApprovalService Approvals { get; private set; }
         internal IGitWorkspaceService GitWorkspace { get; private set; }
         internal IEditorNavigationService EditorNavigation { get; private set; }
@@ -43,16 +45,20 @@ namespace Clever.Model.Agent
             IBpBuildService build,
             IEv3SessionService ev3,
             IDocumentationSearchService documentation,
+            IExampleLibraryService examples,
+            IProjectSourceSearchService projectSource,
             IAgentApprovalService approvals)
         {
             WorkspaceContext = workspaceContext ?? throw new ArgumentNullException("workspaceContext");
             Build = build ?? throw new ArgumentNullException("build");
             Ev3 = ev3 ?? throw new ArgumentNullException("ev3");
             Documentation = documentation ?? throw new ArgumentNullException("documentation");
+            Examples = examples ?? throw new ArgumentNullException("examples");
+            ProjectSource = projectSource ?? throw new ArgumentNullException("projectSource");
             Approvals = approvals ?? throw new ArgumentNullException("approvals");
             GitWorkspace = new GitWorkspaceService(WorkspaceContext);
             EditorNavigation = new EditorNavigationService(WorkspaceContext);
-            ToolRegistry = Clev3rToolRegistryFactory.Create(WorkspaceContext, Build, Ev3, Documentation, Approvals, GitWorkspace, EditorNavigation);
+            ToolRegistry = Clev3rToolRegistryFactory.Create(WorkspaceContext, Build, Ev3, Documentation, Examples, ProjectSource, Approvals, GitWorkspace, EditorNavigation);
         }
 
         internal void InitializeDefaultFoundation()
@@ -62,11 +68,16 @@ namespace Clever.Model.Agent
 
             var build = new BpBuildService();
             var ev3 = new Ev3SessionService(build);
+            var workspace = new WorkspaceContextService();
+            var examples = new ExampleLibraryService();
+            examples.Warmup();
             ConfigureFoundation(
-                new WorkspaceContextService(),
+                workspace,
                 build,
                 ev3,
                 new DocumentationSearchService(),
+                examples,
+                new ProjectSourceSearchService(workspace),
                 new WpfAgentApprovalService());
 
             _runtimeManager = new CodexRuntimeManager(AiAppSettingsStore.Settings.CodexExecutablePath);
