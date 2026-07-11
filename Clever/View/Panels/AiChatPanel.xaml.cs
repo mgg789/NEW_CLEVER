@@ -56,8 +56,8 @@ namespace Clever.View.Panels
 
             if (e.Key == Key.Enter)
             {
-                if (viewModel.IsBotWorking && viewModel.CanSend && viewModel.SteerCommand.CanExecute(null))
-                    viewModel.SteerCommand.Execute(null);
+                if (viewModel.IsBotWorking && viewModel.CanSend)
+                    viewModel.QueueComposerMessage();
                 else if (!viewModel.IsBotWorking && viewModel.SendOrStopCommand.CanExecute(null))
                     viewModel.SendOrStopCommand.Execute(null);
                 e.Handled = true;

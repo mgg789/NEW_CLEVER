@@ -35,6 +35,8 @@ namespace Clever.View.Controls.Editors
         private int _renderRequestId;
         private readonly DispatcherTimer _csvTextUpdateTimer;
         private bool _pendingCsvTextUpdateMarkDirty;
+        private DataGridColumn _csvColumnSelectionAnchor;
+        private object _csvRowSelectionAnchor;
 
         private static readonly Brush[] CsvColumnBrushes =
         {
@@ -265,6 +267,8 @@ namespace Clever.View.Controls.Editors
             if (!CsvColumnsMatch(document.Table))
             {
                 csvDataGrid.Columns.Clear();
+                _csvColumnSelectionAnchor = null;
+                _csvRowSelectionAnchor = null;
                 for (var i = 0; i < document.Table.Columns.Count; i++)
                 {
                     var column = document.Table.Columns[i];
@@ -395,7 +399,10 @@ namespace Clever.View.Controls.Editors
             var columnHeader = FindVisualParent<DataGridColumnHeader>(source);
             if (columnHeader != null && columnHeader.Column != null)
             {
-                SelectCsvColumn(columnHeader.Column);
+                var extend = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+                SelectCsvColumn(columnHeader.Column, extend ? _csvColumnSelectionAnchor : null);
+                if (!extend || _csvColumnSelectionAnchor == null)
+                    _csvColumnSelectionAnchor = columnHeader.Column;
                 e.Handled = true;
                 return;
             }
@@ -408,39 +415,65 @@ namespace Clever.View.Controls.Editors
             if (row == null || ReferenceEquals(row.Item, CollectionView.NewItemPlaceholder))
                 return;
 
-            SelectCsvRow(row.Item);
+            var extendRows = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+            SelectCsvRow(row.Item, extendRows ? _csvRowSelectionAnchor : null);
+            if (!extendRows || _csvRowSelectionAnchor == null)
+                _csvRowSelectionAnchor = row.Item;
             e.Handled = true;
         }
 
-        private void SelectCsvColumn(DataGridColumn column)
+        private void SelectCsvColumn(DataGridColumn column, DataGridColumn rangeStart)
         {
             csvDataGrid.SelectedCells.Clear();
+            var firstColumnIndex = rangeStart == null ? csvDataGrid.Columns.IndexOf(column) : Math.Min(csvDataGrid.Columns.IndexOf(rangeStart), csvDataGrid.Columns.IndexOf(column));
+            var lastColumnIndex = rangeStart == null ? firstColumnIndex : Math.Max(csvDataGrid.Columns.IndexOf(rangeStart), csvDataGrid.Columns.IndexOf(column));
+            if (firstColumnIndex < 0 || lastColumnIndex < 0)
+                return;
             DataGridCellInfo? firstCell = null;
             foreach (var item in csvDataGrid.Items)
             {
                 if (ReferenceEquals(item, CollectionView.NewItemPlaceholder))
                     continue;
 
-                var cell = new DataGridCellInfo(item, column);
-                csvDataGrid.SelectedCells.Add(cell);
-                if (!firstCell.HasValue)
-                    firstCell = cell;
+                for (var index = firstColumnIndex; index <= lastColumnIndex; index++)
+                {
+                    var candidate = csvDataGrid.Columns[index];
+                    if (candidate.Visibility != Visibility.Visible)
+                        continue;
+                    var cell = new DataGridCellInfo(item, candidate);
+                    csvDataGrid.SelectedCells.Add(cell);
+                    if (!firstCell.HasValue)
+                        firstCell = cell;
+                }
             }
 
             if (firstCell.HasValue)
                 csvDataGrid.CurrentCell = firstCell.Value;
         }
 
-        private void SelectCsvRow(object item)
+        private void SelectCsvRow(object item, object rangeStart)
         {
             csvDataGrid.SelectedCells.Clear();
+            var items = csvDataGrid.Items
+                .Cast<object>()
+                .Where(candidate => !ReferenceEquals(candidate, CollectionView.NewItemPlaceholder))
+                .ToList();
+            var itemIndex = items.IndexOf(item);
+            var startIndex = rangeStart == null ? itemIndex : items.IndexOf(rangeStart);
+            if (itemIndex < 0 || startIndex < 0)
+                return;
+            var firstRowIndex = Math.Min(startIndex, itemIndex);
+            var lastRowIndex = Math.Max(startIndex, itemIndex);
             DataGridCellInfo? firstCell = null;
-            foreach (var column in csvDataGrid.Columns.Where(candidate => candidate.Visibility == Visibility.Visible))
+            for (var rowIndex = firstRowIndex; rowIndex <= lastRowIndex; rowIndex++)
             {
-                var cell = new DataGridCellInfo(item, column);
-                csvDataGrid.SelectedCells.Add(cell);
-                if (!firstCell.HasValue)
-                    firstCell = cell;
+                foreach (var column in csvDataGrid.Columns.Where(candidate => candidate.Visibility == Visibility.Visible))
+                {
+                    var cell = new DataGridCellInfo(items[rowIndex], column);
+                    csvDataGrid.SelectedCells.Add(cell);
+                    if (!firstCell.HasValue)
+                        firstCell = cell;
+                }
             }
 
             if (firstCell.HasValue)

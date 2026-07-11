@@ -42,6 +42,7 @@ namespace Clever.ViewModel.PanelsVM
         private bool _isHistoryOpen;
         private bool _isSettingsOpen;
         private bool _isSlashOpen;
+        private bool _isSlashChoiceOpen;
         private string _selectedModel;
         private string _selectedReasoning;
         private AiServiceTierChoiceVM _selectedSpeed;
@@ -55,9 +56,12 @@ namespace Clever.ViewModel.PanelsVM
         private string _activeTurnId;
         private string _statusTooltip;
         private int _selectedSlashIndex;
+        private int _selectedSlashChoiceIndex;
+        private string _slashChoiceCommand;
         private int _historyVersion;
         private bool _suppressSettingsUpdate;
         private bool _turnStartPending;
+        private int _immediateQueueDispatchActive;
         private CodexStatusSnapshot _latestStatus;
         private int _contextUsedPercent;
         private AiChatMessageVM _waitingMessage;
@@ -75,8 +79,10 @@ namespace Clever.ViewModel.PanelsVM
             SpeedTiers = new ObservableCollection<AiServiceTierChoiceVM>();
             Messages = new ObservableCollection<AiChatMessageVM>();
             Attachments = new ObservableCollection<AiAttachmentVM>();
+            QueuedMessages = new ObservableCollection<AiQueuedMessageVM>();
             HistoryItems = new ObservableCollection<AiChatHistoryItemVM>();
             SlashItems = new ObservableCollection<AiSlashCommandItemVM>();
+            SlashChoiceItems = new ObservableCollection<AiSlashChoiceItemVM>();
 
             _wheelDiameter = AiAppSettingsStore.Settings.WheelDiameter ?? "";
             _wheelBaseWidth = AiAppSettingsStore.Settings.WheelBaseWidth ?? "";
@@ -95,11 +101,13 @@ namespace Clever.ViewModel.PanelsVM
             ArchiveHistoryItemCommand = new RelayCommand(param => ArchiveHistoryItem(param as AiChatHistoryItemVM), true);
             DeleteHistoryItemCommand = new RelayCommand(param => DeleteHistoryItem(param as AiChatHistoryItemVM), true);
             SelectSlashCommand = new RelayCommand(param => ExecuteSlashItem(param as AiSlashCommandItemVM), true);
+            SelectSlashChoiceCommand = new RelayCommand(param => SelectSlashChoice(param as AiSlashChoiceItemVM), true);
             ToggleSettingsCommand = new RelayCommand(param => IsSettingsOpen = !IsSettingsOpen, true);
             AttachFileCommand = new RelayCommand(param => PickFiles(), true);
             RemoveAttachmentCommand = new RelayCommand(RemoveAttachment, true);
             SendOrStopCommand = new RelayCommand(param => SendOrStop(), true);
             SteerCommand = new RelayCommand(param => SteerAsync(), true);
+            SendQueuedImmediatelyCommand = new RelayCommand(param => SendQueuedImmediately(param as AiQueuedMessageVM), true);
             LoadMoreTurnsCommand = new RelayCommand(param => LoadMoreTurns(), true);
 
             var dispatcher = Application.Current == null ? Dispatcher.CurrentDispatcher : Application.Current.Dispatcher;
@@ -117,8 +125,10 @@ namespace Clever.ViewModel.PanelsVM
 
         public ObservableCollection<AiChatMessageVM> Messages { get; private set; }
         public ObservableCollection<AiAttachmentVM> Attachments { get; private set; }
+        public ObservableCollection<AiQueuedMessageVM> QueuedMessages { get; private set; }
         public ObservableCollection<AiChatHistoryItemVM> HistoryItems { get; private set; }
         public ObservableCollection<AiSlashCommandItemVM> SlashItems { get; private set; }
+        public ObservableCollection<AiSlashChoiceItemVM> SlashChoiceItems { get; private set; }
         public ObservableCollection<string> Models { get; private set; }
         public ObservableCollection<string> ReasoningModes { get; private set; }
         public ObservableCollection<AiServiceTierChoiceVM> SpeedTiers { get; private set; }
@@ -132,11 +142,13 @@ namespace Clever.ViewModel.PanelsVM
         public ICommand ArchiveHistoryItemCommand { get; private set; }
         public ICommand DeleteHistoryItemCommand { get; private set; }
         public ICommand SelectSlashCommand { get; private set; }
+        public ICommand SelectSlashChoiceCommand { get; private set; }
         public ICommand ToggleSettingsCommand { get; private set; }
         public ICommand AttachFileCommand { get; private set; }
         public ICommand RemoveAttachmentCommand { get; private set; }
         public ICommand SendOrStopCommand { get; private set; }
         public ICommand SteerCommand { get; private set; }
+        public ICommand SendQueuedImmediatelyCommand { get; private set; }
         public ICommand LoadMoreTurnsCommand { get; private set; }
 
         public string NewChatText { get { return Localize("AiNewChat", "New chat"); } }
@@ -158,6 +170,8 @@ namespace Clever.ViewModel.PanelsVM
         public string ReasoningText { get { return Localize("AiReasoning", "Reasoning"); } }
         public string SpeedText { get { return Localize("AiSpeed", "Speed"); } }
         public string LoadMoreTurnsText { get { return Localize("AiLoadMoreTurns", "Load earlier turns"); } }
+        public string SlashBackText { get { return Localize("AiSlashBack", "Back"); } }
+        public string SendNowText { get { return Localize("AiSendNow", "Send now"); } }
 
         public string InputText
         {
@@ -231,6 +245,20 @@ namespace Clever.ViewModel.PanelsVM
                 _isSlashOpen = value;
                 OnPropertyChanged("IsSlashOpen");
                 OnPropertyChanged("SlashVisibility");
+                OnPropertyChanged("SlashCommandsVisibility");
+                OnPropertyChanged("SlashChoicesVisibility");
+            }
+        }
+
+        public bool IsSlashChoiceOpen
+        {
+            get { return _isSlashChoiceOpen; }
+            private set
+            {
+                _isSlashChoiceOpen = value;
+                OnPropertyChanged("IsSlashChoiceOpen");
+                OnPropertyChanged("SlashCommandsVisibility");
+                OnPropertyChanged("SlashChoicesVisibility");
             }
         }
 
@@ -329,7 +357,10 @@ namespace Clever.ViewModel.PanelsVM
         public Visibility HistoryVisibility { get { return IsHistoryOpen ? Visibility.Visible : Visibility.Collapsed; } }
         public Visibility ComposerVisibility { get { return IsHistoryOpen ? Visibility.Collapsed : Visibility.Visible; } }
         public Visibility AttachmentVisibility { get { return Attachments.Count == 0 ? Visibility.Collapsed : Visibility.Visible; } }
+        public Visibility QueuedMessagesVisibility { get { return QueuedMessages.Count == 0 ? Visibility.Collapsed : Visibility.Visible; } }
         public Visibility SlashVisibility { get { return IsSlashOpen ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility SlashCommandsVisibility { get { return IsSlashOpen && !IsSlashChoiceOpen ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility SlashChoicesVisibility { get { return IsSlashOpen && IsSlashChoiceOpen ? Visibility.Visible : Visibility.Collapsed; } }
         public Visibility LoadMoreVisibility { get { return string.IsNullOrWhiteSpace(_nextHistoryCursor) ? Visibility.Collapsed : Visibility.Visible; } }
         public Visibility LoadMoreTurnsVisibility { get { return string.IsNullOrWhiteSpace(_nextTurnsCursor) ? Visibility.Collapsed : Visibility.Visible; } }
         public Visibility ChatContentVisibility { get { return HasActiveProject ? Visibility.Visible : Visibility.Collapsed; } }
@@ -371,7 +402,17 @@ namespace Clever.ViewModel.PanelsVM
 
         public bool MoveSlashSelection(int offset)
         {
-            if (!IsSlashOpen || SlashItems.Count == 0)
+            if (!IsSlashOpen)
+                return false;
+            if (IsSlashChoiceOpen)
+            {
+                if (SlashChoiceItems.Count == 0)
+                    return false;
+                _selectedSlashChoiceIndex = (_selectedSlashChoiceIndex + offset + SlashChoiceItems.Count) % SlashChoiceItems.Count;
+                UpdateSlashChoiceSelection();
+                return true;
+            }
+            if (SlashItems.Count == 0)
                 return false;
             _selectedSlashIndex = (_selectedSlashIndex + offset + SlashItems.Count) % SlashItems.Count;
             UpdateSlashSelection();
@@ -380,7 +421,16 @@ namespace Clever.ViewModel.PanelsVM
 
         public bool ExecuteSelectedSlash()
         {
-            if (!IsSlashOpen || SlashItems.Count == 0)
+            if (!IsSlashOpen)
+                return false;
+            if (IsSlashChoiceOpen)
+            {
+                if (SlashChoiceItems.Count == 0)
+                    return false;
+                SelectSlashChoice(SlashChoiceItems[_selectedSlashChoiceIndex]);
+                return true;
+            }
+            if (SlashItems.Count == 0)
                 return false;
             ExecuteSlashItem(SlashItems[_selectedSlashIndex]);
             return true;
@@ -388,6 +438,9 @@ namespace Clever.ViewModel.PanelsVM
 
         public void CloseSlashPalette()
         {
+            IsSlashChoiceOpen = false;
+            _slashChoiceCommand = null;
+            SlashChoiceItems.Clear();
             IsSlashOpen = false;
         }
 
@@ -408,8 +461,10 @@ namespace Clever.ViewModel.PanelsVM
             IsBotWorking = false;
             Messages.Clear();
             Attachments.Clear();
+            QueuedMessages.Clear();
             InputText = "";
             OnPropertyChanged("AttachmentVisibility");
+            OnPropertyChanged("QueuedMessagesVisibility");
             OnPropertyChanged("LoadMoreTurnsVisibility");
             OnPropertyChanged("ContextUsedPercent");
             OnPropertyChanged("ContextArcGeometry");
@@ -606,14 +661,39 @@ namespace Clever.ViewModel.PanelsVM
 
         private async void RenameHistoryItem(AiChatHistoryItemVM item)
         {
-            if (item == null || string.IsNullOrWhiteSpace(item.EditableTitle))
+            if (item == null || string.IsNullOrWhiteSpace(item.Id) || item.IsRenameBusy)
                 return;
-            var result = await _backend.RenameThreadAsync(item.Id, item.EditableTitle.Trim(), CancellationToken.None);
-            OnUi(() =>
+            if (!item.IsRenaming)
             {
-                if (result.Success) item.CommitTitle();
-                else ShowBackendMessage(result.Message);
-            });
+                item.BeginRename();
+                return;
+            }
+
+            var name = (item.EditableTitle ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                item.CancelRename();
+                return;
+            }
+
+            item.IsRenameBusy = true;
+            try
+            {
+                var result = await _backend.RenameThreadAsync(item.Id, name, CancellationToken.None);
+                OnUi(() =>
+                {
+                    if (result.Success) item.CommitTitle();
+                    else ShowBackendMessage(result.Message);
+                });
+            }
+            catch (Exception ex)
+            {
+                OnUi(() => ShowBackendMessage(ex.Message));
+            }
+            finally
+            {
+                OnUi(() => item.IsRenameBusy = false);
+            }
         }
 
         private async void ArchiveHistoryItem(AiChatHistoryItemVM item)
@@ -692,7 +772,14 @@ namespace Clever.ViewModel.PanelsVM
             if (_slashCatalog.TryParseExact(InputText, out command, out argument))
             {
                 InputText = "";
-                await ExecuteSlashCommandAsync(command, argument);
+                if (string.IsNullOrWhiteSpace(argument) &&
+                    (string.Equals(command.Name, "model", StringComparison.Ordinal) ||
+                     string.Equals(command.Name, "reasoning", StringComparison.Ordinal) ||
+                     string.Equals(command.Name, "speed", StringComparison.Ordinal) ||
+                     string.Equals(command.Name, "goal", StringComparison.Ordinal)))
+                    await OpenSlashActionAsync(command);
+                else
+                    await ExecuteSlashCommandAsync(command, argument);
                 return;
             }
 
@@ -715,10 +802,25 @@ namespace Clever.ViewModel.PanelsVM
             InputText = "";
             Attachments.Clear();
             OnPropertyChanged("AttachmentVisibility");
+            await StartPreparedTurnAsync(text, inputs);
+        }
+
+        private async Task StartPreparedTurnAsync(string text, IList<CodexTurnInput> inputs)
+        {
+            if (_disposed || string.IsNullOrWhiteSpace(text) || _turnStartPending)
+                return;
+
+            var root = NormalizePath(MainWindowVM.CurrentProjectRoot);
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                ShowBackendMessage(Localize("AiOpenProjectSend", "Open or create a project before starting a Codex chat."));
+                return;
+            }
             Messages.Add(AiChatMessageVM.CreateUser(text));
             ShowWaitingIndicator();
 
             var cancellation = ReplaceCancellation(ref _turnCancellation);
+            IsBotWorking = true;
             SetTurnStartPending(true);
             var turnAccepted = false;
             try
@@ -796,7 +898,14 @@ namespace Clever.ViewModel.PanelsVM
             finally
             {
                 if (!turnAccepted)
+                {
                     OnUi(RemoveWaitingIndicator);
+                    OnUi(() =>
+                    {
+                        IsBotWorking = false;
+                        _activeTurnId = null;
+                    });
+                }
                 OnUi(() => SetTurnStartPending(false));
             }
         }
@@ -820,18 +929,97 @@ namespace Clever.ViewModel.PanelsVM
             InputText = "";
             Attachments.Clear();
             OnPropertyChanged("AttachmentVisibility");
-            Messages.Add(AiChatMessageVM.CreateUser(text));
+            await SteerPreparedAsync(text, inputs);
+        }
+
+        public void QueueComposerMessage()
+        {
+            if (!IsBotWorking || !CanSend)
+                return;
+
+            var root = NormalizePath(MainWindowVM.CurrentProjectRoot);
+            IList<CodexTurnInput> inputs;
+            string attachmentError;
+            var text = InputText.Trim();
+            if (!TryCreateTurnInputs(text, root, out inputs, out attachmentError))
+            {
+                ShowBackendMessage(attachmentError);
+                return;
+            }
+
+            QueuedMessages.Add(new AiQueuedMessageVM(text, inputs));
+            InputText = "";
+            Attachments.Clear();
+            OnPropertyChanged("AttachmentVisibility");
+            OnPropertyChanged("QueuedMessagesVisibility");
+        }
+
+        private async void SendQueuedImmediately(AiQueuedMessageVM item)
+        {
+            if (item == null || Interlocked.CompareExchange(ref _immediateQueueDispatchActive, 1, 0) != 0)
+                return;
+            if (IsBotWorking && (string.IsNullOrWhiteSpace(_currentThreadId) || string.IsNullOrWhiteSpace(_activeTurnId)))
+            {
+                Interlocked.Exchange(ref _immediateQueueDispatchActive, 0);
+                return;
+            }
+
+            try
+            {
+                if (IsBotWorking)
+                {
+                    if (await SteerPreparedAsync(item.Text, item.Inputs))
+                    {
+                        QueuedMessages.Remove(item);
+                        OnPropertyChanged("QueuedMessagesVisibility");
+                    }
+                }
+                else if (QueuedMessages.Remove(item))
+                {
+                    OnPropertyChanged("QueuedMessagesVisibility");
+                    await StartPreparedTurnAsync(item.Text, item.Inputs);
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _immediateQueueDispatchActive, 0);
+                StartNextQueuedMessage();
+            }
+        }
+
+        private async void StartNextQueuedMessage()
+        {
+            if (Interlocked.CompareExchange(ref _immediateQueueDispatchActive, 0, 0) != 0 || IsBotWorking || _turnStartPending || QueuedMessages.Count == 0)
+                return;
+            var item = QueuedMessages[0];
+            QueuedMessages.RemoveAt(0);
+            OnPropertyChanged("QueuedMessagesVisibility");
+            await StartPreparedTurnAsync(item.Text, item.Inputs);
+        }
+
+        private async Task<bool> SteerPreparedAsync(string text, IList<CodexTurnInput> inputs)
+        {
+            if (!IsBotWorking || string.IsNullOrWhiteSpace(_currentThreadId) ||
+                string.IsNullOrWhiteSpace(_activeTurnId) || string.IsNullOrWhiteSpace(text))
+                return false;
+
             try
             {
                 var result = await _backend.SteerTurnAsync(_currentThreadId, _activeTurnId, inputs, CancellationToken.None);
                 if (!result.Success)
+                {
                     ShowBackendMessage(BackendMessage(result.Message));
+                    return false;
+                }
                 else if (!string.IsNullOrWhiteSpace(result.Data))
                     _activeTurnId = result.Data;
+                Messages.Add(AiChatMessageVM.CreateUser(text));
+                return true;
             }
             catch (Exception ex)
             {
                 ShowBackendMessage(ex.Message);
+                return false;
             }
         }
 
@@ -961,9 +1149,115 @@ namespace Clever.ViewModel.PanelsVM
         {
             if (item == null)
                 return;
-            IsSlashOpen = false;
             InputText = "";
-            await ExecuteSlashCommandAsync(item.Command, "");
+            await OpenSlashActionAsync(item.Command);
+        }
+
+        private async Task OpenSlashActionAsync(SlashCommandDefinition command)
+        {
+            if (command == null)
+                return;
+            if (!IsCapabilityAvailable(command.Capability))
+            {
+                ShowBackendMessage(Localize("AiCapabilityUnavailable", "This command requires a capability that the connected Codex app-server does not provide."));
+                return;
+            }
+
+            switch (command.Name)
+            {
+                case "model": await OpenSlashChoicesAsync("model"); break;
+                case "reasoning": OpenSlashChoices("reasoning"); break;
+                case "speed": OpenSlashChoices("speed"); break;
+                case "goal": await PromptForGoalAsync(); break;
+                case "compact":
+                    CloseSlashPalette();
+                    await ShowBooleanResult(() => _backend.CompactAsync(_currentThreadId, CancellationToken.None), "AiCompactDone", "Context compaction started.");
+                    break;
+                default:
+                    CloseSlashPalette();
+                    await ExecuteSlashCommandAsync(command, "");
+                    break;
+            }
+        }
+
+        private async Task OpenSlashChoicesAsync(string commandName)
+        {
+            if (string.Equals(commandName, "model", StringComparison.Ordinal))
+                await LoadModelsAsync();
+            OpenSlashChoices(commandName);
+        }
+
+        private void OpenSlashChoices(string commandName)
+        {
+            _slashChoiceCommand = commandName ?? "";
+            SlashChoiceItems.Clear();
+            if (string.Equals(_slashChoiceCommand, "model", StringComparison.Ordinal))
+            {
+                foreach (var model in _modelInfos)
+                    SlashChoiceItems.Add(new AiSlashChoiceItemVM(model.Id, model.DisplayName ?? model.Id, string.Equals(model.Id, SelectedModel, StringComparison.OrdinalIgnoreCase)));
+            }
+            else if (string.Equals(_slashChoiceCommand, "reasoning", StringComparison.Ordinal))
+            {
+                foreach (var reasoning in ReasoningModes)
+                    SlashChoiceItems.Add(new AiSlashChoiceItemVM(reasoning, DisplayReasoning(reasoning), string.Equals(reasoning, SelectedReasoning, StringComparison.OrdinalIgnoreCase)));
+            }
+            else if (string.Equals(_slashChoiceCommand, "speed", StringComparison.Ordinal))
+            {
+                foreach (var tier in SpeedTiers)
+                    SlashChoiceItems.Add(new AiSlashChoiceItemVM(tier.Id, tier.DisplayName, SelectedSpeed != null && string.Equals(tier.Id, SelectedSpeed.Id, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            _selectedSlashChoiceIndex = Math.Max(0, SlashChoiceItems.ToList().FindIndex(item => item.IsCurrent));
+            UpdateSlashChoiceSelection();
+            IsSlashChoiceOpen = SlashChoiceItems.Count > 0;
+            IsSlashOpen = SlashChoiceItems.Count > 0;
+            if (SlashChoiceItems.Count == 0)
+                ShowBackendMessage(Localize("AiNoOptions", "No options are available."));
+        }
+
+        private void SelectSlashChoice(AiSlashChoiceItemVM item)
+        {
+            if (item == null)
+                return;
+            if (string.Equals(_slashChoiceCommand, "model", StringComparison.Ordinal))
+                SelectedModel = item.Value;
+            else if (string.Equals(_slashChoiceCommand, "reasoning", StringComparison.Ordinal))
+                SelectedReasoning = item.Value;
+            else if (string.Equals(_slashChoiceCommand, "speed", StringComparison.Ordinal))
+                SelectedSpeed = SpeedTiers.FirstOrDefault(tier => string.Equals(tier.Id, item.Value, StringComparison.OrdinalIgnoreCase));
+            CloseSlashPalette();
+        }
+
+        private async Task PromptForGoalAsync()
+        {
+            if (string.IsNullOrWhiteSpace(_currentThreadId))
+            {
+                ShowBackendMessage(Localize("AiCommandNeedsThread", "Start a chat before using this command."));
+                return;
+            }
+            CloseSlashPalette();
+            var request = new CodexUserInputRequest { ThreadId = _currentThreadId };
+            request.Questions.Add(new CodexUserInputQuestion
+            {
+                Id = "goal",
+                Header = Localize("AiGoal", "Goal"),
+                Question = Localize("AiGoalPrompt", "What should Codex keep as the goal for this chat?")
+            });
+            var response = await new WpfCodexUserInputService().HandleAsync(request, CancellationToken.None);
+            IList<string> answers;
+            if (!response.Answers.TryGetValue("goal", out answers))
+                return;
+            var objective = answers == null ? "" : string.Join("\n", answers).Trim();
+            if (string.IsNullOrWhiteSpace(objective))
+                return;
+            var result = await _backend.SetGoalAsync(_currentThreadId, new CodexGoal { Objective = objective }, CancellationToken.None);
+            if (result.Success)
+            {
+                RefreshStatusOnly();
+                RefreshSlashItems();
+            }
+            else
+                ShowBackendMessage(BackendMessage(result.Message));
         }
 
         private void RefreshSlashItems()
@@ -1033,6 +1327,12 @@ namespace Clever.ViewModel.PanelsVM
         {
             for (var i = 0; i < SlashItems.Count; i++)
                 SlashItems[i].IsSelected = i == _selectedSlashIndex;
+        }
+
+        private void UpdateSlashChoiceSelection()
+        {
+            for (var i = 0; i < SlashChoiceItems.Count; i++)
+                SlashChoiceItems[i].IsSelected = i == _selectedSlashChoiceIndex;
         }
 
         private async void RefreshBackendState()
@@ -1345,6 +1645,7 @@ namespace Clever.ViewModel.PanelsVM
                         RefreshOpenEditorsFromAgentChanges(null);
                         IsBotWorking = false;
                         _activeTurnId = null;
+                        StartNextQueuedMessage();
                     }
                     break;
                 case CodexBackendEventKind.ItemStarted:
@@ -1581,6 +1882,7 @@ namespace Clever.ViewModel.PanelsVM
                         IsBotWorking = false;
                         _activeTurnId = null;
                         SetTurnStartPending(false);
+                        StartNextQueuedMessage();
                     });
                     return;
                 }
@@ -1922,6 +2224,23 @@ namespace Clever.ViewModel.PanelsVM
         public bool IsAvailable { get; private set; }
         public string UnavailableReason { get; private set; }
         public double Opacity { get { return IsAvailable ? 1 : 0.55; } }
+        public bool IsSelected { get { return _isSelected; } set { _isSelected = value; OnPropertyChanged("IsSelected"); } }
+    }
+
+    internal sealed class AiSlashChoiceItemVM : BaseViewModel
+    {
+        private bool _isSelected;
+
+        public AiSlashChoiceItemVM(string value, string title, bool isCurrent)
+        {
+            Value = value;
+            Title = title ?? value ?? "";
+            IsCurrent = isCurrent;
+        }
+
+        public string Value { get; private set; }
+        public string Title { get; private set; }
+        public bool IsCurrent { get; private set; }
         public bool IsSelected { get { return _isSelected; } set { _isSelected = value; OnPropertyChanged("IsSelected"); } }
     }
 
@@ -2375,6 +2694,7 @@ namespace Clever.ViewModel.PanelsVM
             var normalized = (title ?? "").ToLowerInvariant();
             if (kind == CodexItemKind.Reasoning) return AiIconGeometry.Reasoning;
             if (kind == CodexItemKind.FileChange) return AiIconGeometry.File;
+            if (kind == CodexItemKind.CommandExecution) return AiIconGeometry.Terminal;
             if (kind == CodexItemKind.McpToolCall) return AiIconGeometry.Web;
             if (normalized.Contains("docs_")) return AiIconGeometry.Documentation;
             if (normalized.Contains("context")) return AiIconGeometry.Context;
@@ -2457,6 +2777,7 @@ namespace Clever.ViewModel.PanelsVM
 
     internal static class AiIconGeometry
     {
+        public static readonly Geometry Terminal = Create("M7,11 L9,9 7,7 M11,13 L15,13 M5,3 L19,3 A2,2 0,0 1,21,5 L21,19 A2,2 0,0 1,19,21 L5,21 A2,2 0,0 1,3,19 L3,5 A2,2 0,0 1,5,3");
         public static readonly Geometry Reasoning = Create("M12,18 L12,5 M15,13 C13,12 12,10 12,9 C12,11 11,12 9,13 M17.6,6.5 C20,7 21,9 20.5,11 M18,18 C21,17 21,13 20,11 M6,18 C3,17 3,13 4,11 M6.4,6.5 C4,7 3,9 3.5,11");
         public static readonly Geometry Documentation = Create("M2.6,9.1 L11.2,5.2 C11.7,5 12.3,5 12.8,5.2 L21.4,9.1 C22.2,9.5 22.2,10.5 21.4,10.9 L12.8,14.8 C12.3,15 11.7,15 11.2,14.8 L2.6,10.9 C1.8,10.5 1.8,9.5 2.6,9.1 M22,10 L22,16 M6,12.5 L6,16 C6,20 18,20 18,16 L18,12.5");
         public static readonly Geometry Context = Create("M18,16 L22,12 18,8 M6,8 L2,12 6,16 M14.5,4 L9.5,20");
@@ -2499,10 +2820,24 @@ namespace Clever.ViewModel.PanelsVM
         public string Source { get; private set; }
     }
 
+    internal sealed class AiQueuedMessageVM
+    {
+        public AiQueuedMessageVM(string text, IList<CodexTurnInput> inputs)
+        {
+            Text = text ?? "";
+            Inputs = inputs == null ? new List<CodexTurnInput>() : inputs.ToList();
+        }
+
+        public string Text { get; private set; }
+        public IList<CodexTurnInput> Inputs { get; private set; }
+    }
+
     internal sealed class AiChatHistoryItemVM : BaseViewModel
     {
         private string _editableTitle;
         private string _title;
+        private bool _isRenaming;
+        private bool _isRenameBusy;
 
         public AiChatHistoryItemVM(CodexThreadSummary thread)
         {
@@ -2529,8 +2864,39 @@ namespace Clever.ViewModel.PanelsVM
         public string Subtitle { get; private set; }
         public string State { get; private set; }
         public Visibility ActionsVisibility { get; private set; }
+        public bool IsRenaming { get { return _isRenaming; } }
+        public bool IsRenameBusy { get { return _isRenameBusy; } set { _isRenameBusy = value; OnPropertyChanged("IsRenameBusy"); OnPropertyChanged("ActionsEnabled"); } }
+        public bool ActionsEnabled { get { return !IsRenameBusy; } }
+        public Visibility TitleVisibility { get { return IsRenaming ? Visibility.Collapsed : Visibility.Visible; } }
+        public Visibility TitleEditorVisibility { get { return IsRenaming ? Visibility.Visible : Visibility.Collapsed; } }
         public string EditableTitle { get { return _editableTitle; } set { _editableTitle = value ?? ""; OnPropertyChanged("EditableTitle"); } }
-        public void CommitTitle() { _title = EditableTitle.Trim(); OnPropertyChanged("Title"); }
+        public void BeginRename()
+        {
+            _editableTitle = _title;
+            _isRenaming = true;
+            OnPropertyChanged("EditableTitle");
+            OnPropertyChanged("IsRenaming");
+            OnPropertyChanged("TitleVisibility");
+            OnPropertyChanged("TitleEditorVisibility");
+        }
+        public void CancelRename()
+        {
+            _editableTitle = _title;
+            _isRenaming = false;
+            OnPropertyChanged("EditableTitle");
+            OnPropertyChanged("IsRenaming");
+            OnPropertyChanged("TitleVisibility");
+            OnPropertyChanged("TitleEditorVisibility");
+        }
+        public void CommitTitle()
+        {
+            _title = EditableTitle.Trim();
+            _isRenaming = false;
+            OnPropertyChanged("Title");
+            OnPropertyChanged("IsRenaming");
+            OnPropertyChanged("TitleVisibility");
+            OnPropertyChanged("TitleEditorVisibility");
+        }
         public static AiChatHistoryItemVM Status(string message) { return new AiChatHistoryItemVM(message); }
     }
 

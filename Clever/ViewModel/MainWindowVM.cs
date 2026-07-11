@@ -2688,28 +2688,14 @@ namespace Clever.ViewModel
 
         public bool CanFixBugs
         {
-            get
-            {
-                if (!IdeProblemStore.HasActiveProblems || !AiAppSettingsStore.Settings.AiEnabled)
-                    return false;
-
-                return !string.IsNullOrWhiteSpace(AiAppSettingsStore.Settings.EmbeddedUrl)
-                    && !string.IsNullOrWhiteSpace(AiAppSettingsStore.Settings.EmbeddedModel)
-                    && !string.IsNullOrWhiteSpace(AiAppSettingsStore.EmbeddedToken);
-            }
+            get { return false; }
         }
 
         public string FixBugsToolTip
         {
             get
             {
-                if (!IdeProblemStore.HasActiveProblems)
-                    return "Нет активных ошибок для исправления";
-                if (!AiAppSettingsStore.Settings.AiEnabled)
-                    return "AI-функции отключены";
-                if (!CanFixBugs)
-                    return "Настройте URL, модель и токен AI";
-                return GetLocalizedOrDefault("tFixBugs", "Fix bugs");
+                return GetLocalizedOrDefault("tFixBugsUnavailable", "Fix bugs is temporarily unavailable");
             }
         }
 
