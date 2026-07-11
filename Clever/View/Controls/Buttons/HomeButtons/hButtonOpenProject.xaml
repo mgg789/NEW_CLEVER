@@ -7,7 +7,7 @@
              d:DesignHeight="{StaticResource pnl_but_height}" d:DesignWidth="{StaticResource pnl_but_height}">
     <UserControl.Resources>
         <Style x:Key="h_open_project" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Foreground" Value="#667085"/>
+            <Setter Property="Foreground" Value="{StaticResource pnl_mof}"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -17,10 +17,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Foreground" Value="#414659"/>
+                                <Setter Property="Foreground" Value="{StaticResource pnl_mot}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Foreground" Value="#0A86FF"/>
+                                <Setter Property="Foreground" Value="{StaticResource pnl_clc}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

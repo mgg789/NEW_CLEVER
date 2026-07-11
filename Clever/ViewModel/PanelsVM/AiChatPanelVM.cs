@@ -593,33 +593,40 @@ namespace Clever.ViewModel.PanelsVM
                 ShowBackendMessage(Localize("AiTurnAlreadyRunning", "Stop the active turn before switching chats."));
                 return;
             }
-            var result = await _backend.ResumeThreadAsync(item.Id, CancellationToken.None);
-            OnUi(() =>
+            try
             {
-                if (!result.Success || result.Data == null || result.Data.Thread == null)
+                var result = await _backend.ResumeThreadAsync(item.Id, CancellationToken.None);
+                OnUi(() =>
                 {
-                    ShowBackendMessage(result.Message);
-                    return;
-                }
-                if (!SamePath(result.Data.Thread.Cwd, MainWindowVM.CurrentProjectRoot))
-                {
-                    ShowBackendMessage(Localize("AiThreadWrongProject", "This chat belongs to another project."));
-                    return;
-                }
-                _currentThreadId = result.Data.Thread.Id;
-                IsHistoryOpen = false;
-                Messages.Clear();
-                _workGroups.Clear();
-                if (result.Data.Items.Count > 0)
-                    AddHistoryItems(result.Data.Items, false);
-                else
-                    foreach (var message in result.Data.Messages)
-                        Messages.Add(AiChatMessageVM.Create(message.Markdown, message.IsUser));
-                _nextTurnsCursor = result.Data.NextTurnsCursor;
-                OnPropertyChanged("LoadMoreTurnsVisibility");
-                RefreshBackendState();
-                RequestSettingsUpdate();
-            });
+                    if (!result.Success || result.Data == null || result.Data.Thread == null)
+                    {
+                        ShowBackendMessage(result.Message);
+                        return;
+                    }
+                    if (!SamePath(result.Data.Thread.Cwd, MainWindowVM.CurrentProjectRoot))
+                    {
+                        ShowBackendMessage(Localize("AiThreadWrongProject", "This chat belongs to another project."));
+                        return;
+                    }
+                    _currentThreadId = result.Data.Thread.Id;
+                    IsHistoryOpen = false;
+                    Messages.Clear();
+                    _workGroups.Clear();
+                    if (result.Data.Items.Count > 0)
+                        AddHistoryItems(result.Data.Items, false);
+                    else
+                        foreach (var message in result.Data.Messages)
+                            Messages.Add(AiChatMessageVM.Create(message.Markdown, message.IsUser));
+                    _nextTurnsCursor = result.Data.NextTurnsCursor;
+                    OnPropertyChanged("LoadMoreTurnsVisibility");
+                    RefreshBackendState();
+                    RequestSettingsUpdate();
+                });
+            }
+            catch (Exception ex)
+            {
+                OnUi(() => ShowBackendMessage(BackendMessage(ex.Message)));
+            }
         }
 
         private async void LoadMoreTurns()
@@ -627,25 +634,32 @@ namespace Clever.ViewModel.PanelsVM
             var cursor = _nextTurnsCursor;
             if (string.IsNullOrWhiteSpace(_currentThreadId) || string.IsNullOrWhiteSpace(cursor))
                 return;
-            var result = await _backend.ListTurnsAsync(_currentThreadId, cursor, CancellationToken.None);
-            OnUi(() =>
+            try
             {
-                if (!result.Success || result.Data == null)
+                var result = await _backend.ListTurnsAsync(_currentThreadId, cursor, CancellationToken.None);
+                OnUi(() =>
                 {
-                    ShowBackendMessage(result.Message);
-                    return;
-                }
-                var older = new List<AiChatMessageVM>();
-                if (result.Data.Items.Count > 0)
-                    older.AddRange(CreateHistoryItems(result.Data.Items));
-                else
-                    foreach (var message in result.Data.Messages)
-                        older.Add(AiChatMessageVM.Create(message.Markdown, message.IsUser));
-                for (var i = older.Count - 1; i >= 0; i--)
-                    Messages.Insert(0, older[i]);
-                _nextTurnsCursor = result.Data.NextTurnsCursor;
-                OnPropertyChanged("LoadMoreTurnsVisibility");
-            });
+                    if (!result.Success || result.Data == null)
+                    {
+                        ShowBackendMessage(result.Message);
+                        return;
+                    }
+                    var older = new List<AiChatMessageVM>();
+                    if (result.Data.Items.Count > 0)
+                        older.AddRange(CreateHistoryItems(result.Data.Items));
+                    else
+                        foreach (var message in result.Data.Messages)
+                            older.Add(AiChatMessageVM.Create(message.Markdown, message.IsUser));
+                    for (var i = older.Count - 1; i >= 0; i--)
+                        Messages.Insert(0, older[i]);
+                    _nextTurnsCursor = result.Data.NextTurnsCursor;
+                    OnPropertyChanged("LoadMoreTurnsVisibility");
+                });
+            }
+            catch (Exception ex)
+            {
+                OnUi(() => ShowBackendMessage(BackendMessage(ex.Message)));
+            }
         }
 
         private void AddHistoryItems(IEnumerable<CodexThreadItem> items, bool prepend)
@@ -757,8 +771,12 @@ namespace Clever.ViewModel.PanelsVM
         {
             if (item == null)
                 return;
-            var result = await _backend.ArchiveThreadAsync(item.Id, CancellationToken.None);
-            OnUi(() => { if (result.Success) ReloadHistory(); else ShowBackendMessage(result.Message); });
+            try
+            {
+                var result = await _backend.ArchiveThreadAsync(item.Id, CancellationToken.None);
+                OnUi(() => { if (result.Success) ReloadHistory(); else ShowBackendMessage(result.Message); });
+            }
+            catch (Exception ex) { OnUi(() => ShowBackendMessage(BackendMessage(ex.Message))); }
         }
 
         private async void DeleteHistoryItem(AiChatHistoryItemVM item)
@@ -768,8 +786,12 @@ namespace Clever.ViewModel.PanelsVM
             var message = string.Format(Localize("AiDeleteConfirm", "Delete chat '{0}'?"), item.Title);
             if (MessageBox.Show(message, Localize("AiDeleteTitle", "Delete chat"), MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
-            var result = await _backend.DeleteThreadAsync(item.Id, CancellationToken.None);
-            OnUi(() => { if (result.Success) ReloadHistory(); else ShowBackendMessage(result.Message); });
+            try
+            {
+                var result = await _backend.DeleteThreadAsync(item.Id, CancellationToken.None);
+                OnUi(() => { if (result.Success) ReloadHistory(); else ShowBackendMessage(result.Message); });
+            }
+            catch (Exception ex) { OnUi(() => ShowBackendMessage(BackendMessage(ex.Message))); }
         }
 
         private void PickFiles()
@@ -873,15 +895,15 @@ namespace Clever.ViewModel.PanelsVM
                 ShowBackendMessage(Localize("AiOpenProjectSend", "Open or create a project before starting a Codex chat."));
                 return;
             }
-            Messages.Add(AiChatMessageVM.CreateUser(text, inputs));
-            ShowWaitingIndicator();
-
-            var cancellation = ReplaceCancellation(ref _turnCancellation);
-            IsBotWorking = true;
-            SetTurnStartPending(true);
+            CancellationTokenSource cancellation;
             var turnAccepted = false;
             try
             {
+                Messages.Add(AiChatMessageVM.CreateUser(text, inputs));
+                ShowWaitingIndicator();
+                cancellation = ReplaceCancellation(ref _turnCancellation);
+                IsBotWorking = true;
+                SetTurnStartPending(true);
                 if (_services.WorkspaceContext == null)
                 {
                     ShowBackendMessage(Localize("AiFoundationUnavailable", "The CLEV3R agent context is not initialized."));
@@ -1086,12 +1108,16 @@ namespace Clever.ViewModel.PanelsVM
             var turnId = _activeTurnId;
             CancelTurn();
             RemoveWaitingIndicator();
-            if (!string.IsNullOrWhiteSpace(threadId) && !string.IsNullOrWhiteSpace(turnId))
+            try
             {
-                var result = await _backend.InterruptTurnAsync(threadId, turnId, CancellationToken.None);
-                if (!result.Success && !result.Unsupported)
-                    OnUi(() => ShowBackendMessage(result.Message));
+                if (!string.IsNullOrWhiteSpace(threadId) && !string.IsNullOrWhiteSpace(turnId))
+                {
+                    var result = await _backend.InterruptTurnAsync(threadId, turnId, CancellationToken.None);
+                    if (!result.Success && !result.Unsupported)
+                        OnUi(() => ShowBackendMessage(result.Message));
+                }
             }
+            catch (Exception ex) { OnUi(() => ShowBackendMessage(BackendMessage(ex.Message))); }
         }
 
         private async Task ExecuteSlashCommandAsync(SlashCommandDefinition command, string argument)
@@ -2099,10 +2125,17 @@ namespace Clever.ViewModel.PanelsVM
             if (string.IsNullOrWhiteSpace(root))
                 return;
 
-            MainWindowVM.ReloadOpenProjectFilesFromDisk(
-                root,
-                item == null ? null : ExtractChangedPaths(item),
-                true);
+            try
+            {
+                MainWindowVM.ReloadOpenProjectFilesFromDisk(
+                    root,
+                    item == null ? null : ExtractChangedPaths(item),
+                    true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Unable to refresh editor tabs after an agent change: " + ex);
+            }
         }
 
         private static IEnumerable<string> ExtractChangedPaths(CodexThreadItem item)
@@ -2340,8 +2373,27 @@ namespace Clever.ViewModel.PanelsVM
             if (action == null || _disposed)
                 return;
             var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
-            if (dispatcher == null || dispatcher.CheckAccess()) action();
-            else dispatcher.BeginInvoke(action);
+            Action safeAction = () =>
+            {
+                if (_disposed)
+                    return;
+                try { action(); }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Unhandled chat UI callback: " + ex);
+                    try { Messages.Add(AiChatMessageVM.CreateError(Localize("AiUiUpdateFailed", "The chat could not apply an update. You can continue working."))); }
+                    catch { }
+                }
+            };
+            try
+            {
+                if (dispatcher == null || dispatcher.CheckAccess()) safeAction();
+                else dispatcher.BeginInvoke(safeAction);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Unable to schedule chat UI callback: " + ex);
+            }
         }
 
         private static CancellationTokenSource ReplaceCancellation(ref CancellationTokenSource source)

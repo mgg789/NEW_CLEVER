@@ -314,29 +314,37 @@ namespace Clever.ViewModel
             var loginId = _loginId;
             if (string.IsNullOrWhiteSpace(loginId))
                 return;
-            var result = await _backend.CancelLoginAsync(loginId, CancellationToken.None);
-            OnUi(() =>
+            try
             {
-                if (!result.Success) CodexStatusText = BackendMessage(result.Message);
-                else ClearLoginState();
-            });
+                var result = await _backend.CancelLoginAsync(loginId, CancellationToken.None);
+                OnUi(() =>
+                {
+                    if (!result.Success) CodexStatusText = BackendMessage(result.Message);
+                    else ClearLoginState();
+                });
+            }
+            catch (Exception ex) { OnUi(() => CodexStatusText = BackendMessage(ex.Message)); }
         }
 
         private async void Logout()
         {
             if (MessageBox.Show(Localize("AiLogoutConfirm", "Sign out of ChatGPT in Codex?"), LogoutText, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
-            var result = await _backend.LogoutAsync(CancellationToken.None);
-            OnUi(() =>
+            try
             {
-                if (!result.Success) CodexStatusText = BackendMessage(result.Message);
-                else
+                var result = await _backend.LogoutAsync(CancellationToken.None);
+                OnUi(() =>
                 {
-                    _isLoggedIn = false;
-                    ClearLoginState();
-                    RefreshCodexStatus();
-                }
-            });
+                    if (!result.Success) CodexStatusText = BackendMessage(result.Message);
+                    else
+                    {
+                        _isLoggedIn = false;
+                        ClearLoginState();
+                        RefreshCodexStatus();
+                    }
+                });
+            }
+            catch (Exception ex) { OnUi(() => CodexStatusText = BackendMessage(ex.Message)); }
         }
 
         private void OpenAuthorizationUrl()
@@ -419,8 +427,26 @@ namespace Clever.ViewModel
             if (_disposed || action == null)
                 return;
             var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
-            if (dispatcher == null || dispatcher.CheckAccess()) action();
-            else dispatcher.BeginInvoke(action);
+            Action safeAction = () =>
+            {
+                if (_disposed)
+                    return;
+                try { action(); }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Unhandled Codex settings UI callback: " + ex);
+                    CodexStatusText = BackendMessage(ex.Message);
+                }
+            };
+            try
+            {
+                if (dispatcher == null || dispatcher.CheckAccess()) safeAction();
+                else dispatcher.BeginInvoke(safeAction);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Unable to schedule Codex settings UI callback: " + ex);
+            }
         }
 
         private void SetStatus(string key, string fallback, bool isError, params object[] args)

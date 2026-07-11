@@ -1597,13 +1597,21 @@ namespace Clever.ViewModel
 
                 var oldPosition = data.Editor.TextArea.CurrentPosition;
                 var wasReadOnly = data.Editor.TextArea.ReadOnly;
-                data.Editor.TextArea.ReadOnly = false;
-                data.Editor.TextArea.Text = diskText;
-                data.Editor.TextArea.EmptyUndoBuffer();
-                data.Editor.TextArea.ReadOnly = wasReadOnly;
-                data.Editor.TextArea.GotoPosition(Math.Min(oldPosition, data.Editor.TextArea.TextLength));
-                data.RefreshRenderedDocumentView();
-                data.TextChange = false;
+                try
+                {
+                    data.Editor.TextArea.ReadOnly = false;
+                    data.Editor.TextArea.Text = diskText;
+                    data.Editor.TextArea.EmptyUndoBuffer();
+                    data.Editor.TextArea.GotoPosition(Math.Min(oldPosition, data.Editor.TextArea.TextLength));
+                    data.RefreshRenderedDocumentView();
+                    data.TextChange = false;
+                }
+                catch { }
+                finally
+                {
+                    try { data.Editor.TextArea.ReadOnly = wasReadOnly; }
+                    catch { }
+                }
             }
         }
 

@@ -73,6 +73,8 @@ namespace Clever
             var prjV = dictionary.Values;
             foreach (var pd in prjV)
             {
+                if (pd == null)
+                    continue;
                 //MessageBox.Show("===" + pd.Name + pd.GetHeaderChangeText + "===");
                 if (pd.GetHeaderChangeText != "" || pd.TextChange == true)
                 {

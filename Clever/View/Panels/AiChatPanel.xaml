@@ -102,7 +102,20 @@
                         HorizontalAlignment="Right">
                     <StackPanel>
                         <FlowDocumentScrollViewer Document="{Binding Document, Mode=OneWay}" IsToolBarVisible="False" IsSelectionEnabled="True" Focusable="True" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"/>
-                        <ItemsControl ItemsSource="{Binding Attachments}" ItemTemplate="{StaticResource AiSentAttachmentTemplate}" Visibility="{Binding AttachmentVisibility}" Margin="0,6,0,0">
+                        <ItemsControl ItemsSource="{Binding Attachments}" Visibility="{Binding AttachmentVisibility}" Margin="0,6,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#FFFFFF" BorderBrush="#B9D5FF" BorderThickness="1" CornerRadius="6" Margin="0,0,5,4" Padding="5" MaxWidth="190">
+                                        <StackPanel>
+                                            <Image Source="{Binding Source}" Visibility="{Binding ImageVisibility}" MaxWidth="178" MaxHeight="112" Stretch="Uniform" Margin="0,0,0,5"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Kind}" Foreground="#56708F" FontFamily="{StaticResource ui_fontfamily}" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Name}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="11" Margin="5,0,0,0" MaxWidth="145" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
@@ -259,17 +272,6 @@
             </Border>
         </DataTemplate>
 
-        <DataTemplate x:Key="AiSentAttachmentTemplate">
-            <Border Background="#FFFFFF" BorderBrush="#B9D5FF" BorderThickness="1" CornerRadius="6" Margin="0,0,5,4" Padding="5" MaxWidth="190">
-                <StackPanel>
-                    <Image Source="{Binding Source}" Visibility="{Binding ImageVisibility}" MaxWidth="178" MaxHeight="112" Stretch="Uniform" Margin="0,0,0,5"/>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding Kind}" Foreground="#56708F" FontFamily="{StaticResource ui_fontfamily}" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding Name}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="11" Margin="5,0,0,0" MaxWidth="145" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Background="{StaticResource git_panel_bgd}"
