@@ -159,10 +159,7 @@ namespace Clever.Model.Utils
             EmbeddedUrl = AiAppSettingsStore.DefaultEmbeddedUrl;
             EmbeddedModel = AiAppSettingsStore.DefaultEmbeddedModel;
             EmbeddedTokenProtected = "";
-            CodexConnected = false;
-            CodexEmail = "";
-            CodexLimit5h = "0%";
-            CodexLimit7d = "0%";
+            CodexExecutablePath = "";
             WheelDiameter = "56";
             WheelBaseWidth = "120";
             RobotDescription = "";
@@ -173,10 +170,7 @@ namespace Clever.Model.Utils
         public string EmbeddedUrl { get; set; }
         public string EmbeddedModel { get; set; }
         public string EmbeddedTokenProtected { get; set; }
-        public bool CodexConnected { get; set; }
-        public string CodexEmail { get; set; }
-        public string CodexLimit5h { get; set; }
-        public string CodexLimit7d { get; set; }
+        public string CodexExecutablePath { get; set; }
         public string WheelDiameter { get; set; }
         public string WheelBaseWidth { get; set; }
         public string RobotDescription { get; set; }

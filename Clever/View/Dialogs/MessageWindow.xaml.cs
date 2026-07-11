@@ -11,9 +11,17 @@ namespace Clever.View.Dialogs
         public MessageWindow(string defaultAnswer = "")
         {
             InitializeComponent();
-            txtException.Text = MainWindowVM.GetLocalization["dException"];
+            string exceptionTitle;
+            if (MainWindowVM.GetLocalization == null ||
+                !MainWindowVM.GetLocalization.TryGetValue("dException", out exceptionTitle))
+                exceptionTitle = "Error";
+            txtException.Text = exceptionTitle;
             txtAnswer.Text = defaultAnswer;
-            butText.Text = MainWindowVM.GetLocalization["dButClose"];
+            string closeText;
+            if (MainWindowVM.GetLocalization == null ||
+                !MainWindowVM.GetLocalization.TryGetValue("dButClose", out closeText))
+                closeText = "Close";
+            butText.Text = closeText;
         }
 
         private void btnDialogClose_Click(object sender, RoutedEventArgs e)

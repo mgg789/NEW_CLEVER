@@ -2,6 +2,7 @@ using Clever.ViewModel;
 using Clever.ViewModel.PanelsVM;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace Clever.View.Panels
 {
@@ -14,6 +15,48 @@ namespace Clever.View.Panels
         {
             DataContext = new AiChatPanelVM();
             InitializeComponent();
+            Unloaded += AiChatPanel_Unloaded;
+        }
+
+        private void ComposerTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            var viewModel = DataContext as AiChatPanelVM;
+            if (viewModel == null)
+                return;
+
+            if (e.Key == Key.Up && viewModel.MoveSlashSelection(-1))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Down && viewModel.MoveSlashSelection(1))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter && viewModel.ExecuteSelectedSlash())
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Escape)
+            {
+                viewModel.CloseSlashPalette();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                if (viewModel.IsBotWorking && viewModel.CanSend && viewModel.SteerCommand.CanExecute(null))
+                    viewModel.SteerCommand.Execute(null);
+                else if (viewModel.SendOrStopCommand.CanExecute(null))
+                    viewModel.SendOrStopCommand.Execute(null);
+                e.Handled = true;
+            }
         }
 
         private void AiChatPanel_PreviewDragOver(object sender, DragEventArgs e)
@@ -48,6 +91,13 @@ namespace Clever.View.Panels
                 viewModel.AttachDroppedFile(file);
 
             e.Handled = true;
+        }
+
+        private void AiChatPanel_Unloaded(object sender, RoutedEventArgs e)
+        {
+            var disposable = DataContext as System.IDisposable;
+            if (disposable != null)
+                disposable.Dispose();
         }
     }
 }

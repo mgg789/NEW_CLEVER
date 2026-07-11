@@ -1,0 +1,13 @@
+{
+  "product": "OpenAI Codex CLI",
+  "version": "0.144.1",
+  "tag": "rust-v0.144.1",
+  "minimumVersion": "0.144.1",
+  "target": "x86_64-pc-windows-msvc",
+  "assetName": "codex-x86_64-pc-windows-msvc.exe.zip",
+  "downloadUrl": "https://github.com/openai/codex/releases/download/rust-v0.144.1/codex-x86_64-pc-windows-msvc.exe.zip",
+  "sha256": "976844ab2d3d77187b70a10c93f0952d6a58b2f67219734fc37785e4334b4c4a",
+  "license": "Apache-2.0",
+  "licenseUrl": "https://raw.githubusercontent.com/openai/codex/rust-v0.144.1/LICENSE",
+  "sourceUrl": "https://github.com/openai/codex/tree/rust-v0.144.1"
+}

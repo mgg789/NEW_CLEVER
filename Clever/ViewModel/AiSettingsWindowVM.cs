@@ -1,18 +1,34 @@
+using Clev3r.AgentCore;
+using Clever.Model.Agent;
 using Clever.Model.Utils;
 using Clever.ViewModel.BaseVM;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 
 namespace Clever.ViewModel
 {
-    internal class AiSettingsWindowVM : BaseViewModel
+    internal sealed class AiSettingsWindowVM : BaseViewModel, IDisposable
     {
+        private readonly ICodexSessionBackend _backend;
         private string _embeddedUrl;
         private string _embeddedModel;
         private string _embeddedToken;
         private string _statusText;
         private bool _statusIsError;
+        private string _codexStatusText;
+        private string _runtimePath;
+        private string _runtimeVersion;
+        private string _authorizationUrl;
+        private string _loginId;
+        private string _updateText;
+        private CodexRuntimeUpdateInfo _pendingUpdate;
+        private bool _codexBusy;
+        private bool _isLoggedIn;
+        private bool _disposed;
 
         public AiSettingsWindowVM()
         {
@@ -20,15 +36,36 @@ namespace Clever.ViewModel
             _embeddedUrl = settings.EmbeddedUrl;
             _embeddedModel = settings.EmbeddedModel;
             _embeddedToken = AiAppSettingsStore.EmbeddedToken;
+            _backend = Clev3rAgentServices.Current.SessionBackend;
+            _codexStatusText = Localize("AiStatusLoading", "Codex status is loading.");
 
             SaveEmbeddedCommand = new RelayCommand(param => SaveEmbedded(), true);
             ClearEmbeddedCommand = new RelayCommand(param => ClearEmbedded(), true);
-            ToggleCodexConnectionCommand = new RelayCommand(param => ToggleCodexConnection(), true);
+            RefreshCodexCommand = new RelayCommand(param => RefreshCodexStatus(), true);
+            RestartCodexCommand = new RelayCommand(param => RestartCodex(), true);
+            CheckUpdateCommand = new RelayCommand(param => CheckForUpdate(), true);
+            InstallUpdateCommand = new RelayCommand(param => InstallUpdate(), true);
+            LoginCommand = new RelayCommand(param => StartLogin(), true);
+            CancelLoginCommand = new RelayCommand(param => CancelLogin(), true);
+            LogoutCommand = new RelayCommand(param => Logout(), true);
+            OpenAuthorizationCommand = new RelayCommand(param => OpenAuthorizationUrl(), true);
+            CopyAuthorizationCommand = new RelayCommand(param => CopyAuthorizationUrl(), true);
+            _backend.StateChanged += Backend_StateChanged;
+            _backend.EventReceived += Backend_EventReceived;
+            StartCodex();
         }
 
         public ICommand SaveEmbeddedCommand { get; private set; }
         public ICommand ClearEmbeddedCommand { get; private set; }
-        public ICommand ToggleCodexConnectionCommand { get; private set; }
+        public ICommand RefreshCodexCommand { get; private set; }
+        public ICommand RestartCodexCommand { get; private set; }
+        public ICommand CheckUpdateCommand { get; private set; }
+        public ICommand InstallUpdateCommand { get; private set; }
+        public ICommand LoginCommand { get; private set; }
+        public ICommand CancelLoginCommand { get; private set; }
+        public ICommand LogoutCommand { get; private set; }
+        public ICommand OpenAuthorizationCommand { get; private set; }
+        public ICommand CopyAuthorizationCommand { get; private set; }
 
         public string WindowTitle { get { return Localize("AiSettingsTitle", "AI settings"); } }
         public string EnableAiText { get { return Localize("AiSettingsEnableFunctions", "Enable AI functions"); } }
@@ -38,7 +75,19 @@ namespace Clever.ViewModel
         public string TokenText { get { return Localize("AiSettingsToken", "Token"); } }
         public string SaveText { get { return Localize("AiSettingsSave", "Save"); } }
         public string ClearText { get { return Localize("AiSettingsClear", "Clear"); } }
-        public string CodexText { get { return Localize("AiSettingsCodex", "Codex"); } }
+        public string CodexText { get { return Localize("AiSettingsCodex", "Codex app-server"); } }
+        public string CodexButtonText { get { return Localize("AiReload", "Reload"); } }
+        public string RuntimePathText { get { return Localize("AiRuntimePath", "Runtime path"); } }
+        public string RuntimeVersionText { get { return Localize("AiRuntimeVersion", "Runtime version"); } }
+        public string RestartText { get { return Localize("AiRestart", "Restart"); } }
+        public string CheckUpdateText { get { return Localize("AiCheckUpdate", "Check for updates"); } }
+        public string InstallUpdateText { get { return Localize("AiInstallUpdate", "Install update"); } }
+        public string LoginText { get { return Localize("AiLoginChatGpt", "Sign in with ChatGPT"); } }
+        public string CancelLoginText { get { return Localize("AiCancelLogin", "Cancel sign-in"); } }
+        public string LogoutText { get { return Localize("AiLogout", "Sign out"); } }
+        public string OpenLinkText { get { return Localize("AiOpenLoginLink", "Open sign-in page"); } }
+        public string CopyLinkText { get { return Localize("AiCopyLoginLink", "Copy link"); } }
+        public string AccountText { get { return Localize("AiStatusAccount", "Account"); } }
 
         public bool AiEnabled
         {
@@ -48,106 +97,35 @@ namespace Clever.ViewModel
                 var settings = AiAppSettingsStore.Settings;
                 if (settings.AiEnabled == value)
                     return;
-
-                var previousValue = settings.AiEnabled;
+                var previous = settings.AiEnabled;
                 settings.AiEnabled = value;
-                try
-                {
-                    AiAppSettingsStore.SaveSettings();
-                }
+                try { AiAppSettingsStore.SaveSettings(); }
                 catch (Exception ex)
                 {
-                    settings.AiEnabled = previousValue;
+                    settings.AiEnabled = previous;
                     SetStatus("AiSettingsSaveFailed", "Could not save AI settings: {0}", true, ex.Message);
                 }
                 OnPropertyChanged("AiEnabled");
             }
         }
 
-        public string EmbeddedUrl
-        {
-            get { return _embeddedUrl; }
-            set
-            {
-                _embeddedUrl = value;
-                OnPropertyChanged("EmbeddedUrl");
-            }
-        }
-
-        public string EmbeddedModel
-        {
-            get { return _embeddedModel; }
-            set
-            {
-                _embeddedModel = value;
-                OnPropertyChanged("EmbeddedModel");
-            }
-        }
-
-        public string EmbeddedToken
-        {
-            get { return _embeddedToken; }
-            set
-            {
-                _embeddedToken = value;
-                OnPropertyChanged("EmbeddedToken");
-            }
-        }
-
-        public bool CodexConnected
-        {
-            get { return AiAppSettingsStore.Settings.CodexConnected; }
-        }
-
-        public string CodexButtonText
-        {
-            get
-            {
-                return CodexConnected
-                    ? Localize("AiSettingsDisconnect", "Disconnect")
-                    : Localize("AiSettingsConnect", "Connect");
-            }
-        }
-
-        public string StatusText
-        {
-            get { return _statusText; }
-            private set
-            {
-                _statusText = value;
-                OnPropertyChanged("StatusText");
-            }
-        }
-
-        public bool StatusIsError
-        {
-            get { return _statusIsError; }
-            private set
-            {
-                _statusIsError = value;
-                OnPropertyChanged("StatusIsError");
-            }
-        }
-
-        public Visibility CodexStatusVisibility
-        {
-            get { return Visibility.Visible; }
-        }
-
-        public string CodexStatusText
-        {
-            get
-            {
-                var settings = AiAppSettingsStore.Settings;
-                var emailLabel = Localize("AiSettingsCodexEmail", "Email");
-                var hoursLabel = Localize("AiSettingsCodexLimit5h", "5h");
-                var daysLabel = Localize("AiSettingsCodexLimit7d", "7d");
-                if (CodexConnected)
-                    return emailLabel + ": " + settings.CodexEmail + "\n" + hoursLabel + ": " + settings.CodexLimit5h + "   " + daysLabel + ": " + settings.CodexLimit7d;
-
-                return hoursLabel + ": " + settings.CodexLimit5h + "   " + daysLabel + ": " + settings.CodexLimit7d;
-            }
-        }
+        public string EmbeddedUrl { get { return _embeddedUrl; } set { _embeddedUrl = value; OnPropertyChanged("EmbeddedUrl"); } }
+        public string EmbeddedModel { get { return _embeddedModel; } set { _embeddedModel = value; OnPropertyChanged("EmbeddedModel"); } }
+        public string EmbeddedToken { get { return _embeddedToken; } set { _embeddedToken = value; OnPropertyChanged("EmbeddedToken"); } }
+        public string StatusText { get { return _statusText; } private set { _statusText = value; OnPropertyChanged("StatusText"); } }
+        public bool StatusIsError { get { return _statusIsError; } private set { _statusIsError = value; OnPropertyChanged("StatusIsError"); } }
+        public Visibility CodexStatusVisibility { get { return Visibility.Visible; } }
+        public string CodexStatusText { get { return _codexStatusText; } private set { _codexStatusText = value; OnPropertyChanged("CodexStatusText"); } }
+        public string RuntimePath { get { return _runtimePath; } private set { _runtimePath = value ?? ""; OnPropertyChanged("RuntimePath"); } }
+        public string RuntimeVersion { get { return _runtimeVersion; } private set { _runtimeVersion = value ?? ""; OnPropertyChanged("RuntimeVersion"); } }
+        public string AuthorizationUrl { get { return _authorizationUrl; } private set { _authorizationUrl = value ?? ""; OnPropertyChanged("AuthorizationUrl"); OnPropertyChanged("LoginPendingVisibility"); } }
+        public string UpdateText { get { return _updateText; } private set { _updateText = value ?? ""; OnPropertyChanged("UpdateText"); OnPropertyChanged("UpdateVisibility"); } }
+        public bool CodexBusy { get { return _codexBusy; } private set { _codexBusy = value; OnPropertyChanged("CodexBusy"); OnPropertyChanged("CodexActionsEnabled"); } }
+        public bool CodexActionsEnabled { get { return !CodexBusy; } }
+        public Visibility LoginPendingVisibility { get { return string.IsNullOrWhiteSpace(AuthorizationUrl) ? Visibility.Collapsed : Visibility.Visible; } }
+        public Visibility LoginVisibility { get { return !_isLoggedIn && string.IsNullOrWhiteSpace(AuthorizationUrl) ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility LogoutVisibility { get { return _isLoggedIn ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility UpdateVisibility { get { return _pendingUpdate != null && _pendingUpdate.UpdateAvailable ? Visibility.Visible : Visibility.Collapsed; } }
 
         private void SaveEmbedded()
         {
@@ -165,7 +143,6 @@ namespace Clever.ViewModel
             var previousUrl = settings.EmbeddedUrl;
             var previousModel = settings.EmbeddedModel;
             var previousToken = settings.EmbeddedTokenProtected;
-
             try
             {
                 settings.EmbeddedUrl = EmbeddedUrl ?? "";
@@ -189,7 +166,6 @@ namespace Clever.ViewModel
             var previousUrl = settings.EmbeddedUrl;
             var previousModel = settings.EmbeddedModel;
             var previousToken = settings.EmbeddedTokenProtected;
-
             try
             {
                 AiAppSettingsStore.ClearEmbeddedSettings();
@@ -207,51 +183,250 @@ namespace Clever.ViewModel
             }
         }
 
-        private void ToggleCodexConnection()
+        private async void StartCodex()
         {
-            var settings = AiAppSettingsStore.Settings;
-            var previousConnected = settings.CodexConnected;
-            var previousEmail = settings.CodexEmail;
-            var previousLimit5h = settings.CodexLimit5h;
-            var previousLimit7d = settings.CodexLimit7d;
-            settings.CodexConnected = !settings.CodexConnected;
-            if (settings.CodexConnected)
+            await RunStatusOperation(() => _backend.StartAsync(CancellationToken.None));
+        }
+
+        private async void RestartCodex()
+        {
+            await RunStatusOperation(() => _backend.RestartAsync(CancellationToken.None));
+        }
+
+        private async void RefreshCodexStatus()
+        {
+            BackendResult<CodexStatusSnapshot> result;
+            try { result = await _backend.GetStatusAsync(null, CancellationToken.None); }
+            catch (Exception ex) { result = BackendResult<CodexStatusSnapshot>.Fail("status_error", ex.Message); }
+
+            ApplyStatusResult(result);
+        }
+
+        private async System.Threading.Tasks.Task RunStatusOperation(Func<System.Threading.Tasks.Task<BackendResult<CodexStatusSnapshot>>> operation)
+        {
+            CodexBusy = true;
+            BackendResult<CodexStatusSnapshot> result;
+            try { result = await operation(); }
+            catch (Exception ex) { result = BackendResult<CodexStatusSnapshot>.Fail("codex_operation_failed", ex.Message); }
+            finally { OnUi(() => CodexBusy = false); }
+            ApplyStatusResult(result);
+        }
+
+        private void ApplyStatusResult(BackendResult<CodexStatusSnapshot> result)
+        {
+            OnUi(() =>
             {
-                settings.CodexEmail = string.IsNullOrWhiteSpace(settings.CodexEmail) ? "student@example.com" : settings.CodexEmail;
-                settings.CodexLimit5h = "18%";
-                settings.CodexLimit7d = "7%";
+                if (!result.Success || result.Data == null)
+                {
+                    CodexStatusText = string.IsNullOrWhiteSpace(result.Message)
+                        ? Localize("AiBackendUnavailable", "Codex app-server is not connected yet.")
+                        : result.Message;
+                    return;
+                }
+                ApplyStatus(result.Data);
+            });
+        }
+
+        private void ApplyStatus(CodexStatusSnapshot status)
+        {
+            CodexStatusText = FormatStatus(status);
+            if (status.Runtime != null)
+            {
+                RuntimePath = status.Runtime.ExecutablePath;
+                RuntimeVersion = status.Runtime.Version;
             }
             else
-            {
-                settings.CodexEmail = "";
-                settings.CodexLimit5h = "0%";
-                settings.CodexLimit7d = "0%";
-            }
+                RuntimeVersion = status.Version;
+            _isLoggedIn = status.Auth != null && status.Auth.LoggedIn;
+            OnPropertyChanged("LoginVisibility");
+            OnPropertyChanged("LogoutVisibility");
+        }
 
-            try
+        private async void CheckForUpdate()
+        {
+            CodexBusy = true;
+            BackendResult<CodexRuntimeUpdateInfo> result;
+            try { result = await _backend.CheckForUpdateAsync(CancellationToken.None); }
+            catch (Exception ex) { result = BackendResult<CodexRuntimeUpdateInfo>.Fail("update_check_failed", ex.Message); }
+            finally { OnUi(() => CodexBusy = false); }
+
+            OnUi(() =>
             {
-                AiAppSettingsStore.SaveSettings();
-            }
-            catch (Exception ex)
+                _pendingUpdate = result.Success ? result.Data : null;
+                if (!result.Success)
+                {
+                    UpdateText = BackendMessage(result.Message);
+                    return;
+                }
+                UpdateText = result.Data != null && result.Data.UpdateAvailable
+                    ? string.Format(Localize("AiUpdateAvailable", "Codex {0} is available."), result.Data.LatestVersion)
+                    : Localize("AiNoUpdate", "Codex is up to date.");
+                OnPropertyChanged("UpdateVisibility");
+            });
+        }
+
+        private async void InstallUpdate()
+        {
+            var update = _pendingUpdate;
+            if (update == null || !update.UpdateAvailable)
+                return;
+            var prompt = string.Format(Localize("AiInstallUpdateConfirm", "Install Codex {0}? CLEV3R will restart the app-server after installation."), update.LatestVersion);
+            if (MessageBox.Show(prompt, Localize("AiInstallUpdate", "Install update"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            CodexBusy = true;
+            BackendResult<CodexRuntimeInfo> result;
+            try { result = await _backend.InstallUpdateAsync(update, CancellationToken.None); }
+            catch (Exception ex) { result = BackendResult<CodexRuntimeInfo>.Fail("update_install_failed", ex.Message); }
+            finally { OnUi(() => CodexBusy = false); }
+            OnUi(() =>
             {
-                settings.CodexConnected = previousConnected;
-                settings.CodexEmail = previousEmail;
-                settings.CodexLimit5h = previousLimit5h;
-                settings.CodexLimit7d = previousLimit7d;
-                SetStatus("AiSettingsSaveFailed", "Could not save AI settings: {0}", true, ex.Message);
+                if (!result.Success) { UpdateText = BackendMessage(result.Message); return; }
+                _pendingUpdate = null;
+                UpdateText = Localize("AiUpdateInstalled", "Codex update installed.");
+                OnPropertyChanged("UpdateVisibility");
+                RestartCodex();
+            });
+        }
+
+        private async void StartLogin()
+        {
+            CodexBusy = true;
+            BackendResult<CodexLoginStartResult> result;
+            try { result = await _backend.StartChatGptLoginAsync(CancellationToken.None); }
+            catch (Exception ex) { result = BackendResult<CodexLoginStartResult>.Fail("login_failed", ex.Message); }
+            finally { OnUi(() => CodexBusy = false); }
+            OnUi(() =>
+            {
+                if (!result.Success || result.Data == null)
+                {
+                    CodexStatusText = BackendMessage(result.Message);
+                    return;
+                }
+                _loginId = result.Data.LoginId;
+                AuthorizationUrl = !string.IsNullOrWhiteSpace(result.Data.AuthorizationUrl) ? result.Data.AuthorizationUrl : result.Data.VerificationUrl;
+                OnPropertyChanged("LoginVisibility");
+                OpenAuthorizationUrl();
+            });
+        }
+
+        private async void CancelLogin()
+        {
+            var loginId = _loginId;
+            if (string.IsNullOrWhiteSpace(loginId))
+                return;
+            var result = await _backend.CancelLoginAsync(loginId, CancellationToken.None);
+            OnUi(() =>
+            {
+                if (!result.Success) CodexStatusText = BackendMessage(result.Message);
+                else ClearLoginState();
+            });
+        }
+
+        private async void Logout()
+        {
+            if (MessageBox.Show(Localize("AiLogoutConfirm", "Sign out of ChatGPT in Codex?"), LogoutText, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            var result = await _backend.LogoutAsync(CancellationToken.None);
+            OnUi(() =>
+            {
+                if (!result.Success) CodexStatusText = BackendMessage(result.Message);
+                else
+                {
+                    _isLoggedIn = false;
+                    ClearLoginState();
+                    RefreshCodexStatus();
+                }
+            });
+        }
+
+        private void OpenAuthorizationUrl()
+        {
+            if (string.IsNullOrWhiteSpace(AuthorizationUrl))
+                return;
+            try { Process.Start(new ProcessStartInfo(AuthorizationUrl) { UseShellExecute = true }); }
+            catch
+            {
+                CopyAuthorizationUrl();
+                CodexStatusText = Localize("AiLoginLinkCopiedFallback", "The browser could not be opened. The sign-in link was copied.");
             }
-            OnPropertyChanged("CodexConnected");
-            OnPropertyChanged("CodexButtonText");
-            OnPropertyChanged("CodexStatusVisibility");
-            OnPropertyChanged("CodexStatusText");
+        }
+
+        private void CopyAuthorizationUrl()
+        {
+            if (string.IsNullOrWhiteSpace(AuthorizationUrl))
+                return;
+            try { Clipboard.SetText(AuthorizationUrl); }
+            catch (Exception ex) { CodexStatusText = ex.Message; }
+        }
+
+        private void ClearLoginState()
+        {
+            _loginId = null;
+            AuthorizationUrl = "";
+            OnPropertyChanged("LoginVisibility");
+        }
+
+        private string BackendMessage(string message)
+        {
+            return string.IsNullOrWhiteSpace(message) ? Localize("AiBackendUnavailable", "Codex app-server is not connected yet.") : message;
+        }
+
+        private string FormatStatus(CodexStatusSnapshot status)
+        {
+            var lines = new List<string>
+            {
+                Localize("AiStatusConnection", "Connection") + ": " + status.ConnectionState
+            };
+            var version = status.Runtime == null ? status.Version : status.Runtime.Version;
+            if (!string.IsNullOrWhiteSpace(version)) lines.Add(Localize("AiStatusVersion", "Version") + ": " + version);
+            var account = status.Auth == null ? status.Account : status.Auth.Email;
+            var plan = status.Auth == null ? status.PlanType : status.Auth.PlanType;
+            if (!string.IsNullOrWhiteSpace(account)) lines.Add(Localize("AiStatusAccount", "Account") + ": " + account);
+            if (!string.IsNullOrWhiteSpace(plan)) lines.Add(Localize("AiStatusPlan", "Plan") + ": " + plan);
+            if (status.ContextUsedPercent.HasValue) lines.Add(Localize("AiStatusContext", "Context") + ": " + status.ContextUsedPercent.Value + "%");
+            var primary = status.RateLimits != null && status.RateLimits.Primary != null ? (int?)status.RateLimits.Primary.UsedPercent : status.PrimaryRateLimitUsedPercent;
+            var secondary = status.RateLimits != null && status.RateLimits.Secondary != null ? (int?)status.RateLimits.Secondary.UsedPercent : status.SecondaryRateLimitUsedPercent;
+            if (primary.HasValue) lines.Add(Localize("AiStatusPrimaryLimit", "Primary limit used") + ": " + primary.Value + "%");
+            if (secondary.HasValue) lines.Add(Localize("AiStatusSecondaryLimit", "Secondary limit used") + ": " + secondary.Value + "%");
+            if (!string.IsNullOrWhiteSpace(status.Message)) lines.Add(status.Message);
+            return string.Join("\n", lines);
+        }
+
+        private void Backend_StateChanged(object sender, EventArgs e) { OnUi(RefreshCodexStatus); }
+
+        private void Backend_EventReceived(object sender, CodexBackendEventArgs e)
+        {
+            if (e == null)
+                return;
+            OnUi(() =>
+            {
+                if (e.Kind == CodexBackendEventKind.AccountUpdated && e.Account != null)
+                {
+                    _isLoggedIn = e.Account.LoggedIn;
+                    if (_isLoggedIn) ClearLoginState();
+                    OnPropertyChanged("LoginVisibility");
+                    OnPropertyChanged("LogoutVisibility");
+                }
+                if (e.Kind == CodexBackendEventKind.ConnectionChanged || e.Kind == CodexBackendEventKind.RateLimitsUpdated || e.Kind == CodexBackendEventKind.AccountUpdated)
+                    RefreshCodexStatus();
+                else if (e.Kind == CodexBackendEventKind.Error && !string.IsNullOrWhiteSpace(e.Message))
+                    CodexStatusText = e.Message;
+            });
+        }
+
+        private void OnUi(Action action)
+        {
+            if (_disposed || action == null)
+                return;
+            var dispatcher = Application.Current == null ? null : Application.Current.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess()) action();
+            else dispatcher.BeginInvoke(action);
         }
 
         private void SetStatus(string key, string fallback, bool isError, params object[] args)
         {
             var message = Localize(key, fallback);
-            if (args != null && args.Length > 0)
-                message = string.Format(message, args);
-
+            if (args != null && args.Length > 0) message = string.Format(message, args);
             StatusIsError = isError;
             StatusText = message;
         }
@@ -259,11 +434,15 @@ namespace Clever.ViewModel
         private static string Localize(string key, string fallback)
         {
             string value;
-            return MainWindowVM.GetLocalization != null
-                && MainWindowVM.GetLocalization.TryGetValue(key, out value)
-                && !string.IsNullOrWhiteSpace(value)
-                    ? value
-                    : fallback;
+            return MainWindowVM.GetLocalization != null && MainWindowVM.GetLocalization.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value) ? value : fallback;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _backend.StateChanged -= Backend_StateChanged;
+            _backend.EventReceived -= Backend_EventReceived;
         }
     }
 }

@@ -10,9 +10,8 @@ namespace Clever.Model.Utils
     {
         public Dictionary<string, string> ReadInterface()
         {
-            string path = Application.ResourceAssembly.Location.Replace("Clever.exe", "Localization\\");
             string loc = Configurations.Get.Language;
-            path += loc + "\\interface_" + loc + ".txt";
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Localization", loc, "interface_" + loc + ".txt");
             var dictionary = new Dictionary<string, string>();
             var lines = File.ReadAllLines(path);
             foreach (var line in lines)
@@ -27,9 +26,8 @@ namespace Clever.Model.Utils
         }
         public Dictionary<string, string> ReadErrors()
         {
-            string path = Application.ResourceAssembly.Location.Replace("Clever.exe", "Localization\\");
             string loc = Configurations.Get.Language;
-            path += loc + "\\errors_" + loc + ".txt";
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Localization", loc, "errors_" + loc + ".txt");
             var dictionary = new Dictionary<string, string>();
             var fi = new FileInfo(path);
 

@@ -3,6 +3,7 @@ using Clever.Brick.Communication;
 using Clever.Brick.Utils;
 using Clever.CommonData;
 using Clever.Model.Diagnostics;
+using Clever.Model.Agent;
 using Clever.Model.Utils;
 using Clever.View.Controls.Buttons.BrickButtons;
 using Clever.View.Controls.Buttons.CompileButtons;
@@ -28,7 +29,18 @@ namespace Clever.View.Controls.Helps
     /// </summary>
     public partial class EV3Brick : UserControl
     {
-        EV3Connection connection;
+        private readonly Ev3SessionService sessionService;
+        private EV3Connection fallbackConnection;
+        private EV3Connection connection
+        {
+            get { return sessionService == null ? fallbackConnection : sessionService.CurrentConnection; }
+            set
+            {
+                fallbackConnection = value;
+                if (sessionService != null)
+                    sessionService.AttachExistingConnection(value, ev3path);
+            }
+        }
         static EV3Brick _ev3Brick;
         static Popup _menuPopup;
         public static string ProjectFolder { get; set; }
@@ -47,6 +59,12 @@ namespace Clever.View.Controls.Helps
         public EV3Brick()
         {
             InitializeComponent();
+            sessionService = Clev3rAgentServices.Current.Ev3 as Ev3SessionService;
+            if (sessionService != null)
+            {
+                sessionService.StateChanged += SessionService_StateChanged;
+                Unloaded += (sender, args) => sessionService.StateChanged -= SessionService_StateChanged;
+            }
             ProjectFolder = "";
 
             // initialize common data
@@ -60,6 +78,23 @@ namespace Clever.View.Controls.Helps
             AdjustDisabledStates();
             _ev3Brick = this;
             _menuPopup = menuPopup;
+        }
+
+        private void SessionService_StateChanged(object sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => SessionService_StateChanged(sender, e)));
+                return;
+            }
+
+            if (sessionService == null)
+                return;
+            var state = sessionService.State;
+            MainWindowVM.BrickConnect = state.Connected;
+            if (state.Connected && !string.IsNullOrWhiteSpace(state.DeviceName))
+                EV3DeviceName.Text = state.DeviceName;
+            AdjustDisabledStates();
         }
 
         private void DeviceName_focuslost(object sender, KeyboardFocusChangedEventArgs e)

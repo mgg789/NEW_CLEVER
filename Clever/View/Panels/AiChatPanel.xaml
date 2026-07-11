@@ -106,6 +106,21 @@
                         HorizontalAlignment="Stretch">
                     <FlowDocumentScrollViewer Document="{Binding Document}" IsToolBarVisible="False" Focusable="False" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"/>
                 </Border>
+                <Border Visibility="{Binding CardVisibility}"
+                        Background="#F3F5F9" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1"
+                        CornerRadius="7" Padding="8,6" HorizontalAlignment="Stretch">
+                    <Expander IsExpanded="False">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="12"/>
+                                <TextBlock Text="{Binding Status}" Foreground="#8F98AB" FontSize="11" Margin="7,0,0,0"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <TextBox Text="{Binding Details, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="#00FFFFFF"
+                                 Foreground="#596174" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" MaxHeight="220" Margin="0,5,0,0"/>
+                    </Expander>
+                </Border>
             </Grid>
         </DataTemplate>
 
@@ -137,7 +152,7 @@
     </UserControl.Resources>
 
     <Grid Background="{StaticResource git_panel_bgd}"
-          AllowDrop="True"
+          AllowDrop="{Binding HasActiveProject}"
           PreviewDragOver="AiChatPanel_PreviewDragOver"
           Drop="AiChatPanel_Drop">
         <Grid.RowDefinitions>
@@ -149,23 +164,29 @@
         <Border Grid.Row="0" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1" Padding="7,5">
             <Grid>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Button Style="{StaticResource AiIconButton}" Command="{Binding NewChatCommand}" ToolTip="New chat">
+                    <Button Style="{StaticResource AiIconButton}" Command="{Binding NewChatCommand}" IsEnabled="{Binding HasActiveProject}" ToolTip="{Binding NewChatText}" ToolTipService.ShowOnDisabled="True">
                         <Path Data="M12,5 L12,19 M5,12 L19,12" Stroke="#414659" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="15" Height="15" Stretch="Uniform"/>
                     </Button>
-                    <Button Style="{StaticResource AiIconButton}" Command="{Binding HistoryCommand}" ToolTip="History">
+                    <Button Style="{StaticResource AiIconButton}" Command="{Binding HistoryCommand}" IsEnabled="{Binding HasActiveProject}" ToolTip="{Binding HistoryText}" ToolTipService.ShowOnDisabled="True">
                         <Image Source="{StaticResource ai_icon_history}" Width="17" Height="17"/>
                     </Button>
                 </StackPanel>
 
-                <Button x:Name="SettingsButton" Style="{StaticResource AiIconButton}" Command="{Binding ToggleSettingsCommand}" ToolTip="Robot settings" HorizontalAlignment="Right">
+                <Button x:Name="SettingsButton" Style="{StaticResource AiIconButton}" Command="{Binding ToggleSettingsCommand}" ToolTip="{Binding RobotSettingsText}" HorizontalAlignment="Right">
                     <Image Source="{StaticResource ai_icon_settings}" Width="17" Height="17"/>
                 </Button>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" Visibility="{Binding ChatContentVisibility}">
             <Grid Visibility="{Binding ConversationVisibility}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,6,0,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Button Grid.Row="0" Content="{Binding LoadMoreTurnsText}" Command="{Binding LoadMoreTurnsCommand}"
+                        Visibility="{Binding LoadMoreTurnsVisibility}" Margin="10,6,10,0" Padding="7,3"/>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,6,0,8">
                     <ItemsControl ItemsSource="{Binding Messages}" ItemTemplate="{StaticResource AiMessageTemplate}"/>
                 </ScrollViewer>
             </Grid>
@@ -174,36 +195,69 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Grid Margin="12,10,8,8">
-                    <TextBlock Text="Chat history" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
-                    <Button Command="{Binding ClearHistoryCommand}" Style="{StaticResource AiIconButton}" Width="26" Height="26" Padding="5" HorizontalAlignment="Right" ToolTip="Clear history">
-                        <Image Source="{StaticResource ai_icon_trash}" Width="18" Height="18"/>
-                    </Button>
-                </Grid>
-                <ItemsControl Grid.Row="1" ItemsSource="{Binding HistoryItems}" Margin="6,0,6,8">
+                <StackPanel Margin="10,8,8,8">
+                    <Grid>
+                        <TextBlock Text="{Binding HistoryText}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Button Command="{Binding ReloadHistoryCommand}" Style="{StaticResource AiIconButton}" Width="26" Height="26" Padding="5" HorizontalAlignment="Right" ToolTip="{Binding ReloadText}">
+                            <TextBlock Text="↻" FontSize="17" Foreground="#60687A"/>
+                        </Button>
+                    </Grid>
+                    <TextBox Text="{Binding HistorySearch, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding HistorySearchText}"
+                             Height="29" Margin="0,7,0,0" Padding="7,4"
+                             BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1"
+                             Background="#FFFFFF" Foreground="#414659"/>
+                </StackPanel>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding HistoryItems}" Margin="6,0,6,8">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Command="{Binding DataContext.OpenHistoryItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding}"
-                                    Background="#00FFFFFF"
-                                    BorderThickness="0"
-                                    Padding="8"
-                                    HorizontalContentAlignment="Stretch">
+                            <Border BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,0,0,1" Padding="7,6">
                                 <Grid>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition/>
-                                        <RowDefinition/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="{Binding Title}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Row="1" Text="{Binding Subtitle}" Foreground="#8F98AB" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                                    <TextBox Text="{Binding EditableTitle, UpdateSourceTrigger=PropertyChanged}"
+                                             BorderThickness="0" Padding="0" Background="#00FFFFFF"
+                                             Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" FontWeight="SemiBold"/>
+                                    <Button Grid.Row="1"
+                                            Command="{Binding DataContext.OpenHistoryItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" Background="#00FFFFFF" BorderThickness="0" Padding="0,2"
+                                            HorizontalContentAlignment="Stretch">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Subtitle}" Foreground="#8F98AB" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding State}" Foreground="#8F98AB" FontFamily="{StaticResource ui_fontfamily}" FontSize="10" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0" Visibility="{Binding ActionsVisibility}">
+                                        <Button Content="{Binding DataContext.RenameText, RelativeSource={RelativeSource AncestorType=UserControl}}" Command="{Binding DataContext.RenameHistoryItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="5,2" Margin="0,0,4,0"/>
+                                        <Button Content="{Binding DataContext.ArchiveText, RelativeSource={RelativeSource AncestorType=UserControl}}" Command="{Binding DataContext.ArchiveHistoryItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="5,2" Margin="0,0,4,0"/>
+                                        <Button Content="{Binding DataContext.DeleteText, RelativeSource={RelativeSource AncestorType=UserControl}}" Command="{Binding DataContext.DeleteHistoryItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Padding="5,2"/>
+                                    </StackPanel>
                                 </Grid>
-                            </Button>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                </ScrollViewer>
+                <Button Grid.Row="2" Content="{Binding LoadMoreText}" Command="{Binding LoadMoreHistoryCommand}" Visibility="{Binding LoadMoreVisibility}" Margin="10,4,10,8" Padding="7,4"/>
             </Grid>
         </Grid>
+
+        <Border Grid.Row="1" Visibility="{Binding ProjectRequiredVisibility}" Background="#FFFFFF" Padding="24">
+            <TextBlock Text="{Binding ProjectRequiredText}"
+                       Foreground="#8F98AB"
+                       FontFamily="{StaticResource ui_fontfamily}"
+                       FontSize="14"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Border>
 
         <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="0,1,0,0" Padding="8" Visibility="{Binding ComposerVisibility}">
             <StackPanel>
@@ -215,6 +269,38 @@
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
 
+                <Border Visibility="{Binding SlashVisibility}"
+                        Background="#F7F8FB" BorderBrush="#BCC3D4" BorderThickness="1"
+                        CornerRadius="8" Margin="0,0,0,6" Padding="4" MaxHeight="230">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding SlashItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding DataContext.SelectSlashCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" Opacity="{Binding Opacity}"
+                                            BorderThickness="0" Padding="8,6" HorizontalContentAlignment="Stretch">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                <Setter Property="Background" Value="#00FFFFFF"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource git_commit_selected}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="13"/>
+                                            <TextBlock Text="{Binding Description}" Foreground="#737B8D" FontSize="11" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding UnavailableReason}" Foreground="#B42318" FontSize="10" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+
                 <Border BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" Background="#FFFFFF" CornerRadius="8" Padding="7">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -222,10 +308,14 @@
                             <RowDefinition Height="36"/>
                         </Grid.RowDefinitions>
 
-                        <TextBox Grid.Row="0"
+                        <TextBox x:Name="ComposerTextBox"
+                                 Grid.Row="0"
                                  Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource AiInputTextBox}"
-                                 ToolTip="Message"/>
+                                 IsEnabled="{Binding HasActiveProject}"
+                                 ToolTip="{Binding ChatInputTooltip}"
+                                 ToolTipService.ShowOnDisabled="True"
+                                 PreviewKeyDown="ComposerTextBox_PreviewKeyDown"/>
 
                         <Grid Grid.Row="1" Margin="0,6,0,0">
                             <Grid.ColumnDefinitions>
@@ -236,7 +326,7 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Style="{StaticResource AiIconButton}" Command="{Binding AttachFileCommand}" ToolTip="Attach file">
+                                <Button Style="{StaticResource AiIconButton}" Command="{Binding AttachFileCommand}" IsEnabled="{Binding HasActiveProject}" ToolTip="{Binding ChatInputTooltip}" ToolTipService.ShowOnDisabled="True">
                                     <Path Data="M12,5 L12,19 M5,12 L19,12" Stroke="#8F98AB" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="15" Height="15" Stretch="Uniform"/>
                                 </Button>
                                 <Border Width="18"
@@ -255,15 +345,16 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                <ComboBox ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding SelectorsEnabled}" Style="{StaticResource AiComboBox}"/>
-                                <ComboBox ItemsSource="{Binding ReasoningModes}" SelectedItem="{Binding SelectedReasoning}" IsEnabled="{Binding SelectorsEnabled}" Style="{StaticResource AiComboBox}"/>
+                                <ComboBox ItemsSource="{Binding Models}" SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding ModelSelectorEnabled}" ToolTip="{Binding ModelText}" Style="{StaticResource AiComboBox}"/>
+                                <ComboBox ItemsSource="{Binding ReasoningModes}" SelectedItem="{Binding SelectedReasoning}" IsEnabled="{Binding ReasoningSelectorEnabled}" ToolTip="{Binding ReasoningText}" Style="{StaticResource AiComboBox}"/>
+                                <ComboBox ItemsSource="{Binding SpeedTiers}" SelectedItem="{Binding SelectedSpeed}" DisplayMemberPath="DisplayName" IsEnabled="{Binding SpeedSelectorEnabled}" ToolTip="{Binding SpeedText}" Style="{StaticResource AiComboBox}"/>
                             </StackPanel>
 
                             <Button Grid.Column="3"
                                     Style="{StaticResource AiSendButton}"
                                     Command="{Binding SendOrStopCommand}"
                                     IsEnabled="{Binding SendButtonEnabled}"
-                                    ToolTip="Send / stop">
+                                    ToolTip="{Binding SendStopText}">
                                 <Grid>
                                     <Image Visibility="{Binding SendIconVisibility}" Source="{StaticResource ai_icon_send}" Width="12" Height="12"/>
                                     <Rectangle Visibility="{Binding StopIconVisibility}" Width="10" Height="10" Fill="White" RadiusX="2" RadiusY="2"/>
@@ -285,7 +376,7 @@
                IsOpen="{Binding IsSettingsOpen, Mode=TwoWay}">
             <Border Background="#F6F7FA" BorderBrush="#BCC3D4" BorderThickness="1" Padding="12" Width="300">
                 <StackPanel>
-                    <TextBlock Text="Robot settings" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding RobotSettingsText}" Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -293,16 +384,16 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="Wheel diameter, mm" Foreground="#777777" FontFamily="{StaticResource ui_fontfamily}" FontSize="12"/>
+                            <TextBlock Text="{Binding WheelDiameterText}" Foreground="#777777" FontFamily="{StaticResource ui_fontfamily}" FontSize="12"/>
                             <TextBox Text="{Binding WheelDiameter, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="6,3" Margin="0,3,0,0" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" FontFamily="{StaticResource ui_fontfamily}" FontSize="13" Background="#FFFFFF"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Wheelbase, mm" Foreground="#777777" FontFamily="{StaticResource ui_fontfamily}" FontSize="12"/>
+                            <TextBlock Text="{Binding WheelbaseText}" Foreground="#777777" FontFamily="{StaticResource ui_fontfamily}" FontSize="12"/>
                             <TextBox Text="{Binding WheelBaseWidth, UpdateSourceTrigger=PropertyChanged}" Height="28" Padding="6,3" Margin="0,3,0,0" BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" FontFamily="{StaticResource ui_fontfamily}" FontSize="13" Background="#FFFFFF"/>
                         </StackPanel>
                     </Grid>
                     <Grid Margin="0,10,0,3">
-                        <TextBlock Text="Robot description" Foreground="#777777" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" HorizontalAlignment="Left"/>
+                        <TextBlock Text="{Binding RobotDescriptionText}" Foreground="#777777" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" HorizontalAlignment="Left"/>
                         <TextBlock Text="{Binding RobotDescriptionCounter}" Foreground="#8F98AB" FontFamily="{StaticResource ui_fontfamily}" FontSize="12" HorizontalAlignment="Right"/>
                     </Grid>
                     <TextBox Text="{Binding RobotDescription, UpdateSourceTrigger=PropertyChanged}"

@@ -16,6 +16,8 @@
 */
 using Clever.ViewModel;
 using System;
+using System.IO;
+using System.Threading;
 
 namespace Clever.Brick.Communication
 {
@@ -172,16 +174,34 @@ namespace Clever.Brick.Communication
 
         public void CreateEV3File(string fullname, byte[] content)
         {
+            CreateEV3File(fullname, content, CancellationToken.None);
+        }
+
+        public void CreateEV3File(string fullname, byte[] content, CancellationToken cancellationToken)
+        {
+            if (content == null) throw new ArgumentNullException("content");
+            using (var stream = new MemoryStream(content, false))
+                CreateEV3File(fullname, stream, content.Length, cancellationToken);
+        }
+
+        public void CreateEV3File(string fullname, Stream content, int contentLength, CancellationToken cancellationToken)
+        {
+            if (content == null) throw new ArgumentNullException("content");
+            if (!content.CanRead) throw new ArgumentException("The EV3 upload stream must be readable.", "content");
+            if (contentLength < 0) throw new ArgumentOutOfRangeException("contentLength");
 
             int chunksize = 900;
             int pos = 0;
-            int transfernow = Math.Min(content.Length - pos, chunksize - fullname.Length);
+            int transfernow = Math.Min(contentLength - pos, Math.Max(0, chunksize - fullname.Length));
+            byte[] chunk = new byte[chunksize];
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadExactly(content, chunk, transfernow, cancellationToken);
 
             // start the transfer
             BinaryBuffer b = new BinaryBuffer();
-            b.Append32(content.Length);
+            b.Append32(contentLength);
             b.AppendZeroTerminated(fullname);
-            b.AppendBytes(content, pos, transfernow);
+            b.AppendBytes(chunk, 0, transfernow);
 
             byte[] response = SystemCommand(BEGIN_DOWNLOAD, b);
 
@@ -203,12 +223,14 @@ namespace Clever.Brick.Communication
             int handle = response[1] & 0xff;
 
             // transfer bytes in small chunks
-            while (pos < content.Length)
+            while (pos < contentLength)
             {
-                transfernow = Math.Min(content.Length - pos, chunksize);
+                cancellationToken.ThrowIfCancellationRequested();
+                transfernow = Math.Min(contentLength - pos, chunksize);
+                ReadExactly(content, chunk, transfernow, cancellationToken);
                 b.Clear();
                 b.Append8(handle);
-                b.AppendBytes(content, pos, transfernow);
+                b.AppendBytes(chunk, 0, transfernow);
                 response = SystemCommand(CONTINUE_DOWNLOAD, b);
 
                 if (response == null)
@@ -225,6 +247,18 @@ namespace Clever.Brick.Communication
                 }
 
                 pos += transfernow;
+            }
+        }
+
+        private static void ReadExactly(Stream stream, byte[] buffer, int count, CancellationToken cancellationToken)
+        {
+            int offset = 0;
+            while (offset < count)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int read = stream.Read(buffer, offset, count - offset);
+                if (read <= 0) throw new EndOfStreamException("The EV3 upload source ended unexpectedly.");
+                offset += read;
             }
         }
 

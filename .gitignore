@@ -1,7 +1,14 @@
 # Build results
 obj/
 Clever/bin/CodexRelease/
+Clever/bin/CodexCheck/
 Clever/Clever.LocalBuild*.csproj
+Clev3r.AgentMcpBridge/bin/
+Clev3r.AgentCore/bin/
+Clev3r.AgentCore.Tests/bin/
+Clever Registry/bin/CodexUiCheck/
+Interpreter/bin/CodexUiCheck/
+~*/
 
 # Visual Studio 2015 cache/options directory
 .vs/

@@ -60,7 +60,10 @@ namespace Clever.View.Dialogs
         {
             var viewModel = DataContext as AiSettingsWindowVM;
             if (viewModel != null)
+            {
                 viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+                viewModel.Dispose();
+            }
         }
     }
 }

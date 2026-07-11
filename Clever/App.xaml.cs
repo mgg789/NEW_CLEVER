@@ -1,5 +1,6 @@
 ﻿using Clever.CommonData;
 using Clever.Model.Bplus;
+using Clever.Model.Agent;
 using Clever.Model.Intellisense;
 using Clever.Model.Utils;
 using Clever.View.Dialogs;
@@ -28,7 +29,12 @@ namespace Clever
 
         public App()
         {
-            Exit += (sender, args) => PrivateFontLoader.UnloadBundledFonts();
+            Exit += (sender, args) =>
+            {
+                if (Clev3rAgentServices.Current != null)
+                    Clev3rAgentServices.Current.Dispose();
+                PrivateFontLoader.UnloadBundledFonts();
+            };
         }
 
         void Aplication_StartUp(object sender, StartupEventArgs e)
@@ -64,12 +70,14 @@ namespace Clever
                     SplashScreen.Show(false);
                     Configurations.Install();
                     GUILanguage.Install();
+                    Clev3rAgentServices.Current.InitializeDefaultFoundation();
                     BpColors.Install();
                     Errors = localizator.ReadErrors();
                     IntellisenseObjects = new ReadXml().Read();     
                     MainWindow main = new MainWindow();
                     main.Show();
                     main.UpdateGridSize();
+                    Clev3rAgentServices.Current.StartSessionBackend();
 
                     //new ValidData().GetData();
 
