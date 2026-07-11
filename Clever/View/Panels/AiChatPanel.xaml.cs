@@ -17,7 +17,6 @@ namespace Clever.View.Panels
         {
             DataContext = new AiChatPanelVM();
             InitializeComponent();
-            Unloaded += AiChatPanel_Unloaded;
         }
 
         private void ComposerTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -108,12 +107,6 @@ namespace Clever.View.Panels
             e.Handled = true;
         }
 
-        private void AiChatPanel_Unloaded(object sender, RoutedEventArgs e)
-        {
-            var disposable = DataContext as System.IDisposable;
-            if (disposable != null)
-                disposable.Dispose();
-        }
     }
 
     public sealed class AiReasoningDisplayConverter : IValueConverter

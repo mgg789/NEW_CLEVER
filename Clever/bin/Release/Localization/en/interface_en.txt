@@ -391,5 +391,6 @@ AiDetailOutput = Output
 AiDetailServer = Server
 AiDetailTool = Tool
 AiDetailRequest = Request
+AiDetailTopic = Topic
 AiDetailStatus = Status
 AiDetailResult = Result

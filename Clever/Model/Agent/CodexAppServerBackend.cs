@@ -1502,13 +1502,62 @@ namespace Clever.Model.Agent
             }
             JsonElement arguments;
             if (element.TryGetProperty("arguments", out arguments)) compact["arguments"] = LimitJsonValue(arguments, 8000);
-            JsonElement result;
+            var result = default(JsonElement);
             if (element.TryGetProperty("result", out result))
             {
                 var message = result.ValueKind == JsonValueKind.Object ? FirstString(result, "message", "code", "error") : null;
                 compact["resultMessage"] = !string.IsNullOrWhiteSpace(message) ? message : LimitJsonValue(result, 2000);
             }
+            JsonElement contentItems;
+            if (element.TryGetProperty("contentItems", out contentItems))
+                AddCompactContentItemSummary(contentItems, compact);
+            if (result.ValueKind == JsonValueKind.Object && result.TryGetProperty("contentItems", out contentItems))
+                AddCompactContentItemSummary(contentItems, compact);
             return JsonSerializer.Serialize(compact);
+        }
+
+        private static void AddCompactContentItemSummary(JsonElement contentItems, IDictionary<string, string> compact)
+        {
+            if (contentItems.ValueKind != JsonValueKind.Array)
+                return;
+            foreach (var contentItem in contentItems.EnumerateArray())
+            {
+                var text = GetString(contentItem, "text");
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+                try
+                {
+                    using (var envelope = JsonDocument.Parse(text))
+                    {
+                        var message = FirstString(envelope.RootElement, "message", "code", "error");
+                        if (!string.IsNullOrWhiteSpace(message))
+                            compact["resultMessage"] = LimitText(message, 1000);
+
+                        var dataJson = GetString(envelope.RootElement, "dataJson");
+                        if (string.IsNullOrWhiteSpace(dataJson))
+                            continue;
+                        using (var data = JsonDocument.Parse(dataJson))
+                        {
+                            var title = data.RootElement.ValueKind == JsonValueKind.Object
+                                ? GetString(data.RootElement, "title")
+                                : null;
+                            if (string.IsNullOrWhiteSpace(title) && data.RootElement.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var entry in data.RootElement.EnumerateArray())
+                                {
+                                    title = GetString(entry, "title");
+                                    if (!string.IsNullOrWhiteSpace(title))
+                                        break;
+                                }
+                            }
+                            if (!string.IsNullOrWhiteSpace(title))
+                                compact["resultDataTitle"] = LimitText(title, 1000);
+                        }
+                    }
+                }
+                catch { }
+                return;
+            }
         }
 
         private static string LimitJsonValue(JsonElement value, int max)
@@ -1516,6 +1565,12 @@ namespace Clever.Model.Agent
             var text = value.ValueKind == JsonValueKind.String ? value.GetString() : value.GetRawText();
             text = text ?? "";
             return text.Length <= max ? text : text.Substring(0, max) + "…";
+        }
+
+        private static string LimitText(string text, int max)
+        {
+            text = text ?? "";
+            return text.Length <= max ? text : text.Substring(0, max) + "...";
         }
 
         private static string ExtractText(JsonElement element)
@@ -1580,7 +1635,9 @@ namespace Clever.Model.Agent
             foreach (var tier in tiers.EnumerateArray())
             {
                 var id = tier.ValueKind == JsonValueKind.String ? tier.GetString() : FirstString(tier, "id", "serviceTier");
-                if (string.IsNullOrWhiteSpace(id) || model.ServiceTiers.Any(item => item.Id == id)) continue;
+                if (string.IsNullOrWhiteSpace(id) ||
+                    model.ServiceTiers.Any(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase)))
+                    continue;
                 model.ServiceTiers.Add(new CodexServiceTierInfo
                 {
                     Id = id,

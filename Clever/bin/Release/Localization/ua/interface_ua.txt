@@ -391,5 +391,6 @@ AiDetailOutput = Результат
 AiDetailServer = Сервер
 AiDetailTool = Інструмент
 AiDetailRequest = Запит
+AiDetailTopic = Тема
 AiDetailStatus = Статус
 AiDetailResult = Результат

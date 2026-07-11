@@ -1512,6 +1512,18 @@ namespace Clever.ViewModel
 
         internal static void ReloadOpenProjectFilesFromDisk(string repositoryRoot)
         {
+            ReloadOpenProjectFilesFromDisk(repositoryRoot, null, false);
+        }
+
+        /// <summary>
+        /// Refreshes open editor tabs changed by an external operation. Agent changes must
+        /// never overwrite a keystroke made locally while a turn was running.
+        /// </summary>
+        internal static void ReloadOpenProjectFilesFromDisk(
+            string repositoryRoot,
+            IEnumerable<string> changedPaths,
+            bool preserveUnsavedChanges)
+        {
             if (Project == null || string.IsNullOrWhiteSpace(repositoryRoot))
                 return;
 
@@ -1525,6 +1537,24 @@ namespace Clever.ViewModel
             catch
             {
                 return;
+            }
+
+            HashSet<string> selectedPaths = null;
+            if (changedPaths != null)
+            {
+                selectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var path in changedPaths.Where(value => !string.IsNullOrWhiteSpace(value)))
+                {
+                    try
+                    {
+                        var fullPath = Path.GetFullPath(Path.IsPathRooted(path)
+                            ? path
+                            : Path.Combine(root, path));
+                        if (fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                            selectedPaths.Add(fullPath);
+                    }
+                    catch { }
+                }
             }
 
             foreach (var data in Project.GetDictionary().Values.ToList())
@@ -1544,14 +1574,21 @@ namespace Clever.ViewModel
 
                 if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
                     continue;
+                if (selectedPaths != null && !selectedPaths.Contains(fullPath))
+                    continue;
 
                 var extension = Path.GetExtension(fullPath).ToLowerInvariant();
                 if (!IsSupportedEditorExtension(extension))
                     continue;
                 if (!File.Exists(fullPath))
                     continue;
+                if (preserveUnsavedChanges &&
+                    (data.TextChange || !string.IsNullOrWhiteSpace(data.GetHeaderChangeText)))
+                    continue;
 
-                var diskText = File.ReadAllText(fullPath);
+                string diskText;
+                try { diskText = File.ReadAllText(fullPath); }
+                catch { continue; }
                 if (data.Editor.TextArea.Text == diskText)
                 {
                     data.TextChange = false;

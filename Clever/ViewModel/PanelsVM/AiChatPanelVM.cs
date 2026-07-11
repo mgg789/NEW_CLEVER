@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -18,6 +19,7 @@ using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Navigation;
 using System.Windows.Threading;
 
 namespace Clever.ViewModel.PanelsVM
@@ -423,10 +425,10 @@ namespace Clever.ViewModel.PanelsVM
         {
             _historyVersion++;
             var version = _historyVersion;
-            ReplaceCancellation(ref _historyCancellation);
+            var cancellation = ReplaceCancellation(ref _historyCancellation);
             _nextHistoryCursor = null;
             OnPropertyChanged("LoadMoreVisibility");
-            await LoadHistoryPageAsync(null, true, version, _historyCancellation.Token);
+            await LoadHistoryPageAsync(null, true, version, cancellation.Token);
         }
 
         private async void LoadMoreHistory()
@@ -564,7 +566,7 @@ namespace Clever.ViewModel.PanelsVM
             foreach (var item in items ?? Enumerable.Empty<CodexThreadItem>())
             {
                 if (item == null) continue;
-                if (AiChatMessageVM.IsProcessKind(item.Kind))
+                if (AiChatMessageVM.IsProcessKind(item.Kind) || item.Kind == CodexItemKind.AgentMessage)
                 {
                     var key = item.TurnId ?? "history";
                     AiTurnWorkGroupVM group;
@@ -575,8 +577,16 @@ namespace Clever.ViewModel.PanelsVM
                         result.Add(AiChatMessageVM.CreateWorkSummary(group));
                     }
                     var process = AiChatMessageVM.CreateItem(item);
-                    process.AssignWorkGroup(group);
-                    group.AddProcessItem();
+                    if (AiChatMessageVM.IsProcessKind(item.Kind))
+                    {
+                        process.AssignWorkGroup(group);
+                        group.AddProcessItem();
+                    }
+                    else
+                    {
+                        process.AssignWorkGroup(group, true);
+                        group.AddNarrativeItem();
+                    }
                     result.Add(process);
                 }
                 else
@@ -584,6 +594,7 @@ namespace Clever.ViewModel.PanelsVM
             }
             foreach (var pair in groups)
             {
+                RevealFinalAssistantMessage(result, pair.Value);
                 var duration = (items ?? Enumerable.Empty<CodexThreadItem>())
                     .Where(item => item != null && string.Equals(item.TurnId ?? "history", pair.Key, StringComparison.Ordinal))
                     .Select(item => item.TurnDurationMs)
@@ -673,7 +684,7 @@ namespace Clever.ViewModel.PanelsVM
 
         private async void SendAsync()
         {
-            if (!CanSend || _turnStartPending)
+            if (_disposed || !CanSend || _turnStartPending)
                 return;
 
             SlashCommandDefinition command;
@@ -707,7 +718,7 @@ namespace Clever.ViewModel.PanelsVM
             Messages.Add(AiChatMessageVM.CreateUser(text));
             ShowWaitingIndicator();
 
-            ReplaceCancellation(ref _turnCancellation);
+            var cancellation = ReplaceCancellation(ref _turnCancellation);
             SetTurnStartPending(true);
             var turnAccepted = false;
             try
@@ -718,7 +729,7 @@ namespace Clever.ViewModel.PanelsVM
                     return;
                 }
 
-                var context = await _services.WorkspaceContext.SaveAllAndCaptureAsync(_turnCancellation.Token);
+                var context = await _services.WorkspaceContext.SaveAllAndCaptureAsync(cancellation.Token);
                 if (!context.Success || context.Data == null)
                 {
                     ShowBackendMessage(BackendMessage(context.Message));
@@ -737,7 +748,7 @@ namespace Clever.ViewModel.PanelsVM
                         ApprovalNever = true,
                         WorkspaceWrite = true,
                         NetworkAccess = true
-                    }, _turnCancellation.Token);
+                    }, cancellation.Token);
                     if (!started.Success || started.Data == null)
                     {
                         ShowBackendMessage(BackendMessage(started.Message));
@@ -760,14 +771,18 @@ namespace Clever.ViewModel.PanelsVM
                     Kind = "untrusted",
                     Value = JsonSerializer.Serialize(context.Data)
                 };
-                var turn = await _backend.StartTurnAsync(request, _turnCancellation.Token);
+                var turn = await _backend.StartTurnAsync(request, cancellation.Token);
                 if (!turn.Success || turn.Data == null)
                     ShowBackendMessage(BackendMessage(turn.Message));
                 else
                 {
-                    _currentThreadId = turn.Data.ThreadId ?? _currentThreadId;
-                    _activeTurnId = turn.Data.TurnId;
+                    var acceptedThreadId = turn.Data.ThreadId ?? _currentThreadId;
+                    var acceptedTurnId = turn.Data.TurnId;
+                    _currentThreadId = acceptedThreadId;
+                    _activeTurnId = acceptedTurnId;
+                    OnUi(() => BeginAcceptedTurn(acceptedThreadId, acceptedTurnId));
                     turnAccepted = true;
+                    _ = ReconcileAcceptedTurnAsync(acceptedThreadId, acceptedTurnId);
                 }
             }
             catch (OperationCanceledException)
@@ -1115,7 +1130,12 @@ namespace Clever.ViewModel.PanelsVM
                 {
                     foreach (var value in model.SupportedReasoningEfforts) ReasoningModes.Add(value);
                     SpeedTiers.Add(new AiServiceTierChoiceVM(null, Localize("AiSpeedDefault", "Default"), ""));
-                    foreach (var value in model.ServiceTiers.Where(item => !item.IsDefault && !string.IsNullOrWhiteSpace(item.Id)))
+                    foreach (var value in model.ServiceTiers.Where(item =>
+                        !item.IsDefault &&
+                        !string.IsNullOrWhiteSpace(item.Id) &&
+                        !string.Equals(item.Id, "default", StringComparison.OrdinalIgnoreCase) &&
+                        !SpeedTiers.Any(existing => !string.IsNullOrWhiteSpace(existing.Id) &&
+                            string.Equals(existing.Id, item.Id, StringComparison.OrdinalIgnoreCase))))
                         SpeedTiers.Add(new AiServiceTierChoiceVM(value.Id, string.IsNullOrWhiteSpace(value.Name) ? (value.IsDefault ? Localize("AiSpeedDefault", "Default") : value.Id) : value.Name, value.Description));
                 }
                 if (!ReasoningModes.Contains(SelectedReasoning)) SelectedReasoning = ReasoningModes.FirstOrDefault();
@@ -1322,6 +1342,7 @@ namespace Clever.ViewModel.PanelsVM
                         RemoveWaitingIndicator();
                         FlushAllDeltas();
                         CompleteWorkGroup(e.TurnId, e.TurnDurationMs);
+                        RefreshOpenEditorsFromAgentChanges(null);
                         IsBotWorking = false;
                         _activeTurnId = null;
                     }
@@ -1346,6 +1367,8 @@ namespace Clever.ViewModel.PanelsVM
                         RemoveWaitingIndicator();
                         FlushDelta(e.ItemId);
                         AddOrUpdateItem(e.Item, e.ItemId);
+                        if (e.Item != null && e.Item.Kind == CodexItemKind.FileChange)
+                            RefreshOpenEditorsFromAgentChanges(e.Item);
                     }
                     break;
                 case CodexBackendEventKind.Error:
@@ -1377,6 +1400,13 @@ namespace Clever.ViewModel.PanelsVM
                     existing.AssignWorkGroup(group);
                     group.AddProcessItem();
                 }
+                else if (item.Kind == CodexItemKind.AgentMessage)
+                {
+                    var group = GetOrCreateWorkGroup(item.TurnId);
+                    existing.AssignWorkGroup(group, true);
+                    group.AddNarrativeItem();
+                    if (group.IsCompleted) existing.RevealAsFinalResponse();
+                }
                 Messages.Add(existing);
             }
             else
@@ -1387,6 +1417,13 @@ namespace Clever.ViewModel.PanelsVM
                     var group = GetOrCreateWorkGroup(item.TurnId);
                     existing.AssignWorkGroup(group);
                     group.AddProcessItem();
+                }
+                else if (item.Kind == CodexItemKind.AgentMessage && existing.WorkGroup == null)
+                {
+                    var group = GetOrCreateWorkGroup(item.TurnId);
+                    existing.AssignWorkGroup(group, true);
+                    group.AddNarrativeItem();
+                    if (group.IsCompleted) existing.RevealAsFinalResponse();
                 }
             }
         }
@@ -1467,9 +1504,137 @@ namespace Clever.ViewModel.PanelsVM
             if (!_workGroups.TryGetValue(key, out group))
                 group = _currentWorkGroup;
             if (group != null)
+            {
+                RevealFinalAssistantMessage(Messages, group);
                 group.Complete(durationMs);
+            }
             if (ReferenceEquals(_currentWorkGroup, group))
                 _currentWorkGroup = null;
+        }
+
+        private static void RevealFinalAssistantMessage(IEnumerable<AiChatMessageVM> entries, AiTurnWorkGroupVM group)
+        {
+            if (group == null)
+                return;
+            var finalMessage = (entries ?? Enumerable.Empty<AiChatMessageVM>())
+                .LastOrDefault(item => item != null &&
+                    item.Kind == CodexItemKind.AgentMessage &&
+                    ReferenceEquals(item.WorkGroup, group));
+            if (finalMessage != null)
+                finalMessage.RevealAsFinalResponse();
+        }
+
+        private void BeginAcceptedTurn(string threadId, string turnId)
+        {
+            if (string.IsNullOrWhiteSpace(turnId))
+                return;
+            if (!string.IsNullOrWhiteSpace(threadId))
+                _currentThreadId = threadId;
+            _activeTurnId = turnId;
+            SetTurnStartPending(false);
+            IsBotWorking = true;
+            _currentWorkGroup = GetOrCreateWorkGroup(turnId);
+        }
+
+        // Some app-server versions can deliver the turn RPC response before a streaming
+        // notification reaches the WPF dispatcher. Reconcile the completed turn from its
+        // durable history so the composer cannot remain on an endless waiting indicator.
+        private async Task ReconcileAcceptedTurnAsync(string threadId, string turnId)
+        {
+            if (string.IsNullOrWhiteSpace(threadId) || string.IsNullOrWhiteSpace(turnId))
+                return;
+            try
+            {
+                for (var attempt = 0; attempt < 30; attempt++)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+                    if (_disposed)
+                        return;
+
+                    var turns = await _backend.ListTurnsAsync(threadId, null, CancellationToken.None).ConfigureAwait(false);
+                    if (!turns.Success || turns.Data == null)
+                        continue;
+                    var entries = turns.Data.Items
+                        .Where(item => item != null && string.Equals(item.TurnId, turnId, StringComparison.Ordinal))
+                        .ToList();
+                    var duration = entries.Select(item => item.TurnDurationMs).FirstOrDefault(value => value.HasValue);
+                    if (!duration.HasValue)
+                        continue;
+
+                    OnUi(() =>
+                    {
+                        if (!string.Equals(_activeTurnId, turnId, StringComparison.Ordinal))
+                            return;
+                        foreach (var entry in entries)
+                        {
+                            if (entry.Kind != CodexItemKind.UserMessage)
+                            {
+                                AddOrUpdateItem(entry, entry.Id);
+                                if (entry.Kind == CodexItemKind.FileChange)
+                                    RefreshOpenEditorsFromAgentChanges(entry);
+                            }
+                        }
+                        RemoveWaitingIndicator();
+                        FlushAllDeltas();
+                        CompleteWorkGroup(turnId, duration);
+                        RefreshOpenEditorsFromAgentChanges(null);
+                        IsBotWorking = false;
+                        _activeTurnId = null;
+                        SetTurnStartPending(false);
+                    });
+                    return;
+                }
+            }
+            catch
+            {
+                // The regular notification path remains authoritative; reconciliation is
+                // best-effort and must not surface a second error for an active turn.
+            }
+        }
+
+        private static void RefreshOpenEditorsFromAgentChanges(CodexThreadItem item)
+        {
+            var root = NormalizePath(MainWindowVM.CurrentProjectRoot);
+            if (string.IsNullOrWhiteSpace(root))
+                return;
+
+            MainWindowVM.ReloadOpenProjectFilesFromDisk(
+                root,
+                item == null ? null : ExtractChangedPaths(item),
+                true);
+        }
+
+        private static IEnumerable<string> ExtractChangedPaths(CodexThreadItem item)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.RawJson))
+                return Enumerable.Empty<string>();
+
+            try
+            {
+                using (var document = JsonDocument.Parse(item.RawJson))
+                {
+                    JsonElement changes;
+                    if (!document.RootElement.TryGetProperty("changes", out changes) ||
+                        changes.ValueKind != JsonValueKind.Array)
+                        return Enumerable.Empty<string>();
+
+                    var paths = new List<string>();
+                    foreach (var change in changes.EnumerateArray())
+                    {
+                        JsonElement path;
+                        if (change.ValueKind == JsonValueKind.Object &&
+                            change.TryGetProperty("path", out path) &&
+                            path.ValueKind == JsonValueKind.String &&
+                            !string.IsNullOrWhiteSpace(path.GetString()))
+                            paths.Add(path.GetString());
+                    }
+                    return paths;
+                }
+            }
+            catch
+            {
+                return Enumerable.Empty<string>();
+            }
         }
 
         private void HistorySearchTimer_Tick(object sender, EventArgs e)
@@ -1649,15 +1814,34 @@ namespace Clever.ViewModel.PanelsVM
             else dispatcher.BeginInvoke(action);
         }
 
-        private static void ReplaceCancellation(ref CancellationTokenSource source)
+        private static CancellationTokenSource ReplaceCancellation(ref CancellationTokenSource source)
         {
-            if (source != null) { source.Cancel(); source.Dispose(); }
-            source = new CancellationTokenSource();
+            var replacement = new CancellationTokenSource();
+            var previous = Interlocked.Exchange(ref source, replacement);
+            CancelSafely(previous);
+            return replacement;
         }
 
         private void CancelTurn()
         {
-            if (_turnCancellation != null) _turnCancellation.Cancel();
+            CancelSafely(Interlocked.CompareExchange(ref _turnCancellation, null, null));
+        }
+
+        private static void CancelSafely(CancellationTokenSource source)
+        {
+            if (source == null)
+                return;
+            try { source.Cancel(); }
+            catch (ObjectDisposedException) { }
+        }
+
+        private static void CancelAndDisposeSafely(CancellationTokenSource source)
+        {
+            if (source == null)
+                return;
+            CancelSafely(source);
+            try { source.Dispose(); }
+            catch (ObjectDisposedException) { }
         }
 
         private static string NormalizePath(string path)
@@ -1712,8 +1896,8 @@ namespace Clever.ViewModel.PanelsVM
             MainWindowVM.StaticPropertyChanged -= MainWindowVM_StaticPropertyChanged;
             _deltaFlushTimer.Stop();
             _historySearchTimer.Stop();
-            if (_turnCancellation != null) { _turnCancellation.Cancel(); _turnCancellation.Dispose(); }
-            if (_historyCancellation != null) { _historyCancellation.Cancel(); _historyCancellation.Dispose(); }
+            CancelAndDisposeSafely(Interlocked.Exchange(ref _turnCancellation, null));
+            CancelAndDisposeSafely(Interlocked.Exchange(ref _historyCancellation, null));
         }
     }
 
@@ -1751,6 +1935,7 @@ namespace Clever.ViewModel.PanelsVM
         private FlowDocument _detailsDocument;
         private bool _isWaiting;
         private bool _isWorkSummary;
+        private bool _isProcessNarrative;
         private AiTurnWorkGroupVM _workGroup;
         private Geometry _iconGeometry;
 
@@ -1778,7 +1963,17 @@ namespace Clever.ViewModel.PanelsVM
         public Geometry IconGeometry { get { return _iconGeometry; } }
         public AiTurnWorkGroupVM WorkGroup { get { return _workGroup; } }
         public Visibility UserVisibility { get { return IsUser && !_isWaiting && !_isWorkSummary ? Visibility.Visible : Visibility.Collapsed; } }
-        public Visibility AssistantVisibility { get { return !IsUser && !IsCard && !_isWaiting && !_isWorkSummary ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility AssistantVisibility
+        {
+            get
+            {
+                if (IsUser || IsCard || _isWaiting || _isWorkSummary)
+                    return Visibility.Collapsed;
+                return _isProcessNarrative && _workGroup != null
+                    ? _workGroup.ProcessVisibility
+                    : Visibility.Visible;
+            }
+        }
         public Visibility WaitingVisibility { get { return _isWaiting ? Visibility.Visible : Visibility.Collapsed; } }
         public Visibility WorkSummaryVisibility { get { return _isWorkSummary && _workGroup != null ? _workGroup.SummaryVisibility : Visibility.Collapsed; } }
         public Visibility CompactionVisibility { get { return !_isWaiting && !_isWorkSummary && Kind == CodexItemKind.ContextCompaction ? Visibility.Visible : Visibility.Collapsed; } }
@@ -1791,21 +1986,38 @@ namespace Clever.ViewModel.PanelsVM
             }
         }
 
-        public void AssignWorkGroup(AiTurnWorkGroupVM group)
+        public void AssignWorkGroup(AiTurnWorkGroupVM group, bool hideAsProcessNarrative = false)
         {
-            if (ReferenceEquals(_workGroup, group)) return;
+            if (ReferenceEquals(_workGroup, group))
+            {
+                if (_isProcessNarrative == hideAsProcessNarrative)
+                    return;
+                _isProcessNarrative = hideAsProcessNarrative;
+                OnPropertyChanged("AssistantVisibility");
+                return;
+            }
             if (_workGroup != null) _workGroup.PropertyChanged -= WorkGroup_PropertyChanged;
             _workGroup = group;
+            _isProcessNarrative = hideAsProcessNarrative;
             if (_workGroup != null) _workGroup.PropertyChanged += WorkGroup_PropertyChanged;
             OnPropertyChanged("WorkGroup");
             OnPropertyChanged("CardVisibility");
             OnPropertyChanged("WorkSummaryVisibility");
+            OnPropertyChanged("AssistantVisibility");
+        }
+
+        public void RevealAsFinalResponse()
+        {
+            if (_isProcessNarrative && _workGroup != null)
+                _workGroup.RemoveNarrativeItem();
+            AssignWorkGroup(null, false);
         }
 
         private void WorkGroup_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             OnPropertyChanged("CardVisibility");
             OnPropertyChanged("WorkSummaryVisibility");
+            OnPropertyChanged("AssistantVisibility");
         }
 
         public void Append(string delta)
@@ -1825,7 +2037,7 @@ namespace Clever.ViewModel.PanelsVM
             Kind = item.Kind;
             _title = ItemTitle(item);
             _details = BuildDetails(item);
-            _status = item.Status ?? "";
+            _status = BuildStatus(item);
             _detailsDocument = AiMarkdownRenderer.CreateDocument(_details, false);
             _iconGeometry = IconFor(item.Kind, item.Title);
             if (!string.IsNullOrWhiteSpace(item.Text) && !IsCard)
@@ -1946,10 +2158,15 @@ namespace Clever.ViewModel.PanelsVM
                     {
                         AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailServer", "Server"), root, "server");
                         AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailTool", "Tool"), root, "tool");
-                        var query = FindNestedString(root, "arguments", "query") ?? FindNestedString(root, "arguments", "path");
-                        if (!string.IsNullOrWhiteSpace(query)) lines.Add(AiChatPanelVM.Localize("AiDetailRequest", "Request") + ": " + Limit(query, 500));
+                        var request = FindToolArgument(root, "query", "id", "path", "entryPath", "localPath", "destinationPath", "buildId", "name");
+                        if (!string.IsNullOrWhiteSpace(request)) lines.Add(AiChatPanelVM.Localize("AiDetailRequest", "Request") + ": " + Limit(request, 500));
+                        var topic = ExtractToolDataTitle(root);
+                        if (!string.IsNullOrWhiteSpace(topic)) lines.Add(AiChatPanelVM.Localize("AiDetailTopic", "Topic") + ": " + Limit(topic, 500));
                         AddJsonLine(lines, AiChatPanelVM.Localize("AiDetailStatus", "Status"), root, "status");
-                        var resultMessage = JsonString(root, "resultMessage") ?? FindNestedString(root, "result", "message") ?? FindNestedString(root, "result", "code");
+                        var resultMessage = JsonString(root, "resultMessage") ??
+                            FindNestedString(root, "result", "message") ??
+                            ExtractToolResultMessage(root) ??
+                            FindNestedString(root, "result", "code");
                         if (!string.IsNullOrWhiteSpace(resultMessage)) lines.Add(AiChatPanelVM.Localize("AiDetailResult", "Result") + ": " + Limit(resultMessage, 1000));
                         var error = JsonString(root, "error");
                         if (!string.IsNullOrWhiteSpace(error)) lines.Add(AiChatPanelVM.Localize("AiTimelineError", "Error") + ": " + Limit(error, 1000));
@@ -1962,6 +2179,146 @@ namespace Clever.ViewModel.PanelsVM
             {
                 return Limit(item.Text, 3000);
             }
+        }
+
+        private static string BuildStatus(CodexThreadItem item)
+        {
+            if (item == null)
+                return "";
+            try
+            {
+                using (var document = JsonDocument.Parse(item.RawJson ?? "{}"))
+                {
+                    var root = document.RootElement;
+                    if (item.Kind == CodexItemKind.CommandExecution)
+                    {
+                        var command = JsonString(root, "command");
+                        return string.IsNullOrWhiteSpace(command) ? item.Status ?? "" : Limit(command, 140);
+                    }
+                    if (item.Kind != CodexItemKind.DynamicToolCall && item.Kind != CodexItemKind.McpToolCall)
+                        return item.Status ?? "";
+
+                    var tool = JsonString(root, "tool") ?? item.Title ?? "";
+                    var normalized = tool.Trim().ToLowerInvariant();
+                    var argument = FindToolArgument(root, "query", "id", "path", "entryPath", "localPath", "destinationPath", "buildId", "name");
+                    if (normalized.EndsWith("docs_read"))
+                    {
+                        var topic = ExtractToolDataTitle(root);
+                        return Limit(topic ?? argument ?? item.Status ?? "", 140);
+                    }
+                    if (normalized.EndsWith("docs_search"))
+                        return Limit(argument ?? item.Status ?? "", 140);
+
+                    var commandName = Humanize(tool, "");
+                    if (string.IsNullOrWhiteSpace(commandName))
+                        commandName = item.Status ?? "";
+                    return string.IsNullOrWhiteSpace(argument)
+                        ? Limit(commandName, 140)
+                        : Limit(commandName + ": " + argument, 140);
+                }
+            }
+            catch
+            {
+                return item.Status ?? "";
+            }
+        }
+
+        private static string FindToolArgument(JsonElement root, params string[] names)
+        {
+            foreach (var name in names ?? new string[0])
+            {
+                var value = FindNestedString(root, "arguments", name);
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+            return null;
+        }
+
+        private static string ExtractToolResultMessage(JsonElement root)
+        {
+            var envelope = FindToolResultEnvelope(root);
+            if (envelope == null)
+                return null;
+            using (envelope)
+                return JsonString(envelope.RootElement, "message");
+        }
+
+        private static string ExtractToolDataTitle(JsonElement root)
+        {
+            var envelope = FindToolResultEnvelope(root);
+            if (envelope == null)
+                return JsonString(root, "resultDataTitle");
+            using (envelope)
+            {
+                var dataJson = JsonString(envelope.RootElement, "dataJson");
+                if (string.IsNullOrWhiteSpace(dataJson))
+                    return null;
+                try
+                {
+                    using (var data = JsonDocument.Parse(dataJson))
+                    {
+                        if (data.RootElement.ValueKind == JsonValueKind.Object)
+                            return JsonString(data.RootElement, "title");
+                        if (data.RootElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var entry in data.RootElement.EnumerateArray())
+                            {
+                                var title = JsonString(entry, "title");
+                                if (!string.IsNullOrWhiteSpace(title))
+                                    return title;
+                            }
+                        }
+                    }
+                }
+                catch { }
+                return null;
+            }
+        }
+
+        private static JsonDocument FindToolResultEnvelope(JsonElement root)
+        {
+            var text = FindContentItemText(root, 0);
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+            try { return JsonDocument.Parse(text); }
+            catch { return null; }
+        }
+
+        private static string FindContentItemText(JsonElement value, int depth)
+        {
+            if (depth > 6)
+                return null;
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                JsonElement items;
+                if (value.TryGetProperty("contentItems", out items) && items.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in items.EnumerateArray())
+                    {
+                        var text = JsonString(item, "text");
+                        if (!string.IsNullOrWhiteSpace(text))
+                            return text;
+                    }
+                }
+                foreach (var property in value.EnumerateObject())
+                {
+                    if (property.Value.ValueKind != JsonValueKind.Array && property.Value.ValueKind != JsonValueKind.Object)
+                        continue;
+                    var text = FindContentItemText(property.Value, depth + 1);
+                    if (!string.IsNullOrWhiteSpace(text))
+                        return text;
+                }
+            }
+            else if (value.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in value.EnumerateArray())
+                {
+                    var text = FindContentItemText(item, depth + 1);
+                    if (!string.IsNullOrWhiteSpace(text))
+                        return text;
+                }
+            }
+            return null;
         }
 
         private static void AddJsonLine(ICollection<string> lines, string label, JsonElement root, string property, string suffix = "")
@@ -2005,7 +2362,11 @@ namespace Clever.ViewModel.PanelsVM
         private static string Humanize(string value, string fallback)
         {
             if (string.IsNullOrWhiteSpace(value)) return fallback;
-            var text = Regex.Replace(value.Replace('_', ' '), "(?<=[a-z])(?=[A-Z])", " ").Trim();
+            var unqualified = value.Trim();
+            var separator = unqualified.LastIndexOf('.');
+            if (separator >= 0 && separator + 1 < unqualified.Length)
+                unqualified = unqualified.Substring(separator + 1);
+            var text = Regex.Replace(unqualified.Replace('_', ' '), "(?<=[a-z])(?=[A-Z])", " ").Trim();
             return text.Length == 0 ? fallback : char.ToUpperInvariant(text[0]) + text.Substring(1);
         }
 
@@ -2027,6 +2388,7 @@ namespace Clever.ViewModel.PanelsVM
         private bool _isCompleted;
         private bool _isExpanded;
         private int _processItemCount;
+        private int _narrativeItemCount;
         private long _durationMs;
 
         public AiTurnWorkGroupVM(string turnId, DateTime startedAtUtc)
@@ -2036,18 +2398,40 @@ namespace Clever.ViewModel.PanelsVM
         }
 
         public string TurnId { get; private set; }
+        public bool IsCompleted { get { return _isCompleted; } }
         public bool IsExpanded
         {
             get { return _isExpanded; }
             set { _isExpanded = value; OnPropertyChanged("IsExpanded"); OnPropertyChanged("ProcessVisibility"); }
         }
         public string SummaryText { get { return AiChatPanelVM.Localize("AiWorked", "Worked") + " " + FormatDuration(_durationMs); } }
-        public Visibility SummaryVisibility { get { return _isCompleted && _processItemCount > 0 ? Visibility.Visible : Visibility.Collapsed; } }
-        public Visibility ProcessVisibility { get { return !_isCompleted || IsExpanded ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility SummaryVisibility { get { return _isCompleted && (_processItemCount > 0 || _narrativeItemCount > 0) ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility ProcessVisibility
+        {
+            get
+            {
+                return !_isCompleted || IsExpanded
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+        }
 
         public void AddProcessItem()
         {
             _processItemCount++;
+            OnPropertyChanged("SummaryVisibility");
+        }
+
+        public void AddNarrativeItem()
+        {
+            _narrativeItemCount++;
+            OnPropertyChanged("SummaryVisibility");
+        }
+
+        public void RemoveNarrativeItem()
+        {
+            if (_narrativeItemCount > 0)
+                _narrativeItemCount--;
             OnPropertyChanged("SummaryVisibility");
         }
 
@@ -2213,6 +2597,16 @@ namespace Clever.ViewModel.PanelsVM
             var index = 0;
             while (index < text.Length)
             {
+                var linkEnd = 0;
+                string linkLabel;
+                string linkTarget;
+                if (TryReadMarkdownLink(text, index, out linkLabel, out linkTarget, out linkEnd))
+                {
+                    AddLink(inlines, linkLabel, linkTarget);
+                    index = linkEnd;
+                    continue;
+                }
+
                 string marker = null;
                 Action<Span> configure = null;
                 if (text.Substring(index).StartsWith("**")) { marker = "**"; configure = span => span.FontWeight = FontWeights.Bold; }
@@ -2236,9 +2630,98 @@ namespace Clever.ViewModel.PanelsVM
                     var markerIndex = text.IndexOf(candidate, index + 1, StringComparison.Ordinal);
                     if (markerIndex >= 0 && markerIndex < next) next = markerIndex;
                 }
+                var linkIndex = FindNextMarkdownLinkStart(text, index + 1);
+                if (linkIndex >= 0 && linkIndex < next) next = linkIndex;
                 inlines.Add(new Run(text.Substring(index, next - index)));
                 index = next;
             }
+        }
+
+        private static int FindNextMarkdownLinkStart(string text, int start)
+        {
+            var candidate = text.IndexOf('[', start);
+            while (candidate >= 0)
+            {
+                string label;
+                string target;
+                int end;
+                if (TryReadMarkdownLink(text, candidate, out label, out target, out end))
+                    return candidate;
+                candidate = text.IndexOf('[', candidate + 1);
+            }
+            return -1;
+        }
+
+        private static bool TryReadMarkdownLink(string text, int start, out string label, out string target, out int end)
+        {
+            label = null;
+            target = null;
+            end = start;
+            if (string.IsNullOrEmpty(text) || start >= text.Length || text[start] != '[')
+                return false;
+
+            var closeLabel = text.IndexOf("](", start + 1, StringComparison.Ordinal);
+            if (closeLabel <= start + 1)
+                return false;
+            var closeTarget = text.IndexOf(')', closeLabel + 2);
+            if (closeTarget <= closeLabel + 2)
+                return false;
+
+            label = text.Substring(start + 1, closeLabel - start - 1);
+            target = text.Substring(closeLabel + 2, closeTarget - closeLabel - 2).Trim();
+            if (string.IsNullOrWhiteSpace(label) || string.IsNullOrWhiteSpace(target))
+                return false;
+
+            end = closeTarget + 1;
+            return true;
+        }
+
+        private static void AddLink(InlineCollection inlines, string label, string target)
+        {
+            Uri uri;
+            if (Path.IsPathRooted(target))
+            {
+                try { uri = new Uri(Path.GetFullPath(target)); }
+                catch
+                {
+                    inlines.Add(new Run(label));
+                    return;
+                }
+            }
+            else if (!Uri.TryCreate(target, UriKind.Absolute, out uri) ||
+                !(uri.IsFile || string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+            {
+                inlines.Add(new Run(label));
+                return;
+            }
+
+            var link = new Hyperlink(new Run(label))
+            {
+                NavigateUri = uri,
+                ToolTip = target,
+                Foreground = BrushFrom("#0A66C2"),
+                TextDecorations = TextDecorations.Underline
+            };
+            link.RequestNavigate += MarkdownLink_RequestNavigate;
+            inlines.Add(link);
+        }
+
+        private static void MarkdownLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            e.Handled = true;
+            if (e.Uri == null ||
+                !(e.Uri.IsFile || string.Equals(e.Uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(e.Uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+                return;
+            try
+            {
+                Process.Start(new ProcessStartInfo(e.Uri.IsFile ? e.Uri.LocalPath : e.Uri.AbsoluteUri)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch { }
         }
 
         private static Brush BrushFrom(string color)

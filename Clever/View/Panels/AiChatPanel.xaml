@@ -141,7 +141,22 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="{Binding WorkGroup.SummaryText}" Foreground="#737B8D" FontWeight="SemiBold" FontSize="11.5" VerticalAlignment="Center"/>
-                        <Path Grid.Column="1" Data="M2,3 L6,7 10,3" Stroke="#8F98AB" StrokeThickness="1.5" Width="10" Height="7" Stretch="Uniform" Margin="6,0,7,0"/>
+                        <Path Grid.Column="1" Data="M2,3 L6,7 10,3" Stroke="#8F98AB" StrokeThickness="1.5" Width="10" Height="7" Stretch="Uniform" Margin="6,0,7,0" RenderTransformOrigin="0.5,0.5">
+                            <Path.Style>
+                                <Style TargetType="Path">
+                                    <Setter Property="RenderTransform">
+                                        <Setter.Value><RotateTransform Angle="-90"/></Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding WorkGroup.IsExpanded}" Value="True">
+                                            <Setter Property="RenderTransform">
+                                                <Setter.Value><RotateTransform Angle="0"/></Setter.Value>
+                                            </Setter>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
                         <Border Grid.Column="2" Height="1" Background="{StaticResource git_panel_separator}" VerticalAlignment="Center"/>
                     </Grid>
                 </ToggleButton>
@@ -186,7 +201,22 @@
                                 <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="12.5"/>
                                 <TextBlock Text="{Binding Status}" Foreground="#9AA2B2" FontSize="10.5" Margin="6,0,0,0"/>
                             </StackPanel>
-                            <Path Grid.Column="2" Data="M2,3 L6,7 10,3" Stroke="#8F98AB" StrokeThickness="1.5" Width="10" Height="7" Stretch="Uniform" Margin="6,0,2,0" VerticalAlignment="Center"/>
+                            <Path Grid.Column="2" Data="M2,3 L6,7 10,3" Stroke="#8F98AB" StrokeThickness="1.5" Width="10" Height="7" Stretch="Uniform" Margin="6,0,2,0" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value><RotateTransform Angle="-90"/></Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType={x:Type Expander}}}" Value="True">
+                                                <Setter Property="RenderTransform">
+                                                    <Setter.Value><RotateTransform Angle="0"/></Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
                         </Grid>
                     </Expander.Header>
                     <Border Margin="18,4,0,4" Padding="8,5" Background="#F6F7FA" CornerRadius="5">
