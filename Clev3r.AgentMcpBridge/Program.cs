@@ -17,6 +17,9 @@ namespace Clev3r.AgentMcpBridge
     internal static class Program
     {
         private const int MaximumLineLength = 8 * 1024 * 1024;
+        private const int CreateNoWindow = 0x08000000;
+        private const int JobObjectExtendedLimitInformationClass = 9;
+        private const uint JobObjectLimitKillOnJobClose = 0x00002000;
 
         private static int Main(string[] args)
         {
@@ -79,10 +82,22 @@ namespace Clev3r.AgentMcpBridge
                 };
                 ProcessInformation process;
                 var commandLine = new StringBuilder("\"" + executable.Replace("\"", "\\\"") + "\" " + arguments);
-                if (!CreateProcess(executable, commandLine, IntPtr.Zero, IntPtr.Zero, true, 0x08000000,
+                if (!CreateProcess(executable, commandLine, IntPtr.Zero, IntPtr.Zero, true, CreateNoWindow,
                         IntPtr.Zero, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ref startup, out process))
                     throw new Win32Exception(Marshal.GetLastWin32Error(), "Codex app-server did not start.");
                 childInput.DisposeLocalCopyOfClientHandle();
+                IntPtr job;
+                try
+                {
+                    job = CreateKillOnCloseJob(process.ProcessHandle);
+                }
+                catch
+                {
+                    try { Process.GetProcessById(process.ProcessId).Kill(); } catch { }
+                    CloseHandle(process.ThreadHandle);
+                    CloseHandle(process.ProcessHandle);
+                    throw;
+                }
                 var proxy = Task.Run(() =>
                 {
                     try
@@ -107,6 +122,7 @@ namespace Clev3r.AgentMcpBridge
                 {
                     childInput.Dispose();
                     try { proxy.Wait(1000); } catch { }
+                    CloseHandle(job);
                     CloseHandle(process.ThreadHandle);
                     CloseHandle(process.ProcessHandle);
                 }
@@ -145,6 +161,42 @@ namespace Clev3r.AgentMcpBridge
             public int ThreadId;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct IoCounters
+        {
+            public ulong ReadOperationCount;
+            public ulong WriteOperationCount;
+            public ulong OtherOperationCount;
+            public ulong ReadTransferCount;
+            public ulong WriteTransferCount;
+            public ulong OtherTransferCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JobObjectBasicLimitInformation
+        {
+            public long PerProcessUserTimeLimit;
+            public long PerJobUserTimeLimit;
+            public uint LimitFlags;
+            public UIntPtr MinimumWorkingSetSize;
+            public UIntPtr MaximumWorkingSetSize;
+            public uint ActiveProcessLimit;
+            public long Affinity;
+            public uint PriorityClass;
+            public uint SchedulingClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct JobObjectExtendedLimitInformation
+        {
+            public JobObjectBasicLimitInformation BasicLimitInformation;
+            public IoCounters IoInfo;
+            public UIntPtr ProcessMemoryLimit;
+            public UIntPtr JobMemoryLimit;
+            public UIntPtr PeakProcessMemoryUsed;
+            public UIntPtr PeakJobMemoryUsed;
+        }
+
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern bool CreateProcess(string applicationName, StringBuilder commandLine,
             IntPtr processAttributes, IntPtr threadAttributes, bool inheritHandles, int creationFlags,
@@ -158,6 +210,45 @@ namespace Clev3r.AgentMcpBridge
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool CloseHandle(IntPtr handle);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr CreateJobObject(IntPtr jobAttributes, string name);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetInformationJobObject(IntPtr job, int informationClass, IntPtr information, int informationLength);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+        private static IntPtr CreateKillOnCloseJob(IntPtr processHandle)
+        {
+            var job = CreateJobObject(IntPtr.Zero, null);
+            if (job == IntPtr.Zero)
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not create a Codex containment job.");
+
+            var information = new JobObjectExtendedLimitInformation
+            {
+                BasicLimitInformation = new JobObjectBasicLimitInformation { LimitFlags = JobObjectLimitKillOnJobClose }
+            };
+            var size = Marshal.SizeOf(typeof(JobObjectExtendedLimitInformation));
+            var buffer = Marshal.AllocHGlobal(size);
+            try
+            {
+                Marshal.StructureToPtr(information, buffer, false);
+                if (!SetInformationJobObject(job, JobObjectExtendedLimitInformationClass, buffer, size) ||
+                    !AssignProcessToJobObject(job, processHandle))
+                {
+                    var error = Marshal.GetLastWin32Error();
+                    CloseHandle(job);
+                    throw new Win32Exception(error, "Could not contain the Codex app-server process.");
+                }
+                return job;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
 
         private static async Task<int> RunAsync(string[] args)
         {

@@ -1,33 +1,98 @@
-# Clev3r-1
+# CLEV3R IDE 1.8.0
 
-Мини IDE для программирования роботов EV3 LEGO MINDSTORMS.
-В качестве языка программирования используется несколько доработанная версия ev3 basic. Рабочее название диалекта - basic plus (.bp)
+CLEV3R — Windows IDE для программирования роботов LEGO MINDSTORMS EV3 на
+Basic Plus (`.bp`, `.bpi`, `.bpm`). Версия 1.8.0 добавляет встроенного
+Codex-ассистента, безопасный Git-flow, диагностику кода и табличный просмотр
+CSV с графиками.
 
-На самом деле это мой первый проект, поэтому много чего сделано не так как нужно. Была предпринята попытка перивести код в соответствие с MVVM, что-то сделано, что-то оставлено как есть.
-В настоящее время идёт работа над 2-й версией (на NET 6), а так же кроссплатформенным вариантом на python.
+## Возможности
 
-Использовался код из следующих проектов:
+- Редактор Basic Plus с подсветкой, автодополнением и диагностикой ошибок.
+- Компиляция, загрузка и запуск программ на EV3.
+- Встроенная работа с Git: статус, ветки, коммиты, merge, pull и push.
+- Codex-чат для проекта: агент видит только активный проект и вызывает
+  ограниченные инструменты IDE.
+- Библиотека человеческих примеров `ai-examples/**/*.md`, поиск по проекту и
+  документации Basic Plus.
+- Рендеринг CSV, выделение диапазонов и графики: линии, распределения и
+  круговые диаграммы.
 
-- ev3 basic - https://github.com/c0pperdragon/EV3Basic
-- ScintillaNET - https://github.com/jacobslusser/ScintillaNET
+## Установка и первый запуск
 
+1. Скачайте и распакуйте релиз для Windows.
+2. Запустите `Clever.exe`.
+3. Откройте или создайте папку проекта.
+4. Если Git отсутствует, откройте вкладку **Git** и нажмите **Install Git** —
+   IDE откроет официальный сайт Git for Windows. После установки нажмите
+   обновление состояния во вкладке Git.
+5. Если Codex ещё не установлен, откройте **AI settings**. Статус покажет
+   отсутствие runtime; нажмите **Install Codex**, затем подтвердите установку
+   проверенного релиза. IDE принимает только архивы из официального
+   `openai/codex` и проверяет SHA-256.
+6. В разделе **Account** нажмите **Sign in with ChatGPT**. Откроется
+   официальный экран входа; после завершения вернитесь в IDE и обновите
+   статус. Там же доступен **Sign out** для проверки входа другим аккаунтом.
 
-Сайт проекта - https://clev3r.ru
+## Безопасность AI-интеграции
 
-Телеграм чат - https://t.me/clev3r_chat
+- Авторизация Codex выполняется через ваш обычный ChatGPT/Codex-сеанс; CLEV3R
+  не просит и не сохраняет вручную введённый API-ключ OpenAI для этого flow.
+  Учётные данные входа локально ведёт сам Codex runtime.
+- `OPENAI_API_KEY`, ключи Azure OpenAI и связанные идентификаторы намеренно не
+  передаются дочернему процессу Codex.
+- Агент ограничен активным проектом. Вложения, чтение файлов и поиск путей не
+  могут выйти за его границы; служебные и бинарные файлы отсекаются.
+- Модель не получает прямой сетевой доступ. Операции Git и EV3, которые меняют
+  состояние, проходят через scoped-инструменты CLEV3R и требуют подтверждения
+  в интерфейсе IDE.
+- Библиотека `ai-examples` и код проекта считаются данными, а не инструкциями;
+  документация CLEV3R остаётся источником истины для API Basic Plus.
 
-Интерфейс представлен следующими языками:
- - Русский;
- - Украинский;
- - Английский.
+Не добавляйте токены, ключи и личные данные в исходники, чат или примеры.
+Выход отключает OAuth-доступ Codex; если OAuth-flow создал отдельный API-ключ,
+отзовите его отдельно в OpenAI API dashboard при необходимости.
 
-Команда разработчиков:
- - iCheh (RoboMaks) - код
- - op[ti]mum (https://www.facebook.com/optimum.robotics.team) - тесты
- - ATOMo - (http://atomorobotics.ru) - GUI дизайн
+## Примеры для AI
 
-![for_git_1](https://user-images.githubusercontent.com/43149554/158631784-197244ab-6177-44a1-b47c-21b2ec7bd9eb.png)
+Положите Markdown-файлы в `ai-examples` рядом с `Clever.exe`. При запуске IDE
+рекурсивно индексирует только `.md`; новые примеры будут доступны после
+следующего перезапуска. Шаблон и рекомендации находятся в
+[`ai-examples/README.md`](ai-examples/README.md).
 
-![for_git_2](https://user-images.githubusercontent.com/43149554/158631871-3ee0227e-b19a-442a-97fd-adc50e2d4706.png)
+## Сборка из исходников
 
-![for_git_3](https://user-images.githubusercontent.com/43149554/158631892-1e85f7a2-1706-48d6-a949-560cdfefc0cc.png)
+Основное приложение — `Clever/Clever.csproj` (WPF, .NET Framework 4.8).
+Для обычной разработки откройте `Clever.sln` в Visual Studio с установленным
+набором целевых платформ .NET Framework 4.8.
+
+В этой рабочей среде локальная Release-сборка выполняется так:
+
+```powershell
+dotnet msbuild Interpreter/Interpreter.csproj /t:Build /p:Configuration=Release
+
+$refs = Join-Path $env:USERPROFILE '.nuget\packages\microsoft.netframework.referenceassemblies.net48\1.0.3\build\.NETFramework\v4.8'
+& 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe' `
+  Clever/Clever.LocalBuild.codex.csproj /t:Build /p:Configuration=Release /p:Platform='AnyCPU' `
+  /p:FrameworkPathOverride="$refs" /p:TargetFrameworkDirectory="$refs" `
+  /p:OutputPath='bin\CodexRelease\' /p:IntermediateOutputPath='obj\CodexRelease\'
+```
+
+Перед пересборкой закройте запущенный `Clever.exe`. Локальные `CodexRelease`
+артефакты и `Clever.LocalBuild*.csproj` не входят в коммиты.
+
+## Проверка
+
+```powershell
+dotnet test Clev3r.AgentCore.Tests/Clev3r.AgentCore.Tests.csproj -c Release --no-restore
+```
+
+Тесты покрывают Basic Plus-примеры, диагностику редактора, CSV-графики,
+JSON-RPC-транспорт, обновление Codex и безопасный контекст агента.
+
+## Зависимости и благодарности
+
+- [EV3Basic](https://github.com/c0pperdragon/EV3Basic)
+- [ScintillaNET](https://github.com/jacobslusser/ScintillaNET)
+- [OpenAI Codex](https://github.com/openai/codex)
+
+Сайт проекта: <https://clev3r.ru> · Telegram: <https://t.me/clev3r_chat>

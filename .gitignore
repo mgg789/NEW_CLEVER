@@ -8,6 +8,14 @@ Clev3r.AgentCore/bin/
 Clev3r.AgentCore.Tests/bin/
 Clever Registry/bin/CodexUiCheck/
 Interpreter/bin/CodexUiCheck/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.tmp
+*.bak
+*.cache
 ~*/
 
 # Visual Studio 2015 cache/options directory

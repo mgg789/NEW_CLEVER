@@ -21,6 +21,7 @@
   <ItemGroup>
     <Compile Include="..\Clever\Model\Agent\CodexJsonRpcTransport.cs" Link="Integration\CodexJsonRpcTransport.cs" />
     <Compile Include="..\Clever\Model\Agent\CodexRuntimeManager.cs" Link="Integration\CodexRuntimeManager.cs" />
+    <Compile Include="..\Clever\Model\Agent\CodexAppServerProcessHost.cs" Link="Integration\CodexAppServerProcessHost.cs" />
     <Compile Include="..\Clever\Model\Agent\ExampleLibraryService.cs" Link="Integration\ExampleLibraryService.cs" />
     <Compile Include="..\Clever\Model\Agent\ProjectSourceSearchService.cs" Link="Integration\ProjectSourceSearchService.cs" />
     <Compile Include="..\Clever\Model\Utils\CsvTableDocument.cs" Link="Integration\CsvTableDocument.cs" />

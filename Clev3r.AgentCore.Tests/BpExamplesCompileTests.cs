@@ -49,6 +49,25 @@ namespace Clev3r.AgentCore.Tests
             }
         }
 
+        [Fact]
+        public void ParserReportsInvalidExpressionInsteadOfThrowing()
+        {
+            var root = FindRepositoryRoot();
+            var runtime = Path.Combine(root, "Clever", "bin", "Release") + Path.DirectorySeparatorChar;
+            var errors = new List<string>();
+            var builder = new Interpreter.Builder("en");
+
+            using (var interpreted = new MemoryStream())
+            {
+                var preprocessing = Record.Exception(() => builder.StartInterpreter(
+                    new[] { "value = \"text\" - 1" }, runtime, "invalid.bp", runtime,
+                    ".bp", ".bpi", ".bpm", "~", "en", errors, interpreted));
+                Assert.Null(preprocessing);
+                Assert.NotEmpty(errors);
+                Assert.Contains(errors, error => error.IndexOf("file:", StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+        }
+
         private static string FindRepositoryRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);

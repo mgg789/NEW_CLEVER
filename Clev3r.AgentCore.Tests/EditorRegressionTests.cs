@@ -36,6 +36,28 @@ namespace Clev3r.AgentCore.Tests
                 || diagnostic.Message.IndexOf("seIf", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
+        [Theory]
+        [InlineData("If value > Then\nEndIf")]
+        [InlineData("Function Broken(\nEndFunction")]
+        [InlineData("value = (1 + 2")]
+        [InlineData("Sub Main\nElse\nEndSub")]
+        public void MalformedBasicPlusProducesDiagnosticsWithoutCrashingAnalyzer(string source)
+        {
+            var path = Path.Combine(Path.GetTempPath(), "clev3r-malformed-" + Guid.NewGuid().ToString("N") + ".bp");
+            var snapshot = new BpWorkspaceSnapshot
+            {
+                RootFilePath = path,
+                LibraryRoot = Path.GetTempPath()
+            };
+            snapshot.Files.Add(new BpSourceFile(path, source, false));
+
+            var exception = Record.Exception(() => BpLiveAnalyzer.Analyze(snapshot));
+
+            Assert.Null(exception);
+            var result = BpLiveAnalyzer.Analyze(snapshot);
+            Assert.NotEmpty(result.Diagnostics);
+        }
+
         [Fact]
         public void CsvRowDeletionRaisesChangeAndIsSerialized()
         {

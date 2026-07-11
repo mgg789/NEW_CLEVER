@@ -62,8 +62,10 @@ namespace Clever.Model.Agent
             };
             startInfo.EnvironmentVariables["RUST_LOG"] = "warn";
             startInfo.EnvironmentVariables["LOG_FORMAT"] = "json";
+            RemoveSensitiveEnvironmentVariables(startInfo);
             // CODEX_HOME is intentionally inherited. CLEV3R shares the user's normal Codex
-            // authentication, config and thread store with CLI and Desktop.
+            // authentication, config and thread store with CLI and Desktop, but never passes
+            // API keys from the parent process to the Codex child process.
 
             var process = new Process
             {
@@ -147,6 +149,19 @@ namespace Clever.Model.Agent
                     return line.Substring(0, Math.Min(line.Length, index + key.Length)) + ": [REDACTED]";
             }
             return line;
+        }
+
+        internal static void RemoveSensitiveEnvironmentVariables(ProcessStartInfo startInfo)
+        {
+            // CLEV3R uses the user's ChatGPT OAuth session through CODEX_HOME. API-key
+            // environment variables are neither required nor safe to inherit into a process
+            // which can receive model-controlled tool requests.
+            foreach (var name in new[]
+            {
+                "OPENAI_API_KEY", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID", "AZURE_OPENAI_API_KEY",
+                "CLEV3R_CODEX_DIAGNOSTICS"
+            })
+                startInfo.EnvironmentVariables.Remove(name);
         }
 
         private static void AppendDiagnostics(string message)

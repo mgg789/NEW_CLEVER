@@ -1,6 +1,7 @@
 using Clever.Model.Agent;
 using System;
 using System.IO;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
@@ -29,6 +30,23 @@ namespace Clev3r.AgentCore.Tests
         {
             Assert.True(CodexRuntimeManager.CompareVersions("0.144.1", "0.115.0") > 0);
             Assert.Equal(0, CodexRuntimeManager.CompareVersions("rust-v0.144.1", "0.144.1"));
+        }
+
+        [Fact]
+        public void CodexChildProcessDoesNotInheritOpenAiSecrets()
+        {
+            var startInfo = new ProcessStartInfo();
+            startInfo.EnvironmentVariables["OPENAI_API_KEY"] = "sk-test-secret";
+            startInfo.EnvironmentVariables["AZURE_OPENAI_API_KEY"] = "azure-secret";
+            startInfo.EnvironmentVariables["OPENAI_ORG_ID"] = "org-private";
+            startInfo.EnvironmentVariables["CODEX_HOME"] = "C:\\CodexHome";
+
+            CodexAppServerProcessHost.RemoveSensitiveEnvironmentVariables(startInfo);
+
+            Assert.False(startInfo.EnvironmentVariables.ContainsKey("OPENAI_API_KEY"));
+            Assert.False(startInfo.EnvironmentVariables.ContainsKey("AZURE_OPENAI_API_KEY"));
+            Assert.False(startInfo.EnvironmentVariables.ContainsKey("OPENAI_ORG_ID"));
+            Assert.Equal("C:\\CodexHome", startInfo.EnvironmentVariables["CODEX_HOME"]);
         }
 
         [Fact]

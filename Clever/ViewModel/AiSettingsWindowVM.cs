@@ -28,6 +28,7 @@ namespace Clever.ViewModel
         private CodexRuntimeUpdateInfo _pendingUpdate;
         private bool _codexBusy;
         private bool _isLoggedIn;
+        private bool _codexRuntimeMissing;
         private bool _disposed;
 
         public AiSettingsWindowVM()
@@ -80,8 +81,8 @@ namespace Clever.ViewModel
         public string RuntimePathText { get { return Localize("AiRuntimePath", "Runtime path"); } }
         public string RuntimeVersionText { get { return Localize("AiRuntimeVersion", "Runtime version"); } }
         public string RestartText { get { return Localize("AiRestart", "Restart"); } }
-        public string CheckUpdateText { get { return Localize("AiCheckUpdate", "Check for updates"); } }
-        public string InstallUpdateText { get { return Localize("AiInstallUpdate", "Install update"); } }
+        public string CheckUpdateText { get { return _codexRuntimeMissing ? Localize("AiFindCodex", "Install Codex") : Localize("AiCheckUpdate", "Check for updates"); } }
+        public string InstallUpdateText { get { return _codexRuntimeMissing ? Localize("AiInstallCodex", "Install Codex") : Localize("AiInstallUpdate", "Install update"); } }
         public string LoginText { get { return Localize("AiLoginChatGpt", "Sign in with ChatGPT"); } }
         public string CancelLoginText { get { return Localize("AiCancelLogin", "Cancel sign-in"); } }
         public string LogoutText { get { return Localize("AiLogout", "Sign out"); } }
@@ -218,11 +219,17 @@ namespace Clever.ViewModel
             {
                 if (!result.Success || result.Data == null)
                 {
+                    _codexRuntimeMissing = string.Equals(result.Code, "codex_runtime_missing", StringComparison.OrdinalIgnoreCase);
+                    OnPropertyChanged("CheckUpdateText");
+                    OnPropertyChanged("InstallUpdateText");
                     CodexStatusText = string.IsNullOrWhiteSpace(result.Message)
                         ? Localize("AiBackendUnavailable", "Codex app-server is not connected yet.")
                         : result.Message;
                     return;
                 }
+                _codexRuntimeMissing = false;
+                OnPropertyChanged("CheckUpdateText");
+                OnPropertyChanged("InstallUpdateText");
                 ApplyStatus(result.Data);
             });
         }

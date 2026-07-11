@@ -75,7 +75,7 @@ namespace Clever.ViewModel
         internal static readonly string[] SupportedEditorExtensions = { ".bp", ".bpm", ".bpi", ".md", ".txt", ".csv", ".ms" };
         static string currentPath = "";
         private static MainWindowVM _instance;
-        private const string BaseWindowTitle = "CLEVƎR v1.8.0-B";
+        private const string BaseWindowTitle = "CLEVƎR v1.8.0";
         private static string _currentProjectRoot = "";
         private ICodexSessionBackend _codexBackend;
         private bool _codexChatConnected;

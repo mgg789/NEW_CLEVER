@@ -787,11 +787,8 @@ namespace Clever.Model.Agent
 
             if (string.Equals(request.Method, "item/permissions/requestApproval", StringComparison.Ordinal))
             {
-                return CodexRpcServerResponse.Ok(new Dictionary<string, object>
-                {
-                    { "permissions", new Dictionary<string, object>() },
-                    { "scope", "turn" }
-                });
+                return CodexRpcServerResponse.Error(-32004,
+                    "CLEV3R does not grant app-server permissions. Use the scoped clev3r tools instead.");
             }
 
             if (request.Method.IndexOf("requestApproval", StringComparison.OrdinalIgnoreCase) >= 0)

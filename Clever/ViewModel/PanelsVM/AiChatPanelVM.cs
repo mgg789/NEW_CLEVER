@@ -928,7 +928,7 @@ namespace Clever.ViewModel.PanelsVM
                         Settings = CurrentSettings(),
                         ApprovalNever = true,
                         WorkspaceWrite = true,
-                        NetworkAccess = true
+                        NetworkAccess = false
                     }, cancellation.Token);
                     if (!started.Success || started.Data == null)
                     {
@@ -945,7 +945,7 @@ namespace Clever.ViewModel.PanelsVM
                     Text = text,
                     Inputs = inputs,
                     Settings = CurrentSettings(),
-                    NetworkAccess = true
+                    NetworkAccess = false
                 };
                 request.AdditionalContext["workspace"] = new CodexAdditionalContextEntry
                 {
