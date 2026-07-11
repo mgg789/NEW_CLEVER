@@ -1,6 +1,7 @@
 using Clever.Model.Bplus;
 using Clever.Model.Utils;
 using Clever.View.Controls;
+using Clever.View.Dialogs;
 using Clever.ViewModel;
 using System;
 using System.Data;
@@ -37,17 +38,8 @@ namespace Clever.View.Controls.Editors
         private bool _pendingCsvTextUpdateMarkDirty;
         private DataGridColumn _csvColumnSelectionAnchor;
         private object _csvRowSelectionAnchor;
-
-        private static readonly Brush[] CsvColumnBrushes =
-        {
-            CreateBrush("#4FAF5B"),
-            CreateBrush("#B98542"),
-            CreateBrush("#6AA16F"),
-            CreateBrush("#D5655F"),
-            CreateBrush("#D15F91"),
-            CreateBrush("#A0B847"),
-            CreateBrush("#35A2C6")
-        };
+        private CsvChartLineOrientation _csvLineOrientation = CsvChartLineOrientation.Auto;
+        private static readonly Brush CsvTextBrush = CreateBrush("#414659");
 
         public event RoutedEventHandler EditorTextChange;
         //CompletionWindow completionWindow;
@@ -134,6 +126,8 @@ namespace Clever.View.Controls.Editors
 
         private void edit_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
+            if (csvDataGrid.Visibility == Visibility.Visible && FindVisualParent<DataGrid>(e.OriginalSource as DependencyObject) != null)
+                return;
             editorPopup.IsOpen = true;
         }
 
@@ -272,7 +266,6 @@ namespace Clever.View.Controls.Editors
                 for (var i = 0; i < document.Table.Columns.Count; i++)
                 {
                     var column = document.Table.Columns[i];
-                    var brush = CsvColumnBrushes[i % CsvColumnBrushes.Length];
                     csvDataGrid.Columns.Add(new DataGridTextColumn
                     {
                         Header = column.Caption,
@@ -283,8 +276,8 @@ namespace Clever.View.Controls.Editors
                             Mode = BindingMode.TwoWay,
                             UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
                         },
-                        ElementStyle = CreateCsvTextElementStyle(brush),
-                        EditingElementStyle = CreateCsvTextEditingStyle(brush),
+                        ElementStyle = CreateCsvTextElementStyle(),
+                        EditingElementStyle = CreateCsvTextEditingStyle(),
                         MinWidth = 72,
                         Width = new DataGridLength(EstimateCsvColumnWidth(document.Table, i))
                     });
@@ -369,19 +362,18 @@ namespace Clever.View.Controls.Editors
             _cachedCsvText = null;
         }
 
-        private static Style CreateCsvTextElementStyle(Brush brush)
+        private static Style CreateCsvTextElementStyle()
         {
             var style = new Style(typeof(TextBlock));
-            style.Setters.Add(new Setter(TextBlock.ForegroundProperty, brush));
-            style.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
+            style.Setters.Add(new Setter(TextBlock.ForegroundProperty, CsvTextBrush));
             style.Setters.Add(new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
             return style;
         }
 
-        private static Style CreateCsvTextEditingStyle(Brush brush)
+        private static Style CreateCsvTextEditingStyle()
         {
             var style = new Style(typeof(TextBox));
-            style.Setters.Add(new Setter(TextBox.ForegroundProperty, brush));
+            style.Setters.Add(new Setter(TextBox.ForegroundProperty, CsvTextBrush));
             style.Setters.Add(new Setter(TextBox.BorderThicknessProperty, new Thickness(0)));
             style.Setters.Add(new Setter(TextBox.PaddingProperty, new Thickness(7, 3, 7, 3)));
             style.Setters.Add(new Setter(TextBox.BackgroundProperty, Brushes.White));
@@ -399,6 +391,7 @@ namespace Clever.View.Controls.Editors
             var columnHeader = FindVisualParent<DataGridColumnHeader>(source);
             if (columnHeader != null && columnHeader.Column != null)
             {
+                _csvLineOrientation = CsvChartLineOrientation.SeriesByColumn;
                 var extend = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
                 SelectCsvColumn(columnHeader.Column, extend ? _csvColumnSelectionAnchor : null);
                 if (!extend || _csvColumnSelectionAnchor == null)
@@ -409,17 +402,105 @@ namespace Clever.View.Controls.Editors
 
             var rowHeader = FindVisualParent<DataGridRowHeader>(source);
             if (rowHeader == null)
+            {
+                _csvLineOrientation = CsvChartLineOrientation.Auto;
                 return;
+            }
 
             var row = FindVisualParent<DataGridRow>(rowHeader);
             if (row == null || ReferenceEquals(row.Item, CollectionView.NewItemPlaceholder))
                 return;
 
+            _csvLineOrientation = CsvChartLineOrientation.SeriesByRow;
             var extendRows = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
             SelectCsvRow(row.Item, extendRows ? _csvRowSelectionAnchor : null);
             if (!extendRows || _csvRowSelectionAnchor == null)
                 _csvRowSelectionAnchor = row.Item;
             e.Handled = true;
+        }
+
+        private void CsvDataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var source = e.OriginalSource as DependencyObject;
+            var cell = FindVisualParent<DataGridCell>(source);
+            var row = FindVisualParent<DataGridRow>(source);
+            if (cell == null || row == null || cell.Column == null || ReferenceEquals(row.Item, CollectionView.NewItemPlaceholder))
+                return;
+
+            var selectedCell = new DataGridCellInfo(row.Item, cell.Column);
+            if (csvDataGrid.SelectedCells.Contains(selectedCell))
+                return;
+
+            _csvLineOrientation = CsvChartLineOrientation.Auto;
+            csvDataGrid.SelectedCells.Clear();
+            csvDataGrid.SelectedCells.Add(selectedCell);
+            csvDataGrid.CurrentCell = selectedCell;
+        }
+
+        private void CsvLineChartMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenCsvChart(CsvChartKind.Line);
+        }
+
+        private void CsvDistributionChartMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenCsvChart(CsvChartKind.Distribution);
+        }
+
+        private void CsvPieChartMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenCsvChart(CsvChartKind.Pie);
+        }
+
+        private void OpenCsvChart(CsvChartKind kind)
+        {
+            CommitRenderedViewChanges();
+            var selectedCells = GetSelectedCsvChartCells();
+            if (selectedCells.Count == 0)
+            {
+                MessageBox.Show("Выделите ячейки CSV для построения графика.", "CSV-график", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var data = CsvChartDataBuilder.Build(selectedCells, kind, _csvLineOrientation);
+            if (!data.HasData)
+            {
+                var message = kind == CsvChartKind.Pie
+                    ? "В выделении нет положительных числовых значений для круговой диаграммы."
+                    : "В выделении нет числовых значений для построения графика.";
+                MessageBox.Show(message, "CSV-график", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var chartWindow = new CsvChartWindow(data);
+            var owner = Window.GetWindow(this);
+            if (owner != null)
+                chartWindow.Owner = owner;
+            chartWindow.Show();
+        }
+
+        private System.Collections.Generic.IList<CsvChartCell> GetSelectedCsvChartCells()
+        {
+            var cells = new System.Collections.Generic.List<CsvChartCell>();
+            if (_csvDocument == null)
+                return cells;
+
+            foreach (var selectedCell in csvDataGrid.SelectedCells)
+            {
+                var view = selectedCell.Item as DataRowView;
+                var columnIndex = csvDataGrid.Columns.IndexOf(selectedCell.Column);
+                if (view == null || columnIndex < 0 || columnIndex >= _csvDocument.Table.Columns.Count)
+                    continue;
+
+                var rowIndex = _csvDocument.Table.Rows.IndexOf(view.Row);
+                if (rowIndex < 0)
+                    continue;
+
+                var column = _csvDocument.Table.Columns[columnIndex];
+                cells.Add(new CsvChartCell(rowIndex, columnIndex, column.Caption, Convert.ToString(view.Row[column]) ?? ""));
+            }
+
+            return cells;
         }
 
         private void SelectCsvColumn(DataGridColumn column, DataGridColumn rangeStart)

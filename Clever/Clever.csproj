@@ -237,6 +237,7 @@
     <Compile Include="Model\Utils\AiBugFixPlanValidator.cs" />
     <Compile Include="Model\Utils\Clev3rGitIgnoreService.cs" />
     <Compile Include="Model\Utils\CsvTableDocument.cs" />
+    <Compile Include="Model\Utils\CsvChartDataBuilder.cs" />
     <Compile Include="Model\Utils\FolderPickerDialog.cs" />
     <Compile Include="Model\Utils\GitCommandRunner.cs" />
     <Compile Include="Model\Utils\GitRepositoryService.cs" />
@@ -275,6 +276,9 @@
     </Compile>
     <Compile Include="View\Dialogs\FixBugsWindow.xaml.cs">
       <DependentUpon>FixBugsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Dialogs\CsvChartWindow.xaml.cs">
+      <DependentUpon>CsvChartWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="View\Panels\HelperPanel.xaml.cs">
       <DependentUpon>HelperPanel.xaml</DependentUpon>
@@ -763,6 +767,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="View\Dialogs\FixBugsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Dialogs\CsvChartWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -158,6 +158,8 @@ namespace Clever.Model.Bplus
                 if (string.Equals(programName, value, StringComparison.Ordinal))
                     return;
                 programName = value ?? "";
+                if (lexer != null)
+                    lexer.RefreshDocumentStyling();
                 if (aiInlineCompletionController != null)
                     aiInlineCompletionController.OnDocumentIdentityChanged();
             }

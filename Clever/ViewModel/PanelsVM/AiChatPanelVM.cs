@@ -3123,7 +3123,7 @@ namespace Clever.ViewModel.PanelsVM
         public static readonly Geometry File = Create("M6,22 C5,22 4,21 4,20 L4,4 C4,3 5,2 6,2 L14,2 L20,8 L20,20 C20,21 19,22 18,22 Z M14,2 L14,7 C14,8 15,8 16,8 L20,8");
         public static readonly Geometry Web = Create("M12,2 A10,10 0 1 0 12,22 A10,10 0 1 0 12,2 M2,12 L22,12 M12,2 C7,7 7,17 12,22 M12,2 C17,7 17,17 12,22");
         public static readonly Geometry SystemTool = Create("M10,5 L3,5 M14,3 L14,7 M21,5 L14,5 M8,10 L8,14 M3,12 L8,12 M12,12 L21,12 M12,19 L3,19 M16,17 L16,21 M21,19 L16,19");
-        public static readonly Geometry Model = Create("M12,2 L16,6 12,10 8,6 Z M5,9 L9,13 5,17 1,13 Z M19,9 L23,13 19,17 15,13 Z M12,14 L16,18 12,22 8,18 Z");
+        public static readonly Geometry Model = Create("M7,3 L17,3 21,7 21,17 17,21 7,21 3,17 3,7 Z M8,9 L16,9 M8,12 L16,12 M8,15 L13,15");
         public static readonly Geometry Speed = Create("M3.3,19 A10,10 0 1 1 20.7,19 M12,14 L16,10");
         public static readonly Geometry Goal = Create("M12,13 L12,2 20,6 12,10 M20.5,10.2 A9,9 0 1 1 8,4.9 M8,10 A5,5 0 1 0 17,12");
         public static readonly Geometry Compact = Create("M11,21.7 C11.6,22 12.4,22 13,21.7 L20,17.7 C20.6,17.4 21,16.7 21,16 L21,8 C21,7.3 20.6,6.6 20,6.3 L13,2.3 C12.4,2 11.6,2 11,2.3 L4,6.3 C3.4,6.6 3,7.3 3,8 L3,16 C3,16.7 3.4,17.4 4,17.7 Z M12,22 L12,12 M3.3,7 L12,12 20.7,7 M7.5,4.3 L16.5,9.4");

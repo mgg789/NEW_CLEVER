@@ -457,7 +457,31 @@ namespace Clever.Model.Bplus
         {
             int startPos = textArea.GetEndStyled();
             int endPos = e.Position;
+            if (IsPlainDocument())
+            {
+                if (endPos > startPos)
+                {
+                    textArea.StartStyling(startPos);
+                    textArea.SetStyling(endPos - startPos, STYLE_UNKNOWN_NEW);
+                }
+                return;
+            }
             SetStyle(startPos, endPos, textArea);
+        }
+
+        internal void RefreshDocumentStyling()
+        {
+            if (textArea == null)
+                return;
+
+            if (IsPlainDocument())
+            {
+                textArea.StartStyling(0);
+                textArea.SetStyling(textArea.TextLength, STYLE_UNKNOWN_NEW);
+                return;
+            }
+
+            SetStyle(0, textArea.TextLength, textArea);
         }
 
         internal void OnTextChanged(object sender, EventArgs e)

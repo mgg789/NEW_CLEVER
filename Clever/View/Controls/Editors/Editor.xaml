@@ -109,9 +109,19 @@
                   CellStyle="{StaticResource CsvGridCellStyle}"
                   RowHeaderStyle="{StaticResource CsvGridRowHeaderStyle}"
                   PreviewMouseLeftButtonDown="CsvDataGrid_PreviewMouseLeftButtonDown"
+                  PreviewMouseRightButtonDown="CsvDataGrid_PreviewMouseRightButtonDown"
                   LoadingRow="CsvDataGrid_LoadingRow"
                   CellEditEnding="CsvDataGrid_CellEditEnding"
-                  RowEditEnding="CsvDataGrid_RowEditEnding"/>
+                  RowEditEnding="CsvDataGrid_RowEditEnding">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="График" Foreground="#0A86FF" FontWeight="SemiBold" Click="CsvLineChartMenuItem_Click"/>
+                    <MenuItem Header="Распределение" Foreground="#0A86FF" FontWeight="SemiBold" Click="CsvDistributionChartMenuItem_Click"/>
+                    <MenuItem Header="Круговая" Foreground="#0A86FF" FontWeight="SemiBold" Click="CsvPieChartMenuItem_Click"/>
+                    <Separator/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+        </DataGrid>
 
         <Popup PlacementTarget="{Binding ElementName=edit}" x:Name="editorPopup" StaysOpen="False" Placement="MousePoint" Width="{StaticResource te_menu_width}" Height="{StaticResource te_menu_height_all}">
             <menu:TextEditorMenu/>

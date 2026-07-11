@@ -451,8 +451,8 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <Path Data="{Binding IconGeometry}" Stroke="#667085" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,-1,0,1"/>
-                                            <StackPanel Grid.Column="1">
+                                            <Path Data="{Binding IconGeometry}" Stroke="#667085" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0"/>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Title}" Foreground="#414659" FontWeight="SemiBold" FontSize="12.5"/>
                                                 <TextBlock Text="{Binding UnavailableReason}" Foreground="#B42318" FontSize="9.5" TextWrapping="Wrap"/>
                                             </StackPanel>

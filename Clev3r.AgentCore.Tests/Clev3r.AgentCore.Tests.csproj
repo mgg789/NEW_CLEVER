@@ -22,5 +22,6 @@
     <Compile Include="..\Clever\Model\Agent\CodexJsonRpcTransport.cs" Link="Integration\CodexJsonRpcTransport.cs" />
     <Compile Include="..\Clever\Model\Agent\CodexRuntimeManager.cs" Link="Integration\CodexRuntimeManager.cs" />
     <Compile Include="..\Clever\Model\Utils\CsvTableDocument.cs" Link="Integration\CsvTableDocument.cs" />
+    <Compile Include="..\Clever\Model\Utils\CsvChartDataBuilder.cs" Link="Integration\CsvChartDataBuilder.cs" />
   </ItemGroup>
 </Project>
