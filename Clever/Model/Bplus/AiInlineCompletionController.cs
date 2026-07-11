@@ -27,7 +27,6 @@ namespace Clever.Model.Bplus
         private CancellationTokenSource _requestCancellation;
         private string _ghostText = "";
         private int _ghostPosition = -1;
-        private int _ghostAnnotationLine = -1;
         private int _documentRevision;
         private int _requestVersion;
         private int _lastCaretPosition;
@@ -87,6 +86,7 @@ namespace Clever.Model.Bplus
             _textArea.Resize += TextArea_Resize;
             _textArea.ZoomChanged += TextArea_ZoomChanged;
             AiAppSettingsStore.SettingsChanged += AiAppSettingsStore_SettingsChanged;
+            ClearGhostAnnotation();
             _lastCaretPosition = _textArea.CurrentPosition;
             _attached = true;
         }
@@ -516,20 +516,16 @@ namespace Clever.Model.Bplus
                 reservedRows[index] = " ";
             line.AnnotationText = string.Join("\n", reservedRows);
             line.AnnotationStyle = GhostAnnotationStyle;
-            _ghostAnnotationLine = lineNumber;
         }
 
         private void ClearGhostAnnotation()
         {
-            if (_ghostAnnotationLine < 0 || _ghostAnnotationLine >= _textArea.Lines.Count)
-            {
-                _ghostAnnotationLine = -1;
-                return;
-            }
-
-            var line = _textArea.Lines[_ghostAnnotationLine];
-            line.AnnotationText = "";
-            _ghostAnnotationLine = -1;
+            // Line indexes move whenever the user inserts or removes a newline.
+            // Keeping a cached line number therefore left the old annotation on a
+            // different line and created a non-editable blank gap. Inline ghosts
+            // are the only annotations in this editor, so Scintilla can clear the
+            // reservation atomically without depending on a stale line index.
+            _textArea.AnnotationClearAll();
         }
 
         private void InvalidatePendingRequest(bool stopDebounce)
