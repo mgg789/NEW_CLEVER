@@ -1,9 +1,11 @@
 using Clever.ViewModel;
 using Clever.ViewModel.PanelsVM;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
 using System.Globalization;
 
 namespace Clever.View.Panels
@@ -105,6 +107,40 @@ namespace Clever.View.Panels
                 viewModel.AttachDroppedFile(file);
 
             e.Handled = true;
+        }
+
+        private void HistoryTitleTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            var textBox = sender as TextBox;
+            var item = textBox == null ? null : textBox.DataContext as AiChatHistoryItemVM;
+            var viewModel = DataContext as AiChatPanelVM;
+            if (item == null || viewModel == null)
+                return;
+
+            if (e.Key == Key.Enter)
+            {
+                viewModel.CommitHistoryRename(item);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                viewModel.CancelHistoryRename(item);
+                e.Handled = true;
+            }
+        }
+
+        private void HistoryTitleTextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (!(e.NewValue is bool) || !(bool)e.NewValue)
+                return;
+            var textBox = sender as TextBox;
+            if (textBox == null)
+                return;
+            textBox.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                textBox.Focus();
+                textBox.SelectAll();
+            }), DispatcherPriority.Input);
         }
 
     }

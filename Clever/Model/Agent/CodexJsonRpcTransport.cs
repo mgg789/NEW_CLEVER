@@ -438,7 +438,9 @@ namespace Clever.Model.Agent
                 return;
             _lifetime.Cancel();
             FailAllPending(new ObjectDisposedException("CodexJsonRpcTransport"));
-            _writeGate.Dispose();
+            // Server-request handlers run independently. Disposing the gate here races their
+            // finally blocks and can turn a normal shutdown into ObjectDisposedException.
+            // SemaphoreSlim has no unmanaged resource, so it is intentionally left for GC.
             _lifetime.Dispose();
         }
 

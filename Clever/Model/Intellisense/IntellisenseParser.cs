@@ -77,7 +77,9 @@ namespace Clever.Model.Intellisense
         internal static void SetVSLSync(ProgramData pData)
         {
             var map = new ProgramMap(pData.Map.Type);
-            var lines = pData.Editor.TextArea.Lines;
+            var lines = pData.Editor.TextArea.Lines
+                .Select(line => new LineSnapshot { Text = line.Text, DisplayIndex = line.DisplayIndex })
+                .ToList();
             var path = pData.Path;
 
             SetVSL(path, lines, map);
@@ -102,7 +104,9 @@ namespace Clever.Model.Intellisense
             {
                 var pData = prjData[name];
                 var map = new ProgramMap(pData.Map.Type);
-                var lines = pData.Editor.TextArea.Lines;
+                var lines = pData.Editor.TextArea.Lines
+                    .Select(line => new LineSnapshot { Text = line.Text, DisplayIndex = line.DisplayIndex })
+                    .ToList();
                 var path = pData.Path;
 
                 await Task.Run(() => SetVSL(path, lines, map));
@@ -291,7 +295,7 @@ namespace Clever.Model.Intellisense
             }    
         }
 
-        private static void SetVSL(string path, LineCollection lines, ProgramMap map)
+        private static void SetVSL(string path, IList<LineSnapshot> lines, ProgramMap map)
         {
             var func = false;
             var priv = false;
@@ -311,7 +315,8 @@ namespace Clever.Model.Intellisense
             foreach (var line in lines)
             {
                 j++;
-                var txt = line.Text.Trim();
+                var lineText = line == null ? "" : line.Text ?? "";
+                var txt = lineText.Trim();
 
                 if (j == 1 && map.Type == BPType.INCLUDE)
                 {
@@ -325,7 +330,7 @@ namespace Clever.Model.Intellisense
                     }
                 }
                 
-                var words = Builder.GetWords(line.Text.Trim());
+                var words = Builder.GetWords(lineText.Trim());
 
                 if (txt.IndexOf("''''") == 0)
                 {
@@ -471,6 +476,12 @@ namespace Clever.Model.Intellisense
                     }
                 }
             }
+        }
+
+        private sealed class LineSnapshot
+        {
+            internal string Text { get; set; }
+            internal int DisplayIndex { get; set; }
         }
 
         private static int GetParamCount(List<Word> words)

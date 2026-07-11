@@ -21,6 +21,7 @@ namespace Clever.Model.Agent
         private readonly ICodexMcpBridgeProvider _bridgeProvider;
         private readonly IAgentToolRegistry _toolRegistry;
         private readonly SemaphoreSlim _lifecycleGate = new SemaphoreSlim(1, 1);
+        private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
         private readonly object _stateSync = new object();
         private readonly Dictionary<string, CodexThreadSettings> _threadSettings =
             new Dictionary<string, CodexThreadSettings>(StringComparer.Ordinal);
@@ -1141,25 +1142,31 @@ namespace Clever.Model.Agent
 
         private void ScheduleRecovery()
         {
-            if (Interlocked.CompareExchange(ref _recoveryScheduled, 1, 0) != 0)
+            if (Volatile.Read(ref _disposed) != 0 || Interlocked.CompareExchange(ref _recoveryScheduled, 1, 0) != 0)
                 return;
             Task.Run(async () =>
             {
                 try
                 {
+                    var cancellationToken = _lifetime.Token;
                     var delays = new[] { 250, 1000, 3000 };
                     for (var attempt = 0; attempt < delays.Length && Volatile.Read(ref _disposed) == 0; attempt++)
                     {
-                        await Task.Delay(delays[attempt]).ConfigureAwait(false);
-                        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+                        await Task.Delay(delays[attempt], cancellationToken).ConfigureAwait(false);
+                        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
                         try
                         {
+                            cancellationToken.ThrowIfCancellationRequested();
                             StopConnection();
                             lock (_stateSync) _liveDynamicToolThreads.Clear();
-                            var resolved = await _runtimeManager.ResolveAsync(CancellationToken.None).ConfigureAwait(false);
+                            var resolved = await _runtimeManager.ResolveAsync(cancellationToken).ConfigureAwait(false);
                             if (!resolved.Success || resolved.Data == null || !resolved.Data.Compatible)
                                 continue;
-                            await StartConnectionAsync(resolved.Data, CancellationToken.None).ConfigureAwait(false);
+                            await StartConnectionAsync(resolved.Data, cancellationToken).ConfigureAwait(false);
+                            return;
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
                             return;
                         }
                         catch (Exception ex)
@@ -1979,6 +1986,7 @@ namespace Clever.Model.Agent
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
             _stopping = true;
+            _lifetime.Cancel();
             StopConnection();
             Capabilities = CodexCapabilities.None();
             _connectionState = CodexConnectionState.Disconnected;

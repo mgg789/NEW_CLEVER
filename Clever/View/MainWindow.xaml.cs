@@ -58,12 +58,19 @@ namespace Clever
         */
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (MainWindowVM.Project.Count == 0)
-            {
-                App.Current.Shutdown();
-            }
+            // The window can be closed while construction is still incomplete
+            // (for example, after a startup binding error).  Do not turn a
+            // best-effort unsaved-files check into an unhandled shutdown crash.
+            var project = MainWindowVM.Project;
+            if (project == null || project.Count == 0)
+                return;
+
             bool save = false;
-            var prjV = MainWindowVM.Project.GetDictionary().Values;
+            var dictionary = project.GetDictionary();
+            if (dictionary == null)
+                return;
+
+            var prjV = dictionary.Values;
             foreach (var pd in prjV)
             {
                 //MessageBox.Show("===" + pd.Name + pd.GetHeaderChangeText + "===");

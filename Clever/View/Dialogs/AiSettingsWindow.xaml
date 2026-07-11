@@ -128,9 +128,9 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="{Binding RuntimeVersionText}" Foreground="#777777" FontSize="12" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding RuntimeVersion}" IsReadOnly="True" Style="{StaticResource AiSettingsTextBox}" Margin="0,0,0,5"/>
+                            <TextBox Grid.Column="1" Text="{Binding RuntimeVersion, Mode=OneWay}" IsReadOnly="True" Style="{StaticResource AiSettingsTextBox}" Margin="0,0,0,5"/>
                             <TextBlock Grid.Row="1" Text="{Binding RuntimePathText}" Foreground="#777777" FontSize="12" VerticalAlignment="Center"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RuntimePath}" IsReadOnly="True" Style="{StaticResource AiSettingsTextBox}" Margin="0,0,0,5"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RuntimePath, Mode=OneWay}" IsReadOnly="True" Style="{StaticResource AiSettingsTextBox}" Margin="0,0,0,5"/>
                         </Grid>
 
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
@@ -145,7 +145,7 @@
                                 <Button Content="{Binding LoginText}" Command="{Binding LoginCommand}" Visibility="{Binding LoginVisibility}" IsEnabled="{Binding CodexActionsEnabled}"
                                         Style="{StaticResource AiSettingsButton}" HorizontalAlignment="Left" Margin="0,7,0,0"/>
                                 <StackPanel Visibility="{Binding LoginPendingVisibility}" Margin="0,7,0,0">
-                                    <TextBox Text="{Binding AuthorizationUrl}" IsReadOnly="True" Style="{StaticResource AiSettingsTextBox}"/>
+                                    <TextBox Text="{Binding AuthorizationUrl, Mode=OneWay}" IsReadOnly="True" Style="{StaticResource AiSettingsTextBox}"/>
                                     <StackPanel Orientation="Horizontal">
                                         <Button Content="{Binding OpenLinkText}" Command="{Binding OpenAuthorizationCommand}" Style="{StaticResource AiSettingsButton}" Margin="0,0,7,0"/>
                                         <Button Content="{Binding CopyLinkText}" Command="{Binding CopyAuthorizationCommand}" Style="{StaticResource AiSettingsButton}" Margin="0,0,7,0"/>

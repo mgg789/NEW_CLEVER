@@ -93,20 +93,20 @@
         </Style>
 
         <DataTemplate x:Key="AiMessageTemplate">
-            <Grid Margin="8,4">
+            <Grid Margin="8,4" Visibility="{Binding TimelineVisibility}">
                 <Border Visibility="{Binding UserVisibility}"
                         Background="{StaticResource git_commit_selected}"
                         CornerRadius="8"
                         Padding="9,7"
                         MaxWidth="260"
                         HorizontalAlignment="Right">
-                    <FlowDocumentScrollViewer Document="{Binding Document}" IsToolBarVisible="False" IsSelectionEnabled="True" Focusable="True" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"/>
+                    <FlowDocumentScrollViewer Document="{Binding Document, Mode=OneWay}" IsToolBarVisible="False" IsSelectionEnabled="True" Focusable="True" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"/>
                 </Border>
                 <Border Visibility="{Binding AssistantVisibility}"
                         Background="#00FFFFFF"
                         Padding="2,4"
                         HorizontalAlignment="Stretch">
-                    <FlowDocumentScrollViewer Document="{Binding Document}" IsToolBarVisible="False" IsSelectionEnabled="True" Focusable="True" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"/>
+                    <FlowDocumentScrollViewer Document="{Binding Document, Mode=OneWay}" IsToolBarVisible="False" IsSelectionEnabled="True" Focusable="True" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled"/>
                 </Border>
                 <Grid Visibility="{Binding WaitingVisibility}" HorizontalAlignment="Left" Margin="4,5">
                     <Ellipse Width="7" Height="7" Fill="#0A86FF">
@@ -329,7 +329,8 @@
                                     <TextBlock Text="{Binding Title}" Visibility="{Binding TitleVisibility}"
                                                Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" FontWeight="SemiBold"/>
                                     <TextBox Text="{Binding EditableTitle, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding TitleEditorVisibility}"
-                                             BorderThickness="0" Padding="0" Background="#FFFFFF"
+                                             BorderBrush="{StaticResource git_panel_separator}" BorderThickness="1" Padding="4,1" Background="#FFFFFF"
+                                             PreviewKeyDown="HistoryTitleTextBox_PreviewKeyDown" IsVisibleChanged="HistoryTitleTextBox_IsVisibleChanged"
                                              Foreground="#414659" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" FontWeight="SemiBold"/>
                                     <Button Grid.Row="1"
                                             Command="{Binding DataContext.OpenHistoryItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -508,7 +509,7 @@
                                 <Button Style="{StaticResource AiIconButton}" Command="{Binding AttachFileCommand}" IsEnabled="{Binding HasActiveProject}" ToolTip="{Binding ChatInputTooltip}" ToolTipService.ShowOnDisabled="True">
                                     <Path Data="M12,5 L12,19 M5,12 L19,12" Stroke="#8F98AB" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="15" Height="15" Stretch="Uniform"/>
                                 </Button>
-                                <Border Width="18"
+                                <Border x:Name="StatusIndicator" Width="18"
                                         Height="18"
                                         Margin="2,0,6,0"
                                         Background="#00FFFFFF"
@@ -548,6 +549,35 @@
                 </Border>
             </StackPanel>
         </Border>
+
+        <Popup PlacementTarget="{Binding ElementName=StatusIndicator}"
+               Placement="Top"
+               HorizontalOffset="104"
+               VerticalOffset="-7"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               IsOpen="{Binding IsStatusOpen, Mode=TwoWay}">
+            <Border Width="252" Background="#FFFFFF" BorderBrush="#BCC3D4" BorderThickness="1" CornerRadius="7" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="{Binding StatusPopupAccount}" Foreground="#414659" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding StatusPopupPlan}" Foreground="#414659" FontSize="12" Margin="0,3,0,0"/>
+                    <TextBlock Text="{Binding StatusPopupContext}" Foreground="#596277" FontSize="11.5" Margin="0,5,0,0"/>
+                    <TextBlock Text="{Binding StatusPrimaryLabel}" Foreground="#596277" FontSize="11.5" Margin="0,8,0,2" Visibility="{Binding StatusPrimaryVisibility}"/>
+                    <ProgressBar Minimum="0" Maximum="100" Height="6" Foreground="#0A86FF" Background="#E8EBF1" Visibility="{Binding StatusPrimaryVisibility}">
+                        <ProgressBar.Value>
+                            <Binding Path="StatusPrimaryPercent" Mode="OneWay" FallbackValue="0" TargetNullValue="0"/>
+                        </ProgressBar.Value>
+                    </ProgressBar>
+                    <TextBlock Text="{Binding StatusSecondaryLabel}" Foreground="#596277" FontSize="11.5" Margin="0,7,0,2" Visibility="{Binding StatusSecondaryVisibility}"/>
+                    <ProgressBar Minimum="0" Maximum="100" Height="6" Foreground="#6C8DF5" Background="#E8EBF1" Visibility="{Binding StatusSecondaryVisibility}">
+                        <ProgressBar.Value>
+                            <Binding Path="StatusSecondaryPercent" Mode="OneWay" FallbackValue="0" TargetNullValue="0"/>
+                        </ProgressBar.Value>
+                    </ProgressBar>
+                    <TextBlock Text="{Binding StatusPopupMessage}" Foreground="#B42318" FontSize="11.5" TextWrapping="Wrap" Margin="0,7,0,0" Visibility="{Binding StatusPopupMessageVisibility}"/>
+                </StackPanel>
+            </Border>
+        </Popup>
 
         <Popup x:Name="SettingsPopup"
                PlacementTarget="{Binding ElementName=SettingsButton}"

@@ -183,7 +183,8 @@ namespace Clever.Model.Bplus
             pos = textArea.CurrentPosition;
             if ((e.Change & UpdateChange.Selection) > 0)
             {
-                if (MainWindowVM.highlightAll) sbDocument.searchManager.HighLight(textArea.SelectedText);
+                if (MainWindowVM.highlightAll && !string.Equals(textArea.SelectedText, sbDocument.searchManager.LastHighLight, StringComparison.Ordinal))
+                    sbDocument.searchManager.HighLight(textArea.SelectedText);
             }
         }
 
@@ -463,6 +464,7 @@ namespace Clever.Model.Bplus
         {
             //HelpPanelVM.Get.OpenHelp();
             TextEditorEvents.Editor_Change(sender, new System.Windows.RoutedEventArgs());
+            sbDocument.searchManager.LastHighLight = null;
             if (IsPlainDocument())
             {
                 LastLineCount = textArea.Lines.Count;

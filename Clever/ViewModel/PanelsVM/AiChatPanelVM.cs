@@ -41,6 +41,7 @@ namespace Clever.ViewModel.PanelsVM
         private bool _isBotWorking;
         private bool _isHistoryOpen;
         private bool _isSettingsOpen;
+        private bool _isStatusOpen;
         private bool _isSlashOpen;
         private bool _isSlashChoiceOpen;
         private string _selectedModel;
@@ -55,6 +56,7 @@ namespace Clever.ViewModel.PanelsVM
         private string _nextTurnsCursor;
         private string _activeTurnId;
         private string _statusTooltip;
+        private string _statusPopupMessage;
         private int _selectedSlashIndex;
         private int _selectedSlashChoiceIndex;
         private string _slashChoiceCommand;
@@ -237,6 +239,12 @@ namespace Clever.ViewModel.PanelsVM
             set { _isSettingsOpen = value; OnPropertyChanged("IsSettingsOpen"); }
         }
 
+        public bool IsStatusOpen
+        {
+            get { return _isStatusOpen; }
+            set { _isStatusOpen = value; OnPropertyChanged("IsStatusOpen"); }
+        }
+
         public bool IsSlashOpen
         {
             get { return _isSlashOpen; }
@@ -370,6 +378,42 @@ namespace Clever.ViewModel.PanelsVM
         public string ContextTooltip { get { return _statusTooltip; } }
         public int ContextUsedPercent { get { return _contextUsedPercent; } }
         public Geometry ContextArcGeometry { get { return CreateContextArcGeometry(_contextUsedPercent); } }
+        public string StatusPopupAccount
+        {
+            get
+            {
+                var email = _latestStatus == null || _latestStatus.Auth == null ? "" : _latestStatus.Auth.Email;
+                return Localize("AiStatusAccount", "Account") + ": " + (string.IsNullOrWhiteSpace(email) ? "—" : email);
+            }
+        }
+        public string StatusPopupPlan
+        {
+            get
+            {
+                var plan = _latestStatus == null || _latestStatus.Auth == null ? "" : _latestStatus.Auth.PlanType;
+                return Localize("AiStatusPlan", "Plan") + ": " + (string.IsNullOrWhiteSpace(plan) ? "—" : FormatPlan(plan));
+            }
+        }
+        public string StatusPopupContext
+        {
+            get
+            {
+                var usage = _latestStatus == null ? null : _latestStatus.TokenUsage;
+                if (usage != null && usage.ModelContextWindow > 0)
+                    return Localize("AiStatusContext", "Context") + ": " + FormatTokens(usage.TotalTokens) + " / " + FormatTokens(usage.ModelContextWindow);
+                return _latestStatus != null && _latestStatus.ContextUsedPercent.HasValue
+                    ? Localize("AiStatusContext", "Context") + ": " + _latestStatus.ContextUsedPercent.Value + "%"
+                    : "";
+            }
+        }
+        public string StatusPrimaryLabel { get { return FormatRateLimitLabel(_latestStatus == null || _latestStatus.RateLimits == null ? null : _latestStatus.RateLimits.Primary); } }
+        public string StatusSecondaryLabel { get { return FormatRateLimitLabel(_latestStatus == null || _latestStatus.RateLimits == null ? null : _latestStatus.RateLimits.Secondary); } }
+        public int StatusPrimaryPercent { get { return RateLimitPercent(_latestStatus == null || _latestStatus.RateLimits == null ? null : _latestStatus.RateLimits.Primary); } }
+        public int StatusSecondaryPercent { get { return RateLimitPercent(_latestStatus == null || _latestStatus.RateLimits == null ? null : _latestStatus.RateLimits.Secondary); } }
+        public Visibility StatusPrimaryVisibility { get { return _latestStatus != null && _latestStatus.RateLimits != null && _latestStatus.RateLimits.Primary != null ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility StatusSecondaryVisibility { get { return _latestStatus != null && _latestStatus.RateLimits != null && _latestStatus.RateLimits.Secondary != null ? Visibility.Visible : Visibility.Collapsed; } }
+        public string StatusPopupMessage { get { return _statusPopupMessage ?? ""; } }
+        public Visibility StatusPopupMessageVisibility { get { return string.IsNullOrWhiteSpace(StatusPopupMessage) ? Visibility.Collapsed : Visibility.Visible; } }
 
         public void AttachDroppedFile(string path)
         {
@@ -618,12 +662,15 @@ namespace Clever.ViewModel.PanelsVM
         {
             var result = new List<AiChatMessageVM>();
             var groups = new Dictionary<string, AiTurnWorkGroupVM>(StringComparer.Ordinal);
-            foreach (var item in items ?? Enumerable.Empty<CodexThreadItem>())
+            var durations = new Dictionary<string, long?>(StringComparer.Ordinal);
+            foreach (var item in (items ?? Enumerable.Empty<CodexThreadItem>()).Where(item => item != null))
             {
-                if (item == null) continue;
+                var turnKey = item.TurnId ?? "history";
+                if (!durations.ContainsKey(turnKey) && item.TurnDurationMs.HasValue)
+                    durations[turnKey] = item.TurnDurationMs;
                 if (AiChatMessageVM.IsProcessKind(item.Kind) || item.Kind == CodexItemKind.AgentMessage)
                 {
-                    var key = item.TurnId ?? "history";
+                    var key = turnKey;
                     AiTurnWorkGroupVM group;
                     if (!groups.TryGetValue(key, out group))
                     {
@@ -650,10 +697,8 @@ namespace Clever.ViewModel.PanelsVM
             foreach (var pair in groups)
             {
                 RevealFinalAssistantMessage(result, pair.Value);
-                var duration = (items ?? Enumerable.Empty<CodexThreadItem>())
-                    .Where(item => item != null && string.Equals(item.TurnId ?? "history", pair.Key, StringComparison.Ordinal))
-                    .Select(item => item.TurnDurationMs)
-                    .FirstOrDefault(value => value.HasValue);
+                long? duration;
+                durations.TryGetValue(pair.Key, out duration);
                 pair.Value.Complete(duration);
             }
             return result;
@@ -694,6 +739,17 @@ namespace Clever.ViewModel.PanelsVM
             {
                 OnUi(() => item.IsRenameBusy = false);
             }
+        }
+
+        public void CommitHistoryRename(AiChatHistoryItemVM item)
+        {
+            RenameHistoryItem(item);
+        }
+
+        public void CancelHistoryRename(AiChatHistoryItemVM item)
+        {
+            if (item != null && !item.IsRenameBusy)
+                item.CancelRename();
         }
 
         private async void ArchiveHistoryItem(AiChatHistoryItemVM item)
@@ -1129,9 +1185,28 @@ namespace Clever.ViewModel.PanelsVM
 
         private async Task ShowStatusAsync()
         {
-            var result = await _backend.GetStatusAsync(_currentThreadId, CancellationToken.None);
-            if (!result.Success || result.Data == null) { ShowBackendMessage(BackendMessage(result.Message)); return; }
-            ShowBackendMessage(FormatStatus(result.Data));
+            try
+            {
+                var result = await _backend.GetStatusAsync(_currentThreadId, CancellationToken.None);
+                OnUi(() =>
+                {
+                    _statusPopupMessage = result.Success && result.Data != null ? "" : BackendMessage(result.Message);
+                    if (result.Success && result.Data != null)
+                        ApplyStatus(result.Data, null);
+                    else
+                        NotifyStatusPopup();
+                    IsStatusOpen = true;
+                });
+            }
+            catch (Exception ex)
+            {
+                OnUi(() =>
+                {
+                    _statusPopupMessage = BackendMessage(ex.Message);
+                    NotifyStatusPopup();
+                    IsStatusOpen = true;
+                });
+            }
         }
 
         private async Task ShowBooleanResult(Func<Task<BackendResult<bool>>> action, string successKey, string successFallback)
@@ -1412,6 +1487,7 @@ namespace Clever.ViewModel.PanelsVM
                     RefreshModelDependentOptions();
                 }
                 finally { _suppressSettingsUpdate = false; }
+                PersistCodexDefaults();
                 NotifySelectorState();
             });
         }
@@ -1454,7 +1530,9 @@ namespace Clever.ViewModel.PanelsVM
             try
             {
                 var preferredModel = AiAppSettingsStore.Settings.CodexModel;
-                if (string.IsNullOrWhiteSpace(preferredModel) && !string.IsNullOrWhiteSpace(settings.Model))
+                if (!string.IsNullOrWhiteSpace(preferredModel) && Models.Any(item => string.Equals(item, preferredModel, StringComparison.OrdinalIgnoreCase)))
+                    SelectedModel = Models.First(item => string.Equals(item, preferredModel, StringComparison.OrdinalIgnoreCase));
+                else if (string.IsNullOrWhiteSpace(preferredModel) && !string.IsNullOrWhiteSpace(settings.Model))
                 {
                     if (!Models.Any(item => string.Equals(item, settings.Model, StringComparison.OrdinalIgnoreCase)))
                         Models.Add(settings.Model);
@@ -1463,18 +1541,22 @@ namespace Clever.ViewModel.PanelsVM
                 RefreshModelDependentOptions();
 
                 var preferredReasoning = AiAppSettingsStore.Settings.CodexReasoningEffort;
-                if (string.IsNullOrWhiteSpace(preferredReasoning) && !string.IsNullOrWhiteSpace(settings.ReasoningEffort))
+                if (!string.IsNullOrWhiteSpace(preferredReasoning) && ReasoningModes.Any(item => string.Equals(item, preferredReasoning, StringComparison.OrdinalIgnoreCase)))
+                    SelectedReasoning = ReasoningModes.First(item => string.Equals(item, preferredReasoning, StringComparison.OrdinalIgnoreCase));
+                else if (string.IsNullOrWhiteSpace(preferredReasoning) && !string.IsNullOrWhiteSpace(settings.ReasoningEffort))
                 {
                     if (!ReasoningModes.Any(item => string.Equals(item, settings.ReasoningEffort, StringComparison.OrdinalIgnoreCase)))
                         ReasoningModes.Add(settings.ReasoningEffort);
                     SelectedReasoning = settings.ReasoningEffort;
                 }
 
-                var preferredTier = NullIfBlank(AiAppSettingsStore.Settings.CodexServiceTier);
-                var effectiveTier = preferredTier ?? settings.ServiceTier;
+                var storedTier = AiAppSettingsStore.Settings.CodexServiceTier;
+                var hasPreferredTier = !string.IsNullOrWhiteSpace(storedTier);
+                var preferredTier = string.Equals(storedTier, "default", StringComparison.OrdinalIgnoreCase) ? null : NullIfBlank(storedTier);
+                var effectiveTier = hasPreferredTier ? preferredTier : settings.ServiceTier;
                 var selectedTier = SpeedTiers.FirstOrDefault(item =>
                     string.Equals(item.Id, effectiveTier, StringComparison.OrdinalIgnoreCase));
-                if (selectedTier == null && preferredTier == null && !string.IsNullOrWhiteSpace(effectiveTier))
+                if (selectedTier == null && !hasPreferredTier && !string.IsNullOrWhiteSpace(effectiveTier))
                 {
                     selectedTier = new AiServiceTierChoiceVM(effectiveTier, effectiveTier, "");
                     SpeedTiers.Add(selectedTier);
@@ -1482,6 +1564,7 @@ namespace Clever.ViewModel.PanelsVM
                 SelectedSpeed = selectedTier ?? SpeedTiers.FirstOrDefault(item => item.Id == null);
             }
             finally { _suppressSettingsUpdate = previousSuppression; }
+            PersistCodexDefaults();
             NotifySelectorState();
         }
 
@@ -1537,7 +1620,7 @@ namespace Clever.ViewModel.PanelsVM
             foreach (var attachment in Attachments)
             {
                 string fullPath;
-                if (!TryNormalizeProjectFile(attachment.Source, out fullPath) || !File.Exists(fullPath))
+                if (!TryNormalizeProjectFile(attachment.Source, out fullPath))
                 {
                     error = Localize("AiAttachmentOutsideProject", "Attachments must be files inside the active project.");
                     return false;
@@ -1561,11 +1644,19 @@ namespace Clever.ViewModel.PanelsVM
             try
             {
                 fullPath = Path.GetFullPath(path);
-                var rootPrefix = root + Path.DirectorySeparatorChar;
-                return string.Equals(fullPath, root, StringComparison.OrdinalIgnoreCase)
-                    || fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase);
+                return File.Exists(fullPath) && IsPathInsideRoot(root, fullPath);
             }
             catch { return false; }
+        }
+
+        private static bool IsPathInsideRoot(string root, string fullPath)
+        {
+            root = NormalizePath(root);
+            if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(fullPath))
+                return false;
+            return string.Equals(root, fullPath, StringComparison.OrdinalIgnoreCase) ||
+                   fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                   fullPath.StartsWith(root + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string MakeRelativePath(string root, string fullPath)
@@ -1964,12 +2055,29 @@ namespace Clever.ViewModel.PanelsVM
         private void ApplyStatus(CodexStatusSnapshot status, string error)
         {
             _latestStatus = status;
+            _statusPopupMessage = status == null ? BackendMessage(error) : "";
             var usage = status == null ? null : status.TokenUsage;
             _contextUsedPercent = usage != null ? usage.UsedPercent : status != null && status.ContextUsedPercent.HasValue ? status.ContextUsedPercent.Value : 0;
             _statusTooltip = status == null ? BackendMessage(error) : FormatStatus(status);
             OnPropertyChanged("ContextTooltip");
             OnPropertyChanged("ContextUsedPercent");
             OnPropertyChanged("ContextArcGeometry");
+            NotifyStatusPopup();
+        }
+
+        private void NotifyStatusPopup()
+        {
+            OnPropertyChanged("StatusPopupAccount");
+            OnPropertyChanged("StatusPopupPlan");
+            OnPropertyChanged("StatusPopupContext");
+            OnPropertyChanged("StatusPrimaryLabel");
+            OnPropertyChanged("StatusSecondaryLabel");
+            OnPropertyChanged("StatusPrimaryPercent");
+            OnPropertyChanged("StatusSecondaryPercent");
+            OnPropertyChanged("StatusPrimaryVisibility");
+            OnPropertyChanged("StatusSecondaryVisibility");
+            OnPropertyChanged("StatusPopupMessage");
+            OnPropertyChanged("StatusPopupMessageVisibility");
         }
 
         private string FormatStatus(CodexStatusSnapshot status)
@@ -2013,6 +2121,18 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             var label = FormatRateWindow(window.WindowDurationMinutes);
             lines.Add(label + " " + Localize("AiStatusLimit", "limit") + ": " + window.UsedPercent + "%");
+        }
+
+        private string FormatRateLimitLabel(CodexRateLimitWindow window)
+        {
+            if (window == null)
+                return "";
+            return FormatRateWindow(window.WindowDurationMinutes) + " " + Localize("AiStatusLimit", "limit") + ": " + RateLimitPercent(window) + "%";
+        }
+
+        private static int RateLimitPercent(CodexRateLimitWindow window)
+        {
+            return window == null ? 0 : Math.Max(0, Math.Min(100, window.UsedPercent));
         }
 
         private static string FormatRateWindow(long? minutes)
@@ -2062,7 +2182,7 @@ namespace Clever.ViewModel.PanelsVM
             {
                 AiAppSettingsStore.Settings.CodexModel = _selectedModel ?? "";
                 AiAppSettingsStore.Settings.CodexReasoningEffort = _selectedReasoning ?? "";
-                AiAppSettingsStore.Settings.CodexServiceTier = _preferredSpeedId ?? "";
+                AiAppSettingsStore.Settings.CodexServiceTier = string.IsNullOrWhiteSpace(_preferredSpeedId) ? "default" : _preferredSpeedId;
                 AiAppSettingsStore.SaveSettings();
             }
             catch (Exception ex)
@@ -2282,6 +2402,15 @@ namespace Clever.ViewModel.PanelsVM
         public Geometry IconGeometry { get { return _iconGeometry; } }
         public AiTurnWorkGroupVM WorkGroup { get { return _workGroup; } }
         public Visibility UserVisibility { get { return IsUser && !_isWaiting && !_isWorkSummary ? Visibility.Visible : Visibility.Collapsed; } }
+        public Visibility TimelineVisibility
+        {
+            get
+            {
+                return !_isWorkSummary && _workGroup != null
+                    ? _workGroup.ProcessVisibility
+                    : Visibility.Visible;
+            }
+        }
         public Visibility AssistantVisibility
         {
             get
@@ -2313,6 +2442,7 @@ namespace Clever.ViewModel.PanelsVM
                     return;
                 _isProcessNarrative = hideAsProcessNarrative;
                 OnPropertyChanged("AssistantVisibility");
+                OnPropertyChanged("TimelineVisibility");
                 return;
             }
             if (_workGroup != null) _workGroup.PropertyChanged -= WorkGroup_PropertyChanged;
@@ -2323,6 +2453,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("CardVisibility");
             OnPropertyChanged("WorkSummaryVisibility");
             OnPropertyChanged("AssistantVisibility");
+            OnPropertyChanged("TimelineVisibility");
         }
 
         public void RevealAsFinalResponse()
@@ -2337,6 +2468,7 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("CardVisibility");
             OnPropertyChanged("WorkSummaryVisibility");
             OnPropertyChanged("AssistantVisibility");
+            OnPropertyChanged("TimelineVisibility");
         }
 
         public void Append(string delta)
@@ -2958,7 +3090,7 @@ namespace Clever.ViewModel.PanelsVM
             return paragraph;
         }
 
-        private static void AddInlineMarkdown(InlineCollection inlines, string text)
+        private static void AddInlineMarkdown(InlineCollection inlines, string text, int depth = 0)
         {
             var index = 0;
             while (index < text.Length)
@@ -2983,8 +3115,13 @@ namespace Clever.ViewModel.PanelsVM
                     var end = text.IndexOf(marker, index + marker.Length, StringComparison.Ordinal);
                     if (end > index)
                     {
-                        var span = new Span(new Run(text.Substring(index + marker.Length, end - index - marker.Length)));
+                        var span = new Span();
                         configure(span);
+                        var content = text.Substring(index + marker.Length, end - index - marker.Length);
+                        if (depth < 6)
+                            AddInlineMarkdown(span.Inlines, content, depth + 1);
+                        else
+                            span.Inlines.Add(new Run(content));
                         inlines.Add(span);
                         index = end + marker.Length;
                         continue;
@@ -3044,22 +3181,23 @@ namespace Clever.ViewModel.PanelsVM
 
         private static void AddLink(InlineCollection inlines, string label, string target)
         {
+            target = (target ?? "").Trim().Trim('<', '>');
             Uri uri;
-            if (Path.IsPathRooted(target))
+            if (Uri.TryCreate(target, UriKind.Absolute, out uri) &&
+                (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
             {
-                try { uri = new Uri(Path.GetFullPath(target)); }
-                catch
+                // External web links are intentionally opened in the user's default browser.
+            }
+            else
+            {
+                string localPath;
+                if (!TryGetSafeProjectDocument(target, out localPath))
                 {
                     inlines.Add(new Run(label));
                     return;
                 }
-            }
-            else if (!Uri.TryCreate(target, UriKind.Absolute, out uri) ||
-                !(uri.IsFile || string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
-                  string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
-            {
-                inlines.Add(new Run(label));
-                return;
+                uri = new Uri(localPath);
             }
 
             var link = new Hyperlink(new Run(label))
@@ -3073,12 +3211,62 @@ namespace Clever.ViewModel.PanelsVM
             inlines.Add(link);
         }
 
+        private static bool TryGetSafeProjectDocument(string target, out string fullPath)
+        {
+            fullPath = "";
+            try
+            {
+                var root = MainWindowVM.CurrentProjectRoot;
+                if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(target))
+                    return false;
+
+                Uri candidateUri;
+                var candidate = Uri.TryCreate(target, UriKind.Absolute, out candidateUri) && candidateUri.IsFile
+                    ? candidateUri.LocalPath
+                    : Path.Combine(root, target);
+                fullPath = Path.GetFullPath(candidate);
+                var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (!fullPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                    !File.Exists(fullPath) || !IsSafeDocumentExtension(Path.GetExtension(fullPath)))
+                {
+                    fullPath = "";
+                    return false;
+                }
+                return true;
+            }
+            catch
+            {
+                fullPath = "";
+                return false;
+            }
+        }
+
+        private static bool IsSafeDocumentExtension(string extension)
+        {
+            switch ((extension ?? "").ToLowerInvariant())
+            {
+                case ".bp":
+                case ".bpi":
+                case ".bpm":
+                case ".txt":
+                case ".md":
+                case ".csv":
+                case ".json":
+                case ".xml":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         private static void MarkdownLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
         {
             e.Handled = true;
             if (e.Uri == null ||
                 !(e.Uri.IsFile || string.Equals(e.Uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
                   string.Equals(e.Uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+                return;
+            if (e.Uri.IsFile && !TryGetSafeProjectDocument(e.Uri.LocalPath, out _))
                 return;
             try
             {
