@@ -26,6 +26,7 @@ namespace Clever.ViewModel.PanelsVM
 {
     internal sealed class AiChatPanelVM : BaseViewModel, IDisposable
     {
+        private const string PinnedAttachmentsFolder = ".clev3r\\attachments";
         private readonly Clev3rAgentServices _services;
         private readonly ICodexSessionBackend _backend;
         private readonly SlashCommandCatalog _slashCatalog;
@@ -418,9 +419,9 @@ namespace Clever.ViewModel.PanelsVM
         public void AttachDroppedFile(string path)
         {
             string fullPath;
-            if (!TryNormalizeProjectFile(path, out fullPath))
+            if (!TryPinAttachmentFile(path, out fullPath))
             {
-                ShowBackendMessage(Localize("AiAttachmentOutsideProject", "Attachments must be files inside the active project."));
+                ShowBackendMessage(Localize("AiAttachmentOutsideProject", "The selected attachment could not be read."));
                 return;
             }
             Attachments.Add(new AiAttachmentVM(Path.GetFileName(fullPath), IsImage(fullPath) ? "IMG" : "FILE", fullPath));
@@ -440,7 +441,7 @@ namespace Clever.ViewModel.PanelsVM
             }
             catch
             {
-                ShowBackendMessage(Localize("AiAttachmentUnsaved", "Save this editor tab inside the active project before attaching it."));
+                ShowBackendMessage(Localize("AiAttachmentUnsaved", "Save this editor tab before attaching it."));
             }
         }
 
@@ -1647,6 +1648,90 @@ namespace Clever.ViewModel.PanelsVM
                 return File.Exists(fullPath) && IsPathInsideRoot(root, fullPath);
             }
             catch { return false; }
+        }
+
+        private static bool TryPinAttachmentFile(string sourcePath, out string pinnedPath)
+        {
+            pinnedPath = "";
+            var projectRoot = NormalizePath(MainWindowVM.CurrentProjectRoot);
+            if (string.IsNullOrWhiteSpace(projectRoot) || string.IsNullOrWhiteSpace(sourcePath))
+                return false;
+
+            try
+            {
+                var source = Path.GetFullPath(sourcePath);
+                if (!File.Exists(source))
+                    return false;
+
+                var attachmentsRoot = Path.Combine(projectRoot, PinnedAttachmentsFolder);
+                Directory.CreateDirectory(attachmentsRoot);
+                if (!IsSafePinnedAttachmentsDirectory(projectRoot, attachmentsRoot) ||
+                    !Clev3rGitIgnoreService.EnsureAttachmentsFolderIgnored(projectRoot))
+                    return false;
+
+                if (IsPathInsideRoot(attachmentsRoot, source))
+                {
+                    if (IsReparsePoint(new FileInfo(source)))
+                        return false;
+                    pinnedPath = source;
+                    return true;
+                }
+
+                var fileName = Path.GetFileName(source);
+                if (string.IsNullOrWhiteSpace(fileName))
+                    return false;
+
+                var name = Path.GetFileNameWithoutExtension(fileName);
+                var extension = Path.GetExtension(fileName);
+                var destination = Path.Combine(attachmentsRoot, fileName);
+                for (var suffix = 2; File.Exists(destination); suffix++)
+                    destination = Path.Combine(attachmentsRoot, name + " (" + suffix + ")" + extension);
+
+                File.Copy(source, destination, false);
+                pinnedPath = destination;
+                return true;
+            }
+            catch
+            {
+                pinnedPath = "";
+                return false;
+            }
+        }
+
+        private static bool IsSafePinnedAttachmentsDirectory(string projectRoot, string attachmentsRoot)
+        {
+            if (!IsPathInsideRoot(projectRoot, attachmentsRoot))
+                return false;
+            try
+            {
+                var root = NormalizePath(projectRoot);
+                var relative = attachmentsRoot.Substring(root.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var current = root;
+                foreach (var segment in relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    current = Path.Combine(current, segment);
+                    if (IsReparsePoint(new DirectoryInfo(current)))
+                        return false;
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsReparsePoint(FileSystemInfo item)
+        {
+            try
+            {
+                return item != null && (item.Attributes & FileAttributes.ReparsePoint) != 0;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         private static bool IsPathInsideRoot(string root, string fullPath)
