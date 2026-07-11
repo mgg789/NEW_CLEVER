@@ -358,7 +358,7 @@ namespace Clever.ViewModel.PanelsVM
         public bool ModelSelectorEnabled { get { return HasActiveProject && !IsBotWorking && _backend.Capabilities.Models && Models.Count > 0; } }
         public bool ReasoningSelectorEnabled { get { return HasActiveProject && !IsBotWorking && _backend.Capabilities.Reasoning && ReasoningModes.Count > 0; } }
         public bool SpeedSelectorEnabled { get { return HasActiveProject && !IsBotWorking && _backend.Capabilities.Speed && SpeedTiers.Count > 0; } }
-        public bool CanSend { get { return HasActiveProject && !string.IsNullOrWhiteSpace(InputText); } }
+        public bool CanSend { get { return HasActiveProject && (!string.IsNullOrWhiteSpace(InputText) || Attachments.Count > 0); } }
         public bool SendButtonEnabled { get { return IsBotWorking || (HasActiveProject && !_turnStartPending && CanSend); } }
         public Visibility SendIconVisibility { get { return IsBotWorking ? Visibility.Collapsed : Visibility.Visible; } }
         public Visibility StopIconVisibility { get { return IsBotWorking ? Visibility.Visible : Visibility.Collapsed; } }
@@ -425,7 +425,7 @@ namespace Clever.ViewModel.PanelsVM
                 return;
             }
             Attachments.Add(new AiAttachmentVM(Path.GetFileName(fullPath), IsImage(fullPath) ? "IMG" : "FILE", fullPath));
-            OnPropertyChanged("AttachmentVisibility");
+            NotifyAttachmentsChanged();
         }
 
         public void AttachEditorTab(string tabName)
@@ -791,7 +791,7 @@ namespace Clever.ViewModel.PanelsVM
             var attachment = parameter as AiAttachmentVM;
             if (attachment != null)
                 Attachments.Remove(attachment);
-            OnPropertyChanged("AttachmentVisibility");
+            NotifyAttachmentsChanged();
         }
 
         private void SendOrStop()
@@ -858,13 +858,13 @@ namespace Clever.ViewModel.PanelsVM
 
             InputText = "";
             Attachments.Clear();
-            OnPropertyChanged("AttachmentVisibility");
+            NotifyAttachmentsChanged();
             await StartPreparedTurnAsync(text, inputs);
         }
 
         private async Task StartPreparedTurnAsync(string text, IList<CodexTurnInput> inputs)
         {
-            if (_disposed || string.IsNullOrWhiteSpace(text) || _turnStartPending)
+            if (_disposed || inputs == null || inputs.Count == 0 || _turnStartPending)
                 return;
 
             var root = NormalizePath(MainWindowVM.CurrentProjectRoot);
@@ -873,7 +873,7 @@ namespace Clever.ViewModel.PanelsVM
                 ShowBackendMessage(Localize("AiOpenProjectSend", "Open or create a project before starting a Codex chat."));
                 return;
             }
-            Messages.Add(AiChatMessageVM.CreateUser(text));
+            Messages.Add(AiChatMessageVM.CreateUser(text, inputs));
             ShowWaitingIndicator();
 
             var cancellation = ReplaceCancellation(ref _turnCancellation);
@@ -985,7 +985,7 @@ namespace Clever.ViewModel.PanelsVM
 
             InputText = "";
             Attachments.Clear();
-            OnPropertyChanged("AttachmentVisibility");
+            NotifyAttachmentsChanged();
             await SteerPreparedAsync(text, inputs);
         }
 
@@ -1007,7 +1007,7 @@ namespace Clever.ViewModel.PanelsVM
             QueuedMessages.Add(new AiQueuedMessageVM(text, inputs));
             InputText = "";
             Attachments.Clear();
-            OnPropertyChanged("AttachmentVisibility");
+            NotifyAttachmentsChanged();
             OnPropertyChanged("QueuedMessagesVisibility");
         }
 
@@ -1057,7 +1057,7 @@ namespace Clever.ViewModel.PanelsVM
         private async Task<bool> SteerPreparedAsync(string text, IList<CodexTurnInput> inputs)
         {
             if (!IsBotWorking || string.IsNullOrWhiteSpace(_currentThreadId) ||
-                string.IsNullOrWhiteSpace(_activeTurnId) || string.IsNullOrWhiteSpace(text))
+                string.IsNullOrWhiteSpace(_activeTurnId) || inputs == null || inputs.Count == 0)
                 return false;
 
             try
@@ -1070,7 +1070,7 @@ namespace Clever.ViewModel.PanelsVM
                 }
                 else if (!string.IsNullOrWhiteSpace(result.Data))
                     _activeTurnId = result.Data;
-                Messages.Add(AiChatMessageVM.CreateUser(text));
+                Messages.Add(AiChatMessageVM.CreateUser(text, inputs));
                 return true;
             }
             catch (Exception ex)
@@ -1616,8 +1616,11 @@ namespace Clever.ViewModel.PanelsVM
 
         private bool TryCreateTurnInputs(string text, string root, out IList<CodexTurnInput> inputs, out string error)
         {
-            inputs = new List<CodexTurnInput> { new CodexTurnInput { Type = "text", Text = text } };
+            inputs = new List<CodexTurnInput>();
             error = null;
+            if (!string.IsNullOrWhiteSpace(text))
+                inputs.Add(new CodexTurnInput { Type = "text", Text = text });
+            var hasImage = false;
             foreach (var attachment in Attachments)
             {
                 string fullPath;
@@ -1626,17 +1629,37 @@ namespace Clever.ViewModel.PanelsVM
                     error = Localize("AiAttachmentOutsideProject", "Attachments must be files inside the active project.");
                     return false;
                 }
+                var isImage = IsImage(fullPath);
+                hasImage |= isImage;
                 inputs.Add(new CodexTurnInput
                 {
-                    Type = IsImage(fullPath) ? "localImage" : "mention",
+                    Type = isImage ? "localImage" : "mention",
                     Path = fullPath,
                     Name = MakeRelativePath(root, fullPath)
                 });
             }
+            var selectedModel = _modelInfos.FirstOrDefault(item => string.Equals(item.Id, SelectedModel, StringComparison.OrdinalIgnoreCase));
+            if (hasImage && selectedModel != null && selectedModel.SupportsImageInput == false)
+            {
+                error = Localize("AiImageInputUnsupported", "The selected Codex model does not support image input. Choose a model with image support and try again.");
+                return false;
+            }
+            if (inputs.Count == 0)
+            {
+                error = Localize("AiEmptyMessage", "Enter a message or attach a file before sending.");
+                return false;
+            }
             return true;
         }
 
-        private static bool TryNormalizeProjectFile(string path, out string fullPath)
+        private void NotifyAttachmentsChanged()
+        {
+            OnPropertyChanged("AttachmentVisibility");
+            OnPropertyChanged("CanSend");
+            OnPropertyChanged("SendButtonEnabled");
+        }
+
+        internal static bool TryNormalizeProjectFile(string path, out string fullPath)
         {
             fullPath = "";
             var root = NormalizePath(MainWindowVM.CurrentProjectRoot);
@@ -2462,8 +2485,9 @@ namespace Clever.ViewModel.PanelsVM
         private bool _isProcessNarrative;
         private AiTurnWorkGroupVM _workGroup;
         private Geometry _iconGeometry;
+        private readonly ObservableCollection<AiAttachmentVM> _attachments = new ObservableCollection<AiAttachmentVM>();
 
-        private AiChatMessageVM(string markdown, bool isUser, string itemId, CodexItemKind kind)
+        private AiChatMessageVM(string markdown, bool isUser, string itemId, CodexItemKind kind, IEnumerable<AiAttachmentVM> attachments = null)
         {
             _markdown = markdown ?? "";
             IsUser = isUser;
@@ -2472,6 +2496,7 @@ namespace Clever.ViewModel.PanelsVM
             _document = AiMarkdownRenderer.CreateDocument(_markdown, isUser);
             _detailsDocument = AiMarkdownRenderer.CreateDocument("", false);
             _iconGeometry = IconFor(kind, null);
+            CopyAttachments(attachments);
         }
 
         public string ItemId { get; private set; }
@@ -2486,6 +2511,8 @@ namespace Clever.ViewModel.PanelsVM
         public FlowDocument DetailsDocument { get { return _detailsDocument; } }
         public Geometry IconGeometry { get { return _iconGeometry; } }
         public AiTurnWorkGroupVM WorkGroup { get { return _workGroup; } }
+        public ObservableCollection<AiAttachmentVM> Attachments { get { return _attachments; } }
+        public Visibility AttachmentVisibility { get { return _attachments.Count == 0 ? Visibility.Collapsed : Visibility.Visible; } }
         public Visibility UserVisibility { get { return IsUser && !_isWaiting && !_isWorkSummary ? Visibility.Visible : Visibility.Collapsed; } }
         public Visibility TimelineVisibility
         {
@@ -2581,6 +2608,8 @@ namespace Clever.ViewModel.PanelsVM
                 _markdown = item.Text;
                 _document = AiMarkdownRenderer.CreateDocument(_markdown, IsUser);
             }
+            if (item.Kind == CodexItemKind.UserMessage && item.Attachments != null && item.Attachments.Count > 0)
+                CopyAttachments(CreateAttachments(item.Attachments));
             OnPropertyChanged("Kind");
             OnPropertyChanged("Title");
             OnPropertyChanged("Details");
@@ -2591,10 +2620,15 @@ namespace Clever.ViewModel.PanelsVM
             OnPropertyChanged("CardVisibility");
             OnPropertyChanged("AssistantVisibility");
             OnPropertyChanged("CompactionVisibility");
+            OnPropertyChanged("AttachmentVisibility");
         }
 
         public static AiChatMessageVM Create(string markdown, bool isUser) { return new AiChatMessageVM(markdown, isUser, null, isUser ? CodexItemKind.UserMessage : CodexItemKind.AgentMessage); }
         public static AiChatMessageVM CreateUser(string markdown) { return Create(markdown, true); }
+        public static AiChatMessageVM CreateUser(string markdown, IEnumerable<CodexTurnInput> inputs)
+        {
+            return new AiChatMessageVM(markdown, true, null, CodexItemKind.UserMessage, CreateAttachments(inputs));
+        }
         public static AiChatMessageVM CreateAssistant(string markdown) { return Create(markdown, false); }
         public static AiChatMessageVM CreateStreaming(string itemId) { return new AiChatMessageVM("", false, itemId, CodexItemKind.AgentMessage); }
         public static AiChatMessageVM CreateWaiting()
@@ -2624,8 +2658,44 @@ namespace Clever.ViewModel.PanelsVM
         public static AiChatMessageVM CreateItem(CodexThreadItem item, string itemId)
         {
             var isUser = item != null && item.Kind == CodexItemKind.UserMessage;
-            var result = new AiChatMessageVM(item == null ? "" : item.Text, isUser, itemId, item == null ? CodexItemKind.Unknown : item.Kind);
+            var result = new AiChatMessageVM(item == null ? "" : item.Text, isUser, itemId, item == null ? CodexItemKind.Unknown : item.Kind,
+                item == null ? null : CreateAttachments(item.Attachments));
             result.Update(item);
+            return result;
+        }
+
+        private void CopyAttachments(IEnumerable<AiAttachmentVM> attachments)
+        {
+            _attachments.Clear();
+            if (attachments == null)
+                return;
+            foreach (var attachment in attachments)
+                _attachments.Add(new AiAttachmentVM(attachment.Name, attachment.Kind, attachment.Source));
+        }
+
+        private static IEnumerable<AiAttachmentVM> CreateAttachments(IEnumerable<CodexTurnInput> inputs)
+        {
+            if (inputs == null)
+                return Enumerable.Empty<AiAttachmentVM>();
+            return inputs
+                .Where(input => input != null && (input.Type == "localImage" || input.Type == "mention") && !string.IsNullOrWhiteSpace(input.Path))
+                .Select(input => new AiAttachmentVM(input.Name ?? Path.GetFileName(input.Path), input.Type == "localImage" ? "IMG" : "FILE", input.Path))
+                .ToList();
+        }
+
+        private static IEnumerable<AiAttachmentVM> CreateAttachments(IEnumerable<CodexAttachment> attachments)
+        {
+            if (attachments == null)
+                return Enumerable.Empty<AiAttachmentVM>();
+            var result = new List<AiAttachmentVM>();
+            foreach (var attachment in attachments)
+            {
+                if (attachment == null || string.IsNullOrWhiteSpace(attachment.Path))
+                    continue;
+                string safePath;
+                var canPreview = AiChatPanelVM.TryNormalizeProjectFile(attachment.Path, out safePath);
+                result.Add(new AiAttachmentVM(attachment.Name ?? Path.GetFileName(attachment.Path), attachment.Kind ?? "FILE", canPreview ? safePath : null));
+            }
             return result;
         }
 
@@ -3035,6 +3105,7 @@ namespace Clever.ViewModel.PanelsVM
         public string Name { get; private set; }
         public string Kind { get; private set; }
         public string Source { get; private set; }
+        public Visibility ImageVisibility { get { return string.Equals(Kind, "IMG", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(Source) ? Visibility.Visible : Visibility.Collapsed; } }
     }
 
     internal sealed class AiQueuedMessageVM

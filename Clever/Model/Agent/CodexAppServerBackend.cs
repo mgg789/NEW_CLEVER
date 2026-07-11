@@ -1492,8 +1492,34 @@ namespace Clever.Model.Agent
                 Title = FirstString(element, "title", "tool", "command"),
                 Text = extractedText,
                 Details = extractedText,
-                RawJson = CompactItemJson(element, rawJson)
+                RawJson = CompactItemJson(element, rawJson),
+                Attachments = kind == CodexItemKind.UserMessage
+                    ? ParseUserAttachments(element)
+                    : new List<CodexAttachment>()
             };
+        }
+
+        private static IList<CodexAttachment> ParseUserAttachments(JsonElement element)
+        {
+            var attachments = new List<CodexAttachment>();
+            JsonElement content;
+            if (!element.TryGetProperty("content", out content) || content.ValueKind != JsonValueKind.Array)
+                return attachments;
+
+            foreach (var input in content.EnumerateArray())
+            {
+                var type = GetString(input, "type");
+                var path = GetString(input, "path");
+                if ((type != "localImage" && type != "mention") || string.IsNullOrWhiteSpace(path))
+                    continue;
+                attachments.Add(new CodexAttachment
+                {
+                    Path = path,
+                    Kind = type == "localImage" ? "IMG" : "FILE",
+                    Name = GetString(input, "name") ?? Path.GetFileName(path)
+                });
+            }
+            return attachments;
         }
 
         private static string CompactItemJson(JsonElement element, string rawJson)
@@ -1628,6 +1654,13 @@ namespace Clever.Model.Agent
                         FirstString(effort, "reasoningEffort", "effort", "id");
                     if (!string.IsNullOrWhiteSpace(value)) model.SupportedReasoningEfforts.Add(value);
                 }
+            }
+            JsonElement modalities;
+            if (element.TryGetProperty("inputModalities", out modalities) && modalities.ValueKind == JsonValueKind.Array)
+            {
+                model.SupportsImageInput = modalities.EnumerateArray().Any(item =>
+                    item.ValueKind == JsonValueKind.String &&
+                    string.Equals(item.GetString(), "image", StringComparison.OrdinalIgnoreCase));
             }
             ParseServiceTiers(element, "serviceTiers", model);
             ParseServiceTiers(element, "additionalSpeedTiers", model);

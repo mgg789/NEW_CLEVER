@@ -234,6 +234,11 @@ namespace Clev3r.AgentCore
 
     public sealed class CodexThreadItem
     {
+        public CodexThreadItem()
+        {
+            Attachments = new List<CodexAttachment>();
+        }
+
         public string Id { get; set; }
         public string TurnId { get; set; }
         public CodexItemKind Kind { get; set; }
@@ -243,6 +248,14 @@ namespace Clev3r.AgentCore
         public string Details { get; set; }
         public string RawJson { get; set; }
         public long? TurnDurationMs { get; set; }
+        public IList<CodexAttachment> Attachments { get; set; }
+    }
+
+    public sealed class CodexAttachment
+    {
+        public string Name { get; set; }
+        public string Kind { get; set; }
+        public string Path { get; set; }
     }
 
     public sealed class CodexThreadDetails
@@ -281,6 +294,8 @@ namespace Clev3r.AgentCore
         public string DefaultReasoningEffort { get; set; }
         public string DefaultServiceTier { get; set; }
         public bool IsDefault { get; set; }
+        // Null means that the connected app-server did not report input modalities.
+        public bool? SupportsImageInput { get; set; }
         public IList<string> SupportedReasoningEfforts { get; set; }
         public IList<CodexServiceTierInfo> ServiceTiers { get; set; }
     }
