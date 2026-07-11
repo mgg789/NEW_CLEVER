@@ -16,13 +16,21 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Border Background="#FFFFFF" BorderBrush="#D7DCE8" BorderThickness="0,0,0,1" Padding="14,9">
-            <Grid>
-                <TextBlock x:Name="chartTitle" Foreground="#414659" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <Button HorizontalAlignment="Right" Width="26" Height="24" Padding="0" Content="×" FontSize="19" FontWeight="SemiBold" Foreground="#667085" Background="Transparent" BorderThickness="0" ToolTip="Закрыть" Click="CloseButton_Click"/>
-            </Grid>
+            <TextBlock x:Name="chartTitle" Foreground="#414659" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </Border>
         <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#D7DCE8" BorderThickness="1" Margin="12" CornerRadius="5">
-            <Canvas x:Name="chartCanvas" ClipToBounds="True"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="154"/>
+                </Grid.ColumnDefinitions>
+                <Canvas x:Name="chartCanvas" ClipToBounds="True" MouseMove="ChartCanvas_MouseMove" MouseLeave="ChartCanvas_MouseLeave"/>
+                <Border Grid.Column="1" Background="#FAFBFE" BorderBrush="#E1E5EE" BorderThickness="1,0,0,0" Padding="12">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="legendPanel"/>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
         </Border>
     </Grid>
 </Window>

@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
@@ -24,6 +25,8 @@ namespace Clever.View.Dialogs
         };
 
         private readonly CsvChartData _data;
+        private readonly List<CsvChartHoverTarget> _hoverTargets = new List<CsvChartHoverTarget>();
+        private Border _hoverPanel;
 
         internal CsvChartWindow(CsvChartData data)
         {
@@ -43,17 +46,15 @@ namespace Clever.View.Dialogs
             Redraw();
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
-
         private void Redraw()
         {
             if (chartCanvas == null || chartCanvas.ActualWidth < 80 || chartCanvas.ActualHeight < 80)
                 return;
 
             chartCanvas.Children.Clear();
+            legendPanel.Children.Clear();
+            _hoverTargets.Clear();
+            _hoverPanel = null;
             if (_data.Kind == CsvChartKind.Pie)
                 DrawPie();
             else
@@ -94,9 +95,19 @@ namespace Clever.View.Dialogs
                 if (_data.Kind == CsvChartKind.Line && series.Points.Count > 1)
                 {
                     var polyline = new Polyline { Stroke = brush, StrokeThickness = 2.2, StrokeLineJoin = PenLineJoin.Round };
-                    foreach (var point in series.Points.OrderBy(point => point.X))
+                    var orderedPoints = series.Points.OrderBy(point => point.X).ToList();
+                    foreach (var point in orderedPoints)
                         polyline.Points.Add(new Point(xToCanvas(point.X), yToCanvas(point.Y)));
                     chartCanvas.Children.Add(polyline);
+                    for (var pointIndex = 1; pointIndex < orderedPoints.Count; pointIndex++)
+                    {
+                        var previous = orderedPoints[pointIndex - 1];
+                        var current = orderedPoints[pointIndex];
+                        AddHoverSegment(
+                            new Point(xToCanvas(previous.X), yToCanvas(previous.Y)),
+                            new Point(xToCanvas(current.X), yToCanvas(current.Y)),
+                            BuildPointToolTip(series.Name, current));
+                    }
                 }
 
                 foreach (var point in series.Points)
@@ -113,6 +124,7 @@ namespace Clever.View.Dialogs
                     Canvas.SetLeft(marker, xToCanvas(point.X) - marker.Width / 2);
                     Canvas.SetTop(marker, yToCanvas(point.Y) - marker.Height / 2);
                     chartCanvas.Children.Add(marker);
+                    AddHoverPoint(new Point(xToCanvas(point.X), yToCanvas(point.Y)), BuildPointToolTip(series.Name, point));
                 }
                 DrawLegend(series.Name, brush, seriesIndex);
             }
@@ -162,8 +174,8 @@ namespace Clever.View.Dialogs
                 return;
             }
 
-            var center = new Point(chartCanvas.ActualWidth * 0.42, chartCanvas.ActualHeight * 0.53);
-            var radius = Math.Max(30, Math.Min(chartCanvas.ActualWidth * 0.28, chartCanvas.ActualHeight * 0.34));
+            var center = new Point(chartCanvas.ActualWidth * 0.5, chartCanvas.ActualHeight * 0.53);
+            var radius = Math.Max(30, Math.Min(chartCanvas.ActualWidth * 0.32, chartCanvas.ActualHeight * 0.34));
             var total = _data.Slices.Sum(slice => slice.Value);
             if (_data.Slices.Count == 1)
             {
@@ -226,13 +238,10 @@ namespace Clever.View.Dialogs
 
         private void DrawLegend(string text, Brush brush, int index)
         {
-            var x = chartCanvas.ActualWidth * 0.74;
-            var y = 24 + index * 22;
-            var indicator = new Rectangle { Width = 11, Height = 11, RadiusX = 2, RadiusY = 2, Fill = brush };
-            Canvas.SetLeft(indicator, x);
-            Canvas.SetTop(indicator, y + 2);
-            chartCanvas.Children.Add(indicator);
-            AddText(TrimLabel(text, 23), x + 16, y, 10.5, Brushes.DimGray);
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, index == 0 ? 2 : 8, 0, 0) };
+            row.Children.Add(new Rectangle { Width = 11, Height = 11, RadiusX = 2, RadiusY = 2, Fill = brush, Margin = new Thickness(0, 2, 7, 0) });
+            row.Children.Add(new TextBlock { Text = TrimLabel(text, 22), FontSize = 10.5, Foreground = Brushes.DimGray, TextWrapping = TextWrapping.Wrap });
+            legendPanel.Children.Add(row);
         }
 
         private TextBlock AddText(string text, double x, double y, double size, Brush foreground)
@@ -247,6 +256,75 @@ namespace Clever.View.Dialogs
         private void AddLine(double x1, double y1, double x2, double y2, Brush brush, double thickness)
         {
             chartCanvas.Children.Add(new Line { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = brush, StrokeThickness = thickness });
+        }
+
+        private void AddHoverPoint(Point point, string text)
+        {
+            _hoverTargets.Add(CsvChartHoverTarget.ForPoint(point, text));
+        }
+
+        private void AddHoverSegment(Point start, Point end, string text)
+        {
+            _hoverTargets.Add(CsvChartHoverTarget.ForSegment(start, end, text));
+        }
+
+        private void ChartCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            var pointer = e.GetPosition(chartCanvas);
+            CsvChartHoverTarget closest = null;
+            var closestDistance = double.MaxValue;
+            foreach (var target in _hoverTargets)
+            {
+                var distance = target.DistanceTo(pointer);
+                if (distance < closestDistance)
+                {
+                    closest = target;
+                    closestDistance = distance;
+                }
+            }
+
+            if (closest == null || closestDistance > 12)
+            {
+                HideChartHover();
+                return;
+            }
+
+            ShowChartHover(closest.Text, pointer);
+        }
+
+        private void ChartCanvas_MouseLeave(object sender, MouseEventArgs e)
+        {
+            HideChartHover();
+        }
+
+        private void ShowChartHover(string text, Point pointer)
+        {
+            if (_hoverPanel == null)
+            {
+                var content = new TextBlock { Foreground = Brushes.White, FontSize = 11, TextWrapping = TextWrapping.Wrap, MaxWidth = 250 };
+                _hoverPanel = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(49, 57, 73)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(8, 6, 8, 6),
+                    IsHitTestVisible = false,
+                    Child = content
+                };
+                chartCanvas.Children.Add(_hoverPanel);
+            }
+
+            var textBlock = _hoverPanel.Child as TextBlock;
+            if (textBlock != null)
+                textBlock.Text = text ?? "";
+            _hoverPanel.Visibility = Visibility.Visible;
+            Canvas.SetLeft(_hoverPanel, Math.Max(4, Math.Min(pointer.X + 12, chartCanvas.ActualWidth - 265)));
+            Canvas.SetTop(_hoverPanel, Math.Max(4, Math.Min(pointer.Y + 12, chartCanvas.ActualHeight - 90)));
+        }
+
+        private void HideChartHover()
+        {
+            if (_hoverPanel != null)
+                _hoverPanel.Visibility = Visibility.Collapsed;
         }
 
         private static string BuildPointToolTip(string seriesName, CsvChartPoint point)
@@ -278,6 +356,49 @@ namespace Clever.View.Dialogs
             if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
                 return value ?? "";
             return value.Substring(0, Math.Max(1, maxLength - 1)) + "…";
+        }
+
+        private sealed class CsvChartHoverTarget
+        {
+            private readonly Point _start;
+            private readonly Point _end;
+            private readonly bool _isSegment;
+
+            private CsvChartHoverTarget(Point start, Point end, bool isSegment, string text)
+            {
+                _start = start;
+                _end = end;
+                _isSegment = isSegment;
+                Text = text ?? "";
+            }
+
+            internal string Text { get; private set; }
+
+            internal static CsvChartHoverTarget ForPoint(Point point, string text)
+            {
+                return new CsvChartHoverTarget(point, point, false, text);
+            }
+
+            internal static CsvChartHoverTarget ForSegment(Point start, Point end, string text)
+            {
+                return new CsvChartHoverTarget(start, end, true, text);
+            }
+
+            internal double DistanceTo(Point point)
+            {
+                if (!_isSegment)
+                    return (point - _start).Length;
+
+                var segment = _end - _start;
+                var segmentLengthSquared = segment.X * segment.X + segment.Y * segment.Y;
+                if (segmentLengthSquared < double.Epsilon)
+                    return (point - _start).Length;
+
+                var projection = ((point.X - _start.X) * segment.X + (point.Y - _start.Y) * segment.Y) / segmentLengthSquared;
+                projection = Math.Max(0, Math.Min(1, projection));
+                var closest = new Point(_start.X + projection * segment.X, _start.Y + projection * segment.Y);
+                return (point - closest).Length;
+            }
         }
     }
 }

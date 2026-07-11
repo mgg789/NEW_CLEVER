@@ -39,7 +39,16 @@ namespace Clever.View.Controls.Editors
         private DataGridColumn _csvColumnSelectionAnchor;
         private object _csvRowSelectionAnchor;
         private CsvChartLineOrientation _csvLineOrientation = CsvChartLineOrientation.Auto;
-        private static readonly Brush CsvTextBrush = CreateBrush("#414659");
+        private static readonly Brush[] CsvColumnBrushes =
+        {
+            CreateBrush("#4FAF5B"),
+            CreateBrush("#B98542"),
+            CreateBrush("#6AA16F"),
+            CreateBrush("#D5655F"),
+            CreateBrush("#D15F91"),
+            CreateBrush("#A0B847"),
+            CreateBrush("#35A2C6")
+        };
 
         public event RoutedEventHandler EditorTextChange;
         //CompletionWindow completionWindow;
@@ -266,6 +275,7 @@ namespace Clever.View.Controls.Editors
                 for (var i = 0; i < document.Table.Columns.Count; i++)
                 {
                     var column = document.Table.Columns[i];
+                    var brush = CsvColumnBrushes[i % CsvColumnBrushes.Length];
                     csvDataGrid.Columns.Add(new DataGridTextColumn
                     {
                         Header = column.Caption,
@@ -276,8 +286,8 @@ namespace Clever.View.Controls.Editors
                             Mode = BindingMode.TwoWay,
                             UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
                         },
-                        ElementStyle = CreateCsvTextElementStyle(),
-                        EditingElementStyle = CreateCsvTextEditingStyle(),
+                        ElementStyle = CreateCsvTextElementStyle(brush),
+                        EditingElementStyle = CreateCsvTextEditingStyle(brush),
                         MinWidth = 72,
                         Width = new DataGridLength(EstimateCsvColumnWidth(document.Table, i))
                     });
@@ -362,18 +372,19 @@ namespace Clever.View.Controls.Editors
             _cachedCsvText = null;
         }
 
-        private static Style CreateCsvTextElementStyle()
+        private static Style CreateCsvTextElementStyle(Brush brush)
         {
             var style = new Style(typeof(TextBlock));
-            style.Setters.Add(new Setter(TextBlock.ForegroundProperty, CsvTextBrush));
+            style.Setters.Add(new Setter(TextBlock.ForegroundProperty, brush));
+            style.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
             style.Setters.Add(new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
             return style;
         }
 
-        private static Style CreateCsvTextEditingStyle()
+        private static Style CreateCsvTextEditingStyle(Brush brush)
         {
             var style = new Style(typeof(TextBox));
-            style.Setters.Add(new Setter(TextBox.ForegroundProperty, CsvTextBrush));
+            style.Setters.Add(new Setter(TextBox.ForegroundProperty, brush));
             style.Setters.Add(new Setter(TextBox.BorderThicknessProperty, new Thickness(0)));
             style.Setters.Add(new Setter(TextBox.PaddingProperty, new Thickness(7, 3, 7, 3)));
             style.Setters.Add(new Setter(TextBox.BackgroundProperty, Brushes.White));
