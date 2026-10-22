@@ -18,7 +18,7 @@ try {
         /p:OutputPath='bin\PackageRelease\'
     if ($LASTEXITCODE -ne 0) { throw 'NEW_CLEVER build failed.' }
 
-    $bridgeOutput = Join-Path $projectRoot 'NEW_CLEVER.AgentMcpBridge/bin/PackageRelease/net48'
+    $bridgeOutput = Join-Path $projectRoot 'NEW_CLEVER.AgentMcpBridge/bin/PackageRelease'
     if (!(Test-Path $bridgeOutput)) { throw 'MCP bridge build output is missing.' }
     Copy-Item -Path (Join-Path $bridgeOutput '*') -Destination $output -Recurse -Force
     Copy-Item -Path 'NEW_CLEVER/RuntimeData/*' -Destination $output -Recurse -Force
