@@ -488,14 +488,14 @@ namespace Interpreter.Parsers
 
             mainPath = mainPath.Replace("\"", "").Trim().Replace("\\", separator).Replace("/", separator);
 
-            if (name.IndexOf("Clev3r:" + separator + separator) == 0)
+            // Existing Basic Plus projects can retain their legacy library URI aliases.
+            foreach (var legacyPrefix in new[] { "Clev3r:", "Clever:" })
+                if (name.StartsWith(legacyPrefix + separator + separator, StringComparison.OrdinalIgnoreCase))
+                    name = "NEW_CLEVER:" + name.Substring(legacyPrefix.Length);
+
+            if (name.IndexOf("NEW_CLEVER:" + separator + separator) == 0)
             {
-                fullPath = Data.Project.ModuleLibPath + name.Replace("Clev3r:" + separator + separator, "Lib" + separator + "Modules" + separator);
-                return (fullPath).Replace(separator + separator, separator);
-            }
-            else if (name.IndexOf("Clever:" + separator + separator) == 0)
-            {
-                fullPath = Data.Project.ModuleLibPath + name.Replace("Clever:" + separator + separator, "Lib" + separator + "Modules" + separator);
+                fullPath = Data.Project.ModuleLibPath + name.Replace("NEW_CLEVER:" + separator + separator, "Lib" + separator + "Modules" + separator);
                 return (fullPath).Replace(separator + separator, separator);
             }
             else

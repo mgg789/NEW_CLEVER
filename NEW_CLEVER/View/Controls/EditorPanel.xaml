@@ -1,0 +1,316 @@
+﻿<UserControl
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:NEW_CLEVER.View.Controls"
+             xmlns:editor="clr-namespace:NEW_CLEVER.View.Controls.Editors"
+             xmlns:wf="clr-namespace:System.Windows.Forms;assembly=System.Windows.Forms"
+             xmlns:Themes="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2" 
+             x:Class="NEW_CLEVER.View.Controls.EditorPanel"
+             xmlns:brick_but="clr-namespace:NEW_CLEVER.View.Controls.Buttons.BrickButtons"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="600">
+    <UserControl.Resources>
+        <Style x:Key="prg_name" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border BorderBrush="{StaticResource pnl_data}" BorderThickness="0" Name="border">
+                            <ContentPresenter RecognizesAccessKey="True" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource pnl_data}"/>
+                                <Setter Property="Content" Value="{StaticResource prg_n_mot}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="false">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource pnl_data}"/>
+                                <Setter Property="Content" Value="{StaticResource prg_n_mof}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource pnl_data}"/>
+                                <Setter Property="Content" Value="{StaticResource prg_n_clc}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DocumentViewSwitchButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Padding" Value="3"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.84"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.68"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EditorTabControlStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
+            <Setter Property="BorderBrush" Value="#ECEDF1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#ECEDF1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TabControl}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="auto"/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" Grid.Row="0">
+                                <TabPanel x:Name="HeaderPanel" IsItemsHost="True"/>
+                            </StackPanel>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Center" Width="20" Height="28" BorderThickness="0" BorderBrush="#00FFFFFF">
+                                <Button x:Name="namesButton" Style="{StaticResource prg_name}" Height="16" Width="16" Margin="0,0,2,0" Command="{Binding Path=GetProgramNamesCommand}" Visibility="{Binding Path=HiddenProgramButton}"/>
+                            </Border>
+
+                            <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Grid.Row="1"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Grid x:Name="EditorSurface" AllowDrop="True" PreviewDragOver="EditorSurface_PreviewDragOver" PreviewDragLeave="EditorSurface_PreviewDragLeave" Drop="EditorSurface_Drop">
+        <Grid x:Name="EditorPaneGrid">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="PrimaryColumn" Width="{Binding EditorFirstColumnWidth}"/>
+                <ColumnDefinition x:Name="SecondaryColumn" Width="{Binding EditorSecondColumnWidth}"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="PrimaryRow" Height="{Binding EditorFirstRowHeight}"/>
+                <RowDefinition x:Name="SecondaryRow" Height="{Binding EditorSecondRowHeight}"/>
+            </Grid.RowDefinitions>
+            <Border BorderBrush="#D7DCE8" BorderThickness="0" Margin="0"
+                    Grid.Row="{Binding PrimaryEditorRow}"
+                    Grid.Column="{Binding PrimaryEditorColumn}"
+                    Grid.RowSpan="{Binding PrimaryEditorRowSpan}"
+                    Grid.ColumnSpan="{Binding PrimaryEditorColumnSpan}">
+                <TabControl x:Name="EditorTabControl"
+                            Style="{StaticResource EditorTabControlStyle}"
+                            ItemsSource="{Binding ProgramNameList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            SelectedItem="{Binding PrimaryCurrentProgram, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            AllowDrop="True"
+                            PreviewMouseLeftButtonDown="EditorTabControl_PreviewMouseLeftButtonDown"
+                            PreviewMouseMove="EditorTabControl_PreviewMouseMove"
+                            PreviewDragOver="EditorTabControl_PreviewDragOver"
+                            Drop="EditorTabControl_Drop"/>
+            </Border>
+            <Border Visibility="{Binding SecondaryEditorVisibility}" BorderBrush="#D7DCE8"
+                    BorderThickness="{Binding SecondaryEditorBorderThickness}"
+                    Margin="{Binding SecondaryEditorMargin}" Background="#ECEDF1"
+                    Grid.Row="{Binding SecondaryEditorRow}"
+                    Grid.Column="{Binding SecondaryEditorColumn}"
+                    Grid.RowSpan="{Binding SecondaryEditorRowSpan}"
+                    Grid.ColumnSpan="{Binding SecondaryEditorColumnSpan}">
+                <Grid>
+                    <TabControl x:Name="SecondaryEditorTabControl"
+                                Style="{StaticResource EditorTabControlStyle}"
+                                ItemsSource="{Binding SecondaryProgramNameList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                SelectedItem="{Binding SecondaryCurrentProgram, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                AllowDrop="True"
+                                PreviewMouseLeftButtonDown="EditorTabControl_PreviewMouseLeftButtonDown"
+                                PreviewMouseMove="EditorTabControl_PreviewMouseMove"
+                                PreviewDragOver="EditorTabControl_PreviewDragOver"
+                                Drop="EditorTabControl_Drop"/>
+                    <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="#8F98AB" Margin="15">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SecondaryProgramNameList.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+            <GridSplitter x:Name="EditorColumnSplitter"
+                          Grid.Row="0"
+                          Grid.Column="0"
+                          Grid.RowSpan="2"
+                          Width="5"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Stretch"
+                          ShowsPreview="False"
+                          Background="#7A8193"
+                          Visibility="{Binding EditorColumnSplitterVisibility}"
+                          DragCompleted="EditorColumnSplitter_DragCompleted"/>
+            <GridSplitter x:Name="EditorRowSplitter"
+                          Grid.Row="0"
+                          Grid.Column="0"
+                          Grid.ColumnSpan="2"
+                          Height="5"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Bottom"
+                          ShowsPreview="False"
+                          Background="#7A8193"
+                          Visibility="{Binding EditorRowSplitterVisibility}"
+                          DragCompleted="EditorRowSplitter_DragCompleted"/>
+        </Grid>
+        <Grid IsHitTestVisible="False" Panel.ZIndex="10" Background="#7A8193">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding ProgramNameList.Count}" Value="0"/>
+                                <Condition Binding="{Binding SecondaryProgramNameList.Count}" Value="0"/>
+                                <Condition Binding="{Binding SecondaryEditorVisibility}" Value="Visible"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Border Width="5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Background="#D7DCE8"
+                    Visibility="{Binding EditorColumnSplitterVisibility}"/>
+            <Border Height="5"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Background="#D7DCE8"
+                    Visibility="{Binding EditorRowSplitterVisibility}"/>
+        </Grid>
+        <TextBlock Text="{Binding Path=GetLocalization[tStartScreen]}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" FontFamily="{StaticResource ui_fontfamily}" FontSize="14" Foreground="Black" Margin="15">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding ProgramNameList.Count}" Value="0"/>
+                                <Condition Binding="{Binding SecondaryEditorVisibility}" Value="Collapsed"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+        <Border x:Name="SplitPreviewOverlay"
+                Visibility="Collapsed"
+                IsHitTestVisible="False"
+                Panel.ZIndex="20"
+                Background="#332080FF"
+                BorderBrush="#5A8DFF"
+                BorderThickness="2"/>
+        <Border Panel.ZIndex="30"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,-1,-2,0"
+                Padding="2"
+                Background="#F7F8FB"
+                BorderBrush="#D7DCE8"
+                BorderThickness="1"
+                CornerRadius="12"
+                Visibility="{Binding EditorDocumentViewSwitchVisibility}">
+            <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource DocumentViewSwitchButton}"
+                        Command="{Binding EditorRawViewCommand}"
+                        Background="{Binding EditorRawViewBackground}"
+                        ToolTip="{Binding EditorRawViewToolTip}">
+                    <Viewbox Width="18" Height="18" Stretch="Uniform">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M3 5h18 M3 12h18 M3 19h18"
+                                  Stroke="{Binding EditorRawViewForeground}"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+                <Button Style="{StaticResource DocumentViewSwitchButton}"
+                        Command="{Binding EditorRenderedViewCommand}"
+                        Background="{Binding EditorRenderedViewBackground}"
+                        ToolTip="{Binding EditorRenderedViewToolTip}"
+                        Margin="2,0,0,0">
+                    <Grid Width="18" Height="18">
+                        <Viewbox Stretch="Uniform" Visibility="{Binding EditorMarkdownRenderedIconVisibility}">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M4 14h6"
+                                      Stroke="{Binding EditorRenderedViewForeground}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                                <Path Data="M4 2h10"
+                                      Stroke="{Binding EditorRenderedViewForeground}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                                <Rectangle Canvas.Left="4"
+                                           Canvas.Top="18"
+                                           Width="16"
+                                           Height="4"
+                                           RadiusX="1"
+                                           RadiusY="1"
+                                           Stroke="{Binding EditorRenderedViewForeground}"
+                                           StrokeThickness="2"/>
+                                <Rectangle Canvas.Left="4"
+                                           Canvas.Top="6"
+                                           Width="16"
+                                           Height="4"
+                                           RadiusX="1"
+                                           RadiusY="1"
+                                           Stroke="{Binding EditorRenderedViewForeground}"
+                                           StrokeThickness="2"/>
+                            </Canvas>
+                        </Viewbox>
+                        <Viewbox Stretch="Uniform" Visibility="{Binding EditorCsvRenderedIconVisibility}">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M12 3v18 M3 9h18 M3 15h18"
+                                      Stroke="{Binding EditorRenderedViewForeground}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"/>
+                                <Rectangle Canvas.Left="3"
+                                           Canvas.Top="3"
+                                           Width="18"
+                                           Height="18"
+                                           RadiusX="2"
+                                           RadiusY="2"
+                                           Stroke="{Binding EditorRenderedViewForeground}"
+                                           StrokeThickness="2"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                </Button>
+            </StackPanel>
+        </Border>
+        <Popup x:Name="PopUp"
+               PlacementTarget="{Binding ElementName=EditorTabControl}"
+               StaysOpen="False" Placement="Right"
+               VerticalOffset="28" HorizontalOffset="-180"
+               MaxWidth="200"
+               MaxHeight="520"/>
+    </Grid>
+</UserControl>

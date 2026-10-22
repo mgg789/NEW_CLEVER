@@ -1,5 +1,5 @@
 param(
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\Clever\bin\CodexRelease')
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\NEW_CLEVER\bin\CodexRelease')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,11 +12,11 @@ foreach ($name in @(
     'Microsoft.Bcl.AsyncInterfaces.dll',
     'System.Threading.Tasks.Extensions.dll',
     'System.Text.Json.dll',
-    'Clev3r.AgentCore.dll',
+    'NEW_CLEVER.AgentCore.dll',
     'Interpreter.dll')) {
     [void][Reflection.Assembly]::LoadFrom((Join-Path $output $name))
 }
-$assembly = [Reflection.Assembly]::LoadFrom((Join-Path $output 'Clever.exe'))
+$assembly = [Reflection.Assembly]::LoadFrom((Join-Path $output 'NEW_CLEVER.exe'))
 
 function New-InternalInstance([string]$typeName, [object[]]$arguments) {
     $type = $assembly.GetType($typeName, $true)
@@ -28,21 +28,21 @@ function New-InternalInstance([string]$typeName, [object[]]$arguments) {
     throw "No matching constructor found for $typeName."
 }
 
-$build = New-InternalInstance 'Clever.Model.Agent.BpBuildService' @()
-$ev3 = New-InternalInstance 'Clever.Model.Agent.Ev3SessionService' @($build)
-$workspace = New-InternalInstance 'Clever.Model.Agent.WorkspaceContextService' @()
-$documentation = New-InternalInstance 'Clever.Model.Agent.DocumentationSearchService' @()
-$approval = New-InternalInstance 'Clever.Model.Agent.WpfAgentApprovalService' @()
-$factory = $assembly.GetType('Clever.Model.Agent.Clev3rToolRegistryFactory')
+$build = New-InternalInstance 'NEW_CLEVER.Model.Agent.BpBuildService' @()
+$ev3 = New-InternalInstance 'NEW_CLEVER.Model.Agent.Ev3SessionService' @($build)
+$workspace = New-InternalInstance 'NEW_CLEVER.Model.Agent.WorkspaceContextService' @()
+$documentation = New-InternalInstance 'NEW_CLEVER.Model.Agent.DocumentationSearchService' @()
+$approval = New-InternalInstance 'NEW_CLEVER.Model.Agent.WpfAgentApprovalService' @()
+$factory = $assembly.GetType('NEW_CLEVER.Model.Agent.NEW_CLEVERToolRegistryFactory')
 $registry = $factory.GetMethod('Create', [Reflection.BindingFlags]'Static,Public,NonPublic').Invoke(
     $null,
     [object[]]@($workspace, $build, $ev3, $documentation, $approval))
-$runtime = New-InternalInstance 'Clever.Model.Agent.CodexRuntimeManager' @(
+$runtime = New-InternalInstance 'NEW_CLEVER.Model.Agent.CodexRuntimeManager' @(
     [string](Join-Path $output 'Resources\Codex\runtime\codex.exe'))
-$bridge = New-InternalInstance 'Clever.Model.Agent.CodexMcpBridgeHost' @(
+$bridge = New-InternalInstance 'NEW_CLEVER.Model.Agent.CodexMcpBridgeHost' @(
     $registry,
-    [string](Join-Path $output 'Clev3r.AgentMcpBridge.exe'))
-$backend = New-InternalInstance 'Clever.Model.Agent.CodexAppServerBackend' @($runtime, $bridge, $registry)
+    [string](Join-Path $output 'NEW_CLEVER.AgentMcpBridge.exe'))
+$backend = New-InternalInstance 'NEW_CLEVER.Model.Agent.CodexAppServerBackend' @($runtime, $bridge, $registry)
 
 try {
     $startTask = $backend.StartAsync([Threading.CancellationToken]::None)

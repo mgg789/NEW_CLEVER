@@ -255,7 +255,7 @@ namespace Interpreter
             return true;
         }
 
-        // Only ide Clev3r
+        // Only ide NEW_CLEVER
         public string GetFolderName()
         {
             return Data.Project.Folder;

@@ -197,7 +197,7 @@ namespace Interpreter.LiveDiagnostics
             {
                 var candidates = new List<string>();
                 var normalizedTarget = target.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-                if (normalizedTarget.StartsWith("Clev3r:", StringComparison.OrdinalIgnoreCase) || normalizedTarget.StartsWith("Clever:", StringComparison.OrdinalIgnoreCase))
+                if (normalizedTarget.StartsWith("NEW_CLEVER:", StringComparison.OrdinalIgnoreCase) || normalizedTarget.StartsWith("Clev3r:", StringComparison.OrdinalIgnoreCase) || normalizedTarget.StartsWith("Clever:", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!string.IsNullOrWhiteSpace(_snapshot.LibraryRoot))
                     {

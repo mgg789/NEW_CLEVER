@@ -1,11 +1,13 @@
-# CLEV3R IDE 1.8.0
+> **Неофициальная версия.** NEW_CLEVER — независимый форк проекта [Clev3r](https://github.com/iCheh/Clev3r-1). Официальный сайт оригинала: [clev3r.ru](https://clev3r.ru/).
 
-CLEV3R — Windows IDE для программирования роботов LEGO MINDSTORMS EV3 на
+# NEW_CLEVER IDE 1.8.0
+
+NEW_CLEVER — Windows IDE для программирования роботов LEGO MINDSTORMS EV3 на
 Basic Plus (`.bp`, `.bpi`, `.bpm`). Версия 1.8.0 добавляет встроенного
 Codex-ассистента, безопасный Git-flow, диагностику кода и табличный просмотр
 CSV с графиками.
 
-Сайт проекта: [clev3r.droidje.com](https://clev3r.droidje.com)
+Сайт проекта: [NEW_CLEVER](https://clev3r.droidje.com)
 
 ## Возможности
 
@@ -22,7 +24,7 @@ CSV с графиками.
 ## Установка и первый запуск
 
 1. Скачайте и распакуйте релиз для Windows.
-2. Запустите `Clever.exe`.
+2. Запустите `NEW_CLEVER.exe`.
 3. Откройте или создайте папку проекта.
 4. Если Git отсутствует, откройте вкладку **Git** и нажмите **Install Git** —
    IDE откроет официальный сайт Git for Windows. После установки нажмите
@@ -37,7 +39,7 @@ CSV с графиками.
 
 ## Безопасность AI-интеграции
 
-- Авторизация Codex выполняется через ваш обычный ChatGPT/Codex-сеанс; CLEV3R
+- Авторизация Codex выполняется через ваш обычный ChatGPT/Codex-сеанс; NEW_CLEVER
   не просит и не сохраняет вручную введённый API-ключ OpenAI для этого flow.
   Учётные данные входа локально ведёт сам Codex runtime.
 - `OPENAI_API_KEY`, ключи Azure OpenAI и связанные идентификаторы намеренно не
@@ -45,10 +47,10 @@ CSV с графиками.
 - Агент ограничен активным проектом. Вложения, чтение файлов и поиск путей не
   могут выйти за его границы; служебные и бинарные файлы отсекаются.
 - Модель не получает прямой сетевой доступ. Операции Git и EV3, которые меняют
-  состояние, проходят через scoped-инструменты CLEV3R и требуют подтверждения
+  состояние, проходят через scoped-инструменты NEW_CLEVER и требуют подтверждения
   в интерфейсе IDE.
 - Библиотека `ai-examples` и код проекта считаются данными, а не инструкциями;
-  документация CLEV3R остаётся источником истины для API Basic Plus.
+  документация NEW_CLEVER остаётся источником истины для API Basic Plus.
 
 Не добавляйте токены, ключи и личные данные в исходники, чат или примеры.
 Выход отключает OAuth-доступ Codex; если OAuth-flow создал отдельный API-ключ,
@@ -56,36 +58,38 @@ CSV с графиками.
 
 ## Примеры для AI
 
-Положите Markdown-файлы в `ai-examples` рядом с `Clever.exe`. При запуске IDE
+Положите Markdown-файлы в `ai-examples` рядом с `NEW_CLEVER.exe`. При запуске IDE
 рекурсивно индексирует только `.md`; новые примеры будут доступны после
 следующего перезапуска. Шаблон и рекомендации находятся в
 [`ai-examples/README.md`](ai-examples/README.md).
 
 ## Сборка из исходников
 
-Основное приложение — `Clever/Clever.csproj` (WPF, .NET Framework 4.8).
-Для обычной разработки откройте `Clever.sln` в Visual Studio с установленным
+Основное приложение — `NEW_CLEVER/NEW_CLEVER.csproj` (WPF, .NET Framework 4.8).
+Для обычной разработки откройте `NEW_CLEVER.sln` в Visual Studio с установленным
 набором целевых платформ .NET Framework 4.8.
 
-В этой рабочей среде локальная Release-сборка выполняется так:
+Чистая сборка Windows x64 (Visual Studio Build Tools с WPF/.NET Framework 4.8 и .NET 8 SDK):
 
 ```powershell
-dotnet msbuild Interpreter/Interpreter.csproj /t:Build /p:Configuration=Release
-
-$refs = Join-Path $env:USERPROFILE '.nuget\packages\microsoft.netframework.referenceassemblies.net48\1.0.3\build\.NETFramework\v4.8'
-& 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe' `
-  Clever/Clever.LocalBuild.codex.csproj /t:Build /p:Configuration=Release /p:Platform='AnyCPU' `
-  /p:FrameworkPathOverride="$refs" /p:TargetFrameworkDirectory="$refs" `
-  /p:OutputPath='bin\CodexRelease\' /p:IntermediateOutputPath='obj\CodexRelease\'
+powershell -ExecutionPolicy Bypass -File tools/build-new-clever.ps1
 ```
 
-Перед пересборкой закройте запущенный `Clever.exe`. Локальные `CodexRelease`
-артефакты и `Clever.LocalBuild*.csproj` не входят в коммиты.
+Результат: `NEW_CLEVER/bin/PackageRelease/NEW_CLEVER.exe`. Автоматическая
+сборка и ZIP-архив выпускаются workflow `.github/workflows/new-clever.yml`.
+Исторические `bin/obj` и старые исполняемые файлы не входят в сборку;
+необходимые библиотеки, примеры и локализации сохранены в `NEW_CLEVER/RuntimeData`.
+
+Имена приложений, сборок, C#-пространств имён, инструментов AI, каналов IPC и
+вспомогательного регистратора используют `NEW_CLEVER`. Для совместимости с
+существующими настройками и чатами сохранены каталоги `%APPDATA%/CLEV3R`,
+`%LOCALAPPDATA%/CLEV3R` и `.clev3r/attachments`: это ключи хранения данных,
+а не название приложения. Данные автоматически не удаляются.
 
 ## Проверка
 
 ```powershell
-dotnet test Clev3r.AgentCore.Tests/Clev3r.AgentCore.Tests.csproj -c Release --no-restore
+dotnet test NEW_CLEVER.AgentCore.Tests/NEW_CLEVER.AgentCore.Tests.csproj -c Release
 ```
 
 Тесты покрывают Basic Plus-примеры, диагностику редактора, CSV-графики,
@@ -97,4 +101,6 @@ JSON-RPC-транспорт, обновление Codex и безопасный 
 - [ScintillaNET](https://github.com/jacobslusser/ScintillaNET)
 - [OpenAI Codex](https://github.com/openai/codex)
 
-Сайт проекта: <https://clev3r.ru> · Telegram: <https://t.me/clev3r_chat>
+Оригинальный проект: [Clev3r](https://github.com/iCheh/Clev3r-1) ·
+[официальный сайт оригинала](https://clev3r.ru/) ·
+[сообщество оригинала](https://t.me/clev3r_chat)

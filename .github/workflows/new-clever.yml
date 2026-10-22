@@ -1,0 +1,37 @@
+name: NEW_CLEVER Windows build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build and package NEW_CLEVER
+        shell: pwsh
+        run: ./tools/build-new-clever.ps1
+      - name: Run existing tests
+        shell: pwsh
+        run: dotnet test NEW_CLEVER.AgentCore.Tests/NEW_CLEVER.AgentCore.Tests.csproj -c Release --logger "trx;LogFileName=tests.trx"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NEW_CLEVER-Windows-x64
+          path: artifacts/NEW_CLEVER-1.8.0-Windows-x64.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: NEW_CLEVER-test-results
+          path: '**/TestResults/*.trx'
+          if-no-files-found: ignore

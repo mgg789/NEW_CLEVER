@@ -1,12 +1,12 @@
 # Build results
 obj/
-Clever/bin/CodexRelease/
-Clever/bin/CodexCheck/
-Clever/Clever.LocalBuild*.csproj
-Clev3r.AgentMcpBridge/bin/
-Clev3r.AgentCore/bin/
-Clev3r.AgentCore.Tests/bin/
-Clever Registry/bin/CodexUiCheck/
+NEW_CLEVER/bin/CodexRelease/
+NEW_CLEVER/bin/CodexCheck/
+NEW_CLEVER/NEW_CLEVER.LocalBuild*.csproj
+NEW_CLEVER.AgentMcpBridge/bin/
+NEW_CLEVER.AgentCore/bin/
+NEW_CLEVER.AgentCore.Tests/bin/
+NEW_CLEVER Registry/bin/CodexUiCheck/
 Interpreter/bin/CodexUiCheck/
 TestResults/
 *.user
@@ -20,3 +20,7 @@ TestResults/
 
 # Visual Studio 2015 cache/options directory
 .vs/
+
+# Generated outputs are released as verified build artifacts.
+bin/
+artifacts/

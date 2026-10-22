@@ -5,72 +5,23 @@
 - The repository contains Russian/Ukrainian localization files. Keep touched text files valid UTF-8.
 
 ## Build And Run
-- Main app project: `Clever/Clever.csproj`, classic WPF/.NET Framework 4.8.
+- Main app project: `NEW_CLEVER/NEW_CLEVER.csproj`, classic WPF/.NET Framework 4.8.
 - SDK projects: `Interpreter/Interpreter.csproj` and `InterpreterConsole/InterpreterConsole.csproj`.
 - The current machine may not have the system .NET Framework 4.8 targeting pack installed. If `C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8` is missing, use the local NuGet reference assemblies workflow below instead of assuming the normal solution build works.
 
-### Local Build Workflow Used In This Workspace
-From repository root:
+### Clean Windows Build
 
 ```powershell
-$ErrorActionPreference = 'Stop'
-$refsVersion = '1.0.3'
-$refsRoot = Join-Path $env:USERPROFILE ".nuget\packages\microsoft.netframework.referenceassemblies.net48\$refsVersion"
-if (!(Test-Path $refsRoot)) {
-  $tmp = Join-Path $env:TEMP "microsoft.netframework.referenceassemblies.net48.$refsVersion.nupkg"
-  Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.NETFramework.ReferenceAssemblies.net48/$refsVersion" -OutFile $tmp
-  New-Item -ItemType Directory -Force -Path $refsRoot | Out-Null
-  Add-Type -AssemblyName System.IO.Compression.FileSystem
-  [System.IO.Compression.ZipFile]::ExtractToDirectory($tmp, $refsRoot)
-}
-$refs = Join-Path $refsRoot 'build\.NETFramework\v4.8'
-
-dotnet msbuild Interpreter/Interpreter.csproj /t:Build /p:Configuration=Release
-& 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe' 'Clever Registry/Clever Registry.csproj' /t:Build /p:Configuration=Release /p:Platform='AnyCPU' /p:FrameworkPathOverride="$refs" /p:TargetFrameworkDirectory="$refs"
+powershell -ExecutionPolicy Bypass -File tools/build-new-clever.ps1
+dotnet test NEW_CLEVER.AgentCore.Tests/NEW_CLEVER.AgentCore.Tests.csproj -c Release
 ```
 
-BuildTools MSBuild cannot build `Clever.csproj` directly on this machine because its `ProjectReference` to the SDK-style `Interpreter.csproj` triggers SDK resolver issues. For manual testing, create a temporary `Clever/Clever.LocalBuild.csproj` beside `Clever.csproj`, remove the two `ProjectReference` items, and add this reference:
-
-```xml
-<ItemGroup>
-  <Reference Include="Interpreter">
-    <HintPath>..\Interpreter\bin\Release\netstandard2.0\Interpreter.dll</HintPath>
-    <Private>True</Private>
-  </Reference>
-</ItemGroup>
-```
-
-Then build the temporary project into an isolated output folder:
-
-```powershell
-& 'C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe' Clever/Clever.LocalBuild.csproj /t:Build /p:Configuration=Release /p:Platform='AnyCPU' /p:FrameworkPathOverride="$refs" /p:TargetFrameworkDirectory="$refs" /p:OutputPath='bin\CodexRelease\' /p:IntermediateOutputPath='obj\CodexRelease\'
-```
-
-Copy runtime folders/files from `Clever/bin/Release` to `Clever/bin/CodexRelease` after this isolated build:
-
-```powershell
-$src = Resolve-Path 'Clever/bin/Release'
-$dst = Resolve-Path 'Clever/bin/CodexRelease'
-foreach ($dir in @('Localization','Examples','Help','Icons','Lib','Media','Assets','Sounds')) {
-  $from = Join-Path $src $dir
-  if (Test-Path $from) { Copy-Item -LiteralPath $from -Destination $dst -Recurse -Force }
-}
-foreach ($file in @('Clever Registry.exe','Clever Registry.exe.config','Clever Registry.pdb','cleverIcon.ico','ScintillaNET.dll')) {
-  $from = Join-Path $src $file
-  if (Test-Path $from) { Copy-Item -LiteralPath $from -Destination $dst -Force }
-}
-```
-
-Run the updated app:
-
-```powershell
-Start-Process -FilePath (Resolve-Path 'Clever/bin/CodexRelease/Clever.exe') -WorkingDirectory (Resolve-Path 'Clever/bin/CodexRelease')
-```
-
-## Runtime Nuances
-- CLEV3R is single-instance by process name and also opens a named pipe `clever_pipe`. Do not try to run a second instance side by side. Close the old `Clever.exe` first, otherwise the new instance will exit or fail during startup.
-- If `Clever/bin/Release/Clever.exe` is running, rebuilding into `bin/Release` fails because the executable is locked. Use `bin/CodexRelease` for manual test builds or close the running app before building into `bin/Release`.
-- `Clever/bin/CodexRelease/` and `Clever/Clever.LocalBuild*.csproj` are local build artifacts and should not be committed.
+- Packaging output: `NEW_CLEVER/bin/PackageRelease/NEW_CLEVER.exe`.
+- Runtime-only assets and dependencies: `NEW_CLEVER/RuntimeData`; legacy generated `bin/obj` outputs are excluded from builds.
+- CI workflow: `.github/workflows/new-clever.yml` on Windows.
+- The app uses process-name single-instance detection and named pipe `NEW_CLEVER_pipe`.
+- Compatibility data directories `%APPDATA%/CLEV3R`, `%LOCALAPPDATA%/CLEV3R` and `.clev3r/attachments` intentionally retain their historic names. Preserve these keys and existing user data.
+- Resources/Settings designer files contain the renamed namespace/resource base. The current macOS environment has no ResGen or Visual Studio settings generator; regenerate them with Visual Studio if the resource/settings schema changes.
 
 ## Git Feature Notes
 - Local Git functionality intentionally uses installed `git.exe`.

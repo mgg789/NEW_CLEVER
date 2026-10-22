@@ -9,10 +9,10 @@ $ErrorActionPreference = 'Stop'
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$manifestPath = Join-Path $repositoryRoot 'Clever\Resources\Codex\runtime-manifest.json'
-$noticePath = Join-Path $repositoryRoot 'Clever\Resources\Codex\THIRD_PARTY_NOTICES.md'
+$manifestPath = Join-Path $repositoryRoot 'NEW_CLEVER\Resources\Codex\runtime-manifest.json'
+$noticePath = Join-Path $repositoryRoot 'NEW_CLEVER\Resources\Codex\THIRD_PARTY_NOTICES.md'
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $repositoryRoot 'Clever\bin\CodexRelease\Resources\Codex\runtime'
+    $OutputDirectory = Join-Path $repositoryRoot 'NEW_CLEVER\bin\CodexRelease\Resources\Codex\runtime'
 }
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 
@@ -38,7 +38,7 @@ if (-not $Force -and (Test-Path -LiteralPath (Join-Path $OutputDirectory 'codex.
 
 $parent = Split-Path -Parent $OutputDirectory
 [System.IO.Directory]::CreateDirectory($parent) | Out-Null
-$workRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('clev3r-codex-runtime-' + [Guid]::NewGuid().ToString('N'))
+$workRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('NEW_CLEVER-codex-runtime-' + [Guid]::NewGuid().ToString('N'))
 $archivePath = Join-Path $workRoot $manifest.assetName
 $staging = Join-Path $parent ('.runtime-' + [Guid]::NewGuid().ToString('N'))
 $backup = Join-Path $parent ('.runtime-backup-' + [Guid]::NewGuid().ToString('N'))
